@@ -59,6 +59,10 @@ jobs:
       - name: Formato e lint (Biome)
         run: pnpm lint
 
+      # com --ignore-scripts o cliente não nasce sozinho; o seed e os testes leem ele
+      - name: Cliente do Prisma
+        run: pnpm --dir apps/api db:generate
+
       - name: Banco (migrações e seed do portal)
         run: pnpm db:setup
 
