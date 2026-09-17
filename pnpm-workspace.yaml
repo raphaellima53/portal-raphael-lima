@@ -1,0 +1,3 @@
+# Só configuração do pnpm para a raiz (Biome). O monorepo é por pastas, sem workspaces: cada app tem o próprio lockfile.
+allowBuilds:
+  '@biomejs/biome': true

@@ -1,0 +1,6 @@
+# Configuração do pnpm só deste app (o monorepo é por pastas, sem workspaces).
+allowBuilds:
+  '@embedded-postgres/windows-x64': true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true

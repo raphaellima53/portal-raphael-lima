@@ -1,0 +1,5 @@
+# Configuração do pnpm só deste app (o monorepo é por pastas, sem workspaces).
+allowBuilds:
+  sharp: true
+  '@tailwindcss/oxide': true
+  unrs-resolver: true

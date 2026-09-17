@@ -1,0 +1,26 @@
+{
+  "name": "portal-raphael-lima",
+  "private": true,
+  "description": "Portal Raphael Lima — monorepo por pastas (apps/web e apps/api), sem workspaces",
+  "packageManager": "pnpm@11.27.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "install:all": "pnpm --dir apps/api install && pnpm --dir apps/web install",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:local": "pnpm --dir apps/api db:local",
+    "db:setup": "pnpm --dir apps/api db:setup",
+    "dev:api": "pnpm --dir apps/api dev",
+    "dev:web": "pnpm --dir apps/web dev",
+    "build": "pnpm --dir apps/api build && pnpm --dir apps/web build",
+    "typecheck": "pnpm --dir apps/api typecheck && pnpm --dir apps/web typecheck",
+    "test": "pnpm --dir apps/api test",
+    "lint": "biome check .",
+    "format": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14"
+  }
+}

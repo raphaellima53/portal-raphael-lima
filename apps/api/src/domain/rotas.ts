@@ -1,0 +1,90 @@
+/**
+ * Endereços do front (apps/web). No portal eram rotas de hash (go('curso:0:grade')); aqui são caminhos.
+ * A API devolve os links prontos para que Dashboard, alertas e menu apontem para o mesmo lugar.
+ */
+const SECAO: Record<string, string> = {};
+const MENU_DAS_TELAS: Record<string, string[]> = {
+  acoes: [
+    'acAlocacao',
+    'acSubstituicao',
+    'acNivel',
+    'acReposicao',
+    'acAdmissao',
+    'acFechamento',
+    'acCobranca',
+    'acFunil',
+    'acRenovacao',
+    'acCampanhas',
+    'acAtendimentos',
+    'acRetencao',
+  ],
+  relatorios: [
+    'relatorio',
+    'rpPresenca',
+    'rpPacote',
+    'rpProfessores',
+    'rpAvaliacao',
+    'rpAulas',
+    'rpOcupacao',
+    'rpFinanceiro',
+  ],
+  configuracoes: [
+    'usuarios',
+    'perfis',
+    'sessoes',
+    'colaboradores',
+    'prestadores',
+    'departamentos',
+    'cargos',
+    'politicas',
+    'dias',
+    'feriados',
+    'salas',
+    'curriculo',
+    'tiposcurso',
+    'tiposala',
+    'idiomas',
+    'skills',
+    'generos',
+    'responsaveis',
+    'alertas',
+    'admPainel',
+    'execucoes',
+    'docPersonas',
+    'docTelas',
+    'docDesign',
+  ],
+  engenharia: ['engRepos', 'engIA'],
+};
+for (const [menu, telas] of Object.entries(MENU_DAS_TELAS)) for (const t of telas) SECAO[t] = menu;
+
+const DIRETAS: Record<string, string> = {
+  dashboard: '/inicio',
+  agenda: '/agenda',
+  cursos: '/cursos',
+  pedAlunos: '/alunos',
+  empresas: '/empresas',
+  professores: '/professores',
+  auditoria: '/auditoria',
+  alunoInicio: '/minha-area',
+  alunoAgenda: '/minha-agenda',
+  alunoHistorico: '/historico-de-aulas',
+};
+
+type Params = Record<string, string | number | null | undefined>;
+const qs = (p?: Params) => {
+  const e = Object.entries(p ?? {}).filter(([, v]) => v != null && v !== '');
+  return e.length ? `?${new URLSearchParams(e.map(([k, v]): [string, string] => [k, String(v)])).toString()}` : '';
+};
+
+/** caminho da tela (as de seção ficam em /<menu>/<tela>) */
+export function hrefTela(tela: string, p?: Params): string {
+  if (DIRETAS[tela]) return DIRETAS[tela] + qs(p);
+  if (SECAO[tela]) return `/${SECAO[tela]}/${tela}${qs(p)}`;
+  return `/inicio${qs(p)}`;
+}
+
+export const hrefCurso = (id: number, aba = 'geral') => `/cursos/${id}/${aba}`;
+export const hrefAluno = (id: number | string, aba = 'perfil', p?: Params) => `/alunos/${id}/${aba}${qs(p)}`;
+export const hrefProf = (id: string, aba = 'perfil', p?: Params) => `/professores/${id}/${aba}${qs(p)}`;
+export const hrefAgenda = (p?: Params) => `/agenda${qs(p)}`;

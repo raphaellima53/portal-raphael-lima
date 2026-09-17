@@ -1,0 +1,232 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is([data-theme="dark"] *));
+
+/* ======================= DESIGN SYSTEM DO PORTAL =======================
+   Tokens do ds.css do artefato. Tipografia: nada abaixo de 14px. Destaque: profundidade (sombra) e hover —
+   nunca borda lateral colorida. Quebras: mobile < 640 · tablet 640–1023 · desktop 1024–1439 · desktop-large ≥ 1440. */
+:root {
+  --bg: #eef1f6;
+  --card: #fff;
+  --border: #e3e7ee;
+  --border-soft: #edf0f5;
+  --border-strong: #cfd6e2;
+  --text: #0f172a;
+  --text-2: #2f3b4e;
+  --muted: #566174;
+  --muted-2: #5f6b7e;
+  --blue: #1a4fd6;
+  --blue-dark: #143fb0;
+  --blue-soft: #eef3ff;
+  --blue-line: #cfdcfa;
+  --green: #0b7f59;
+  --green-soft: #e5f6ee;
+  --amber: #9a5f00;
+  --amber-soft: #fdf2dc;
+  --red: #c42835;
+  --red-soft: #fdeaec;
+  --purple: #5b34b0;
+  --purple-soft: #f1eefd;
+  --gray-soft: #eef0f4;
+  --gray: #434d5e;
+  --track: #eef1f5;
+  --hover: #f4f6fa;
+
+  --sidebar-1: #0e1730;
+  --sidebar-2: #0a1023;
+  --sidebar-text: #c9d1e2;
+  --sidebar-muted: #8b96ae;
+  --sidebar-user: #141f3c;
+  --sidebar-user-hover: #1a2749;
+  --sidebar-avatar: #1f2d52;
+
+  --el-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --el-2: 0 2px 4px rgba(15, 23, 42, 0.04), 0 6px 16px -4px rgba(15, 23, 42, 0.1);
+  --el-3: 0 4px 8px rgba(15, 23, 42, 0.05), 0 16px 32px -8px rgba(15, 23, 42, 0.16);
+  --el-4: 0 24px 60px -12px rgba(10, 16, 35, 0.32);
+  --anel: 0 0 0 3px rgba(26, 79, 214, 0.28);
+  --trans: 0.16s cubic-bezier(0.2, 0.7, 0.3, 1);
+  --dash-caixa-h: 440px;
+
+  /* nomes do shadcn/ui apontando para os tokens do portal */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card-foreground: var(--text);
+  --popover: var(--card);
+  --popover-foreground: var(--text);
+  --primary: var(--blue);
+  --primary-foreground: #fff;
+  --secondary: var(--gray-soft);
+  --secondary-foreground: var(--text-2);
+  --muted-foreground: var(--muted);
+  --accent: var(--hover);
+  --accent-foreground: var(--text);
+  --destructive: var(--red);
+  --input: var(--border-strong);
+  --ring: var(--blue);
+  --radius: 14px;
+}
+
+[data-theme="dark"] {
+  --bg: #0b1120;
+  --card: #111a2e;
+  --border: #22304d;
+  --border-soft: #1b2740;
+  --border-strong: #2e3d5e;
+  --text: #e8edf7;
+  --text-2: #c7d0e0;
+  --muted: #9aa6bd;
+  --muted-2: #8e9ab2;
+  --blue: #5b8cff;
+  --blue-dark: #7aa2ff;
+  --blue-soft: #16244a;
+  --blue-line: #2a3f7a;
+  --green: #3fcf95;
+  --green-soft: #0f2e25;
+  --amber: #f0b44c;
+  --amber-soft: #33260e;
+  --red: #ff6b76;
+  --red-soft: #3a151b;
+  --purple: #b39cff;
+  --purple-soft: #231a45;
+  --gray-soft: #1b2438;
+  --gray: #b9c2d3;
+  --track: #1b2438;
+  --hover: #17223a;
+}
+
+@theme inline {
+  --font-sans:
+    "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, Inter, Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, Consolas, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--gray-soft);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-bg: var(--bg);
+  --color-texto: var(--text);
+  --color-texto-2: var(--text-2);
+  --color-apagado: var(--muted);
+  --color-apagado-2: var(--muted-2);
+  --color-borda: var(--border);
+  --color-borda-suave: var(--border-soft);
+  --color-borda-forte: var(--border-strong);
+  --color-azul: var(--blue);
+  --color-azul-escuro: var(--blue-dark);
+  --color-azul-suave: var(--blue-soft);
+  --color-azul-linha: var(--blue-line);
+  --color-verde: var(--green);
+  --color-verde-suave: var(--green-soft);
+  --color-ambar: var(--amber);
+  --color-ambar-suave: var(--amber-soft);
+  --color-vermelho: var(--red);
+  --color-vermelho-suave: var(--red-soft);
+  --color-roxo: var(--purple);
+  --color-roxo-suave: var(--purple-soft);
+  --color-cinza: var(--gray);
+  --color-cinza-suave: var(--gray-soft);
+  --color-trilho: var(--track);
+  --color-hover: var(--hover);
+  --color-sb-texto: var(--sidebar-text);
+  --color-sb-apagado: var(--sidebar-muted);
+  --color-sb-user: var(--sidebar-user);
+  --color-sb-user-hover: var(--sidebar-user-hover);
+  --color-sb-avatar: var(--sidebar-avatar);
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  --shadow-el-1: var(--el-1);
+  --shadow-el-2: var(--el-2);
+  --shadow-el-3: var(--el-3);
+  --shadow-el-4: var(--el-4);
+  --shadow-anel: var(--anel);
+
+  --text-xs: 14px;
+  --text-sm: 14px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+  --text-3xl: 28px;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    font-size: 14px;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  h1 {
+    font-size: 28px;
+    line-height: 1.2;
+    letter-spacing: -0.4px;
+    font-weight: 800;
+  }
+  :focus {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  kbd {
+    display: inline-block;
+    min-width: 26px;
+    padding: 1px 7px;
+    border: 1px solid var(--border-strong);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    background: var(--hover);
+    font:
+      600 14px / 1.5 ui-monospace,
+      Consolas,
+      monospace;
+    color: var(--text);
+    text-align: center;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+.sidebar-fundo {
+  background: linear-gradient(var(--sidebar-1), var(--sidebar-2));
+  box-shadow: 0 10px 30px rgba(10, 16, 35, 0.18);
+}
+.sidebar-fundo :focus-visible {
+  outline-color: #8fb0ff;
+}

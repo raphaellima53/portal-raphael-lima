@@ -1,0 +1,521 @@
+// Banco do Portal Raphael Lima.
+// Espelha as bases do artefato "01. Portal Raphael Lima.html": cadastros (DB, CAD, CUR, EMP), usuários e personas
+// de teste, ajustes de aula (AG_OV) e configurações por usuário que lá ficavam no localStorage.
+// O portal junta professor, curso e sala pelo nome; aqui cada um tem id, e o carregador da base (src/domain/base.ts)
+// devolve os nomes para as regras portadas.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- acesso
+
+/// Conta de acesso. Personas de teste têm `personaLetra`; os demais usuários vêm da base antiga (AC.usuarios).
+model Usuario {
+  id             Int       @id @default(autoincrement())
+  nome           String
+  email          String    @unique
+  senhaHash      String?
+  /// Senha à mostra na tela de login, só das personas de teste (ambiente de teste)
+  senhaTeste     String?
+  /// ID_perfil de acesso.ts (1 Admin … 16 Gerente B2B). Nulo nos usuários da base antiga.
+  perfilId       Int?
+  /// Hierarquia: 1 Administrador · 2 Gestor · 3 Editor · 4 Colaborador · 5 Visualizador
+  nivel          Int       @default(5)
+  /// { [setor]: { acesso: 'total' | 'restrito' | 'proprio', rotulo } }
+  areas          Json      @default("{}")
+  status         String    @default("Ativo")
+  mfa            Boolean   @default(false)
+  perfilLegado   String?
+  escopoLegado   String?
+  ultimoAcesso   String?
+  personaLetra   String?   @unique
+  personaTipo    String?
+  personaCursos  String[]
+  personaModulos String[]
+  objetivo       String?
+  /// Filtros presos na agenda (a Professora só vê a própria agenda)
+  agendaPresa    Json?
+  alunoId        Int?      @unique
+  aluno          Aluno?    @relation(fields: [alunoId], references: [id])
+  ordem          Int       @default(0)
+  /// Novo usuário (Configurações › Usuários): pessoa de origem, vínculo, contato, prazo, quem responde e por quê
+  pessoa         String?
+  colaborador    String?
+  telefone       String?
+  validoAte      DateTime? @db.Date
+  responsavel    String?
+  justificativa  String?
+  observacoes    String?
+  /// { convite, mfa, mfaExcluir, ip, expira }
+  seguranca      Json?
+  criadoEm       DateTime  @default(now())
+  atualizadoEm   DateTime  @updatedAt
+
+  sessoes     Sessao[]
+  dashboard   DashboardConfig?
+  preferencias Preferencia[]
+}
+
+model Sessao {
+  /// sha256 do token do cookie
+  id          String    @id
+  usuarioId   Int
+  usuario     Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  criadaEm    DateTime  @default(now())
+  expiraEm    DateTime
+  encerradaEm DateTime?
+  ip          String?
+  userAgent   String?
+  /// Acessar como: a sessão mostra o portal como este aluno até Voltar ao portal
+  comoAlunoId Int?
+  /// Acessar como um professor: a sessão vira Prestador com a agenda presa nele
+  comoProfId  String?
+  /// tela de onde saiu o Acessar como
+  comoVolta   String?
+  /// última requisição da sessão (Sessões e acessos)
+  vistaEm     DateTime  @default(now())
+  /// quem encerrou pela tela Sessões e acessos
+  encerradaPor String?
+
+  @@index([usuarioId])
+}
+
+/// Blocos escolhidos no Personalizar do Dashboard (no portal: localStorage alumni.dashboard.<login>)
+model DashboardConfig {
+  usuarioId Int      @id
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  blocos    String[]
+  salvoEm   DateTime @default(now())
+}
+
+/// Preferências por usuário (layout da agenda etc.)
+model Preferencia {
+  usuarioId Int
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  chave     String
+  valor     Json
+  salvoEm   DateTime @default(now()) @updatedAt
+
+  @@id([usuarioId, chave])
+}
+
+// ---------------------------------------------------------------- catálogos e pessoas
+
+/// Os seis catálogos de Configurações: tipos de curso, idiomas, skills, tipos de sala, gêneros e responsáveis financeiros.
+model Catalogo {
+  id    Int     @id @default(autoincrement())
+  tipo  String
+  nome  String
+  ativo Boolean @default(true)
+  dados Json?
+  ordem Int     @default(0)
+
+  @@unique([tipo, nome])
+}
+
+model Departamento {
+  id        Int     @id @default(autoincrement())
+  nome      String  @unique
+  descricao String  @default("")
+  ativo     Boolean @default(true)
+  ordem     Int    @default(0)
+}
+
+model Cargo {
+  id           Int    @id @default(autoincrement())
+  nome         String @unique
+  departamento String
+  descricao    String  @default("")
+  ativo        Boolean @default(true)
+  ordem        Int     @default(0)
+}
+
+/// Time interno (CAD.employees)
+model Colaborador {
+  id           Int     @id @default(autoincrement())
+  nome         String
+  email        String  @unique
+  departamento String
+  cargo        String
+  ativo        Boolean @default(true)
+  ordem        Int     @default(0)
+}
+
+model Segmento {
+  id   Int    @id @default(autoincrement())
+  nome String @unique
+}
+
+/// Contas B2B e B2B2C (EMP), com o representante do cadastro (CAD.companies)
+model Empresa {
+  id            String   @id
+  nome          String   @unique
+  cnpj          String
+  segmento      String
+  modelo        String
+  gerente       String
+  representante String?
+  rhNome        String
+  rhEmail       String
+  inicio        DateTime @db.Date
+  fim           DateTime @db.Date
+  licencas      Int
+  aulas         Int
+  valor         Decimal  @db.Decimal(12, 2)
+  subsidio      Int
+  desconto      Int
+  renovaAuto    Boolean
+  turmaCurso    String?
+  cursos        String[]
+  ativo         Boolean  @default(true)
+  ordem         Int      @default(0)
+  /// último relatório mandado ao RH
+  relEm         DateTime?
+
+  alunos Aluno[]
+}
+
+// ---------------------------------------------------------------- cursos, professores e salas
+
+model Curso {
+  id         Int      @id @default(autoincrement())
+  nome       String   @unique
+  cor        String
+  /// modulos · turmas · nenhuma
+  estrutura  String
+  formato    String
+  tipo       String
+  idioma     String
+  ativo      Boolean  @default(true)
+  autoAgenda Boolean  @default(false)
+  descricao  String   @default("")
+  /// { vagas, duracao, modalidades, pacote, cancelamento, exigeDisp, valorAula? }
+  regras     Json
+  ordem      Int      @default(0)
+
+  modulos    Modulo[]
+  turmas     Turma[]
+  matriculas Matricula[]
+}
+
+model Modulo {
+  id      Int    @id @default(autoincrement())
+  cursoId Int
+  curso   Curso  @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  nome    String
+  cor     String
+  ordem   Int    @default(0)
+
+  @@unique([cursoId, nome])
+}
+
+/// Turma dedicada (FAAP, Palmares): a turma ocupa o lugar do módulo
+model Turma {
+  id          Int        @id @default(autoincrement())
+  cursoId     Int
+  curso       Curso      @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  nome        String
+  grupo       String
+  professorId String?
+  professor   Professor? @relation(fields: [professorId], references: [id])
+  /// "Seg e Qua · 08:00"
+  grade       String
+  vagas       Int
+  ocupadas    Int
+  sala        String
+  modalidade  String
+  periodo     String
+  curriculo   String
+  ordem       Int        @default(0)
+
+  @@unique([cursoId, nome])
+}
+
+model Professor {
+  id              String   @id
+  nome            String   @unique
+  email           String
+  /// nomes dos cursos em que está habilitado
+  cursos          String[]
+  /// recorte da habilitação por curso: { [curso]: [módulos ou turmas] }
+  habilitacao     Json?
+  carga           Int      @default(3)
+  teto            Int      @default(24)
+  ativo           Boolean  @default(true)
+  valorHora       Decimal? @db.Decimal(10, 2)
+  /// "dia-hora" marcados; nulo = nasce da grade
+  disponibilidade String[]
+  dispDefinida    Boolean  @default(false)
+  ordem           Int      @default(0)
+
+  turmas     Turma[]
+  avaliacoes AvaliacaoProfessor[]
+}
+
+/// Avaliações registradas no portal (Professores › ficha › Feedbacks); as dos alunos presentes são lidas da agenda
+model AvaliacaoProfessor {
+  id          Int       @id @default(autoincrement())
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  quando      DateTime  @default(now())
+  aluno       String
+  curso       String
+  aula        String
+  nota        Int
+  texto       String
+  por         String
+
+  @@index([professorId])
+}
+
+model Sala {
+  id     Int     @id @default(autoincrement())
+  nome   String  @unique
+  atende String
+  tipo   String
+  zoom   Boolean @default(false)
+  ativo  Boolean @default(true)
+  ordem  Int     @default(0)
+}
+
+model Feriado {
+  id     Int      @id @default(autoincrement())
+  data   DateTime @unique @db.Date
+  nome   String
+  origem String
+}
+
+/// Dias e horários de funcionamento (0 = domingo)
+model Funcionamento {
+  dia    Int     @id
+  nome   String
+  aberto Boolean
+  inicio String
+  fim    String
+}
+
+// ---------------------------------------------------------------- alunos
+
+model Aluno {
+  id               Int         @id @default(autoincrement())
+  nome             String
+  email            String
+  cpf              String
+  emailPlaceholder Boolean     @default(false)
+  /// Ativo · Suspenso · Congelado · Inadimplente · Cancelado · Inativo
+  status           String      @default("Ativo")
+  desativadoEm     DateTime?
+  empresaId        String?
+  empresa          Empresa?    @relation(fields: [empresaId], references: [id])
+  contratoFim      DateTime?   @db.Date
+  disponibilidade  String[]
+  dispDefinida     Boolean     @default(false)
+  /// situação de antes do Desativar, para o Reativar devolver
+  statusAntes      String?
+  /// posição na lista: aluno novo entra no topo
+  ordem            Int         @default(0)
+  /// os feedbacks de exemplo nascem na primeira leitura da ficha (fbAluno do portal)
+  fbGerado         Boolean     @default(false)
+  criadoEm         DateTime    @default(now())
+
+  matriculas Matricula[]
+  usuario    Usuario?
+  feedbacks  FeedbackAluno[]
+}
+
+/// Feedbacks e ocorrências de qualidade do aluno (Alunos › ficha › Feedbacks)
+model FeedbackAluno {
+  id       Int      @id @default(autoincrement())
+  alunoId  Int
+  aluno    Aluno    @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  quando   DateTime
+  /// Reclamação · Elogio · Sugestão · Qualidade
+  tipo     String
+  area     String
+  curso    String
+  canal    String
+  texto    String
+  /// Aberto · Em tratativa · Concluído
+  status   String
+  por      String
+  anexos   Anexo[]
+
+  @@index([alunoId])
+}
+
+/// Prints e documentos anexados a um feedback (até 10 MB cada)
+model Anexo {
+  id         Int           @id @default(autoincrement())
+  feedbackId Int
+  feedback   FeedbackAluno @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  nome       String
+  tipo       String
+  tam        Int
+  dados      Bytes
+  criadoEm   DateTime      @default(now())
+
+  @@index([feedbackId])
+}
+
+model Matricula {
+  id           Int       @id @default(autoincrement())
+  alunoId      Int
+  aluno        Aluno     @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  cursoId      Int
+  curso        Curso     @relation(fields: [cursoId], references: [id])
+  /// módulo ou turma atual (nome); nulo no produto sem subdivisão (Alumni Black)
+  modulo       String?
+  usadas       Int
+  total        Int
+  modalidade   String    @default("Online")
+  desativadoEm DateTime?
+  /// alocação da aula individual: { prof, dias, hora, valor }
+  alocacao     Json?
+  ordem        Int       @default(0)
+
+  @@index([alunoId])
+}
+
+// ---------------------------------------------------------------- currículo e agenda
+
+model Curriculo {
+  id        String   @id
+  nome      String
+  grupo     String
+  /// produto · acervo
+  tipo      String
+  idioma    String
+  aplicado  String[]
+  /// [[versão, situação, data, conteúdos]]
+  versoes   Json
+  /// conteúdos da versão publicada
+  conteudos Json
+  ordem     Int      @default(0)
+}
+
+/// O que se muda numa aula específica (AG_OV): professor, cancelamento, presença, conclusão…
+/// chave = curso|módulo|quem|AAAA-MM-DD|hora
+model AulaAjuste {
+  chave        String   @id
+  dados        Json
+  atualizadoEm DateTime @default(now()) @updatedAt
+}
+
+/// Histórico de alterações (FX_LOG + histórico da base)
+model LogAlteracao {
+  id         Int      @id @default(autoincrement())
+  quando     DateTime @default(now())
+  autor      String
+  entidade   String
+  entidadeId String?
+  nome       String
+  acao       String
+  detalhe    String?
+  /// cliques seguidos na mesma ação viram uma linha só
+  vezes      Int      @default(1)
+  origem     String   @default("portal")
+
+  @@index([quando])
+}
+
+/// Eventos e reuniões da Agenda (AG_EVENTOS). participantes: [{ g: colaborador|prestador|aluno, n }]
+model Evento {
+  id            String   @id
+  tipo          String
+  titulo        String
+  inicio        DateTime
+  fim           DateTime
+  local         String   @default("")
+  descricao     String   @default("")
+  participantes Json
+  criadoPor     String
+  exemplo       Boolean  @default(false)
+  criadoEm      DateTime @default(now())
+
+  @@index([inicio])
+}
+
+/// Competência fechada no Fechamento (FEC_ESTADO). ym = AAAA-MM
+model FechamentoCompetencia {
+  ym     String   @id
+  por    String
+  quando DateTime @default(now())
+  dados  Json
+}
+
+// ---------------------------------------------------------------- ações
+
+/// Leads do Funil de vendas (Ações › Comercial)
+model Lead {
+  id         String   @id
+  nome       String
+  email      String
+  origem     String
+  curso      String
+  consultor  String
+  /// captado · contato · nivelamento · proposta · matriculado · perdido
+  etapa      String
+  /// etapa de antes de perder, para o Reabrir
+  etapaAntes String?
+  motivo     String   @default("")
+  alunoId    Int?
+  entrou     DateTime
+  mudou      DateTime
+  ordem      Int      @default(0)
+}
+
+/// Parcela registrada como paga (no portal: FIN_PAGOS)
+model ParcelaPaga {
+  chave  String   @id
+  quando DateTime @default(now())
+  por    String
+}
+
+/// Cards dos fluxos com kanban (Substituição, Mudança de nível, Reposição, Admissão, Cobrança, Renovação, Campanhas, Retenção)
+model FluxoCard {
+  id      String   @id
+  fluxo   String
+  etapa   String
+  valores Json
+  criado  DateTime @default(now())
+  mudou   DateTime @default(now())
+  quem    String
+  /// [{ de, para, quem, quando, nota }]
+  hist    Json     @default("[]")
+
+  @@index([fluxo])
+}
+
+/// Fluxo que já recebeu a carga inicial lida da base
+model FluxoSemeado {
+  fluxo  String   @id
+  quando DateTime @default(now())
+}
+
+// ---------------------------------------------------------------- configurações
+
+/// Histórico de acesso (Sessões e acessos): login, logout, recusa, logout forçado, perfil alterado
+model AcessoLog {
+  id        Int      @id @default(autoincrement())
+  quando    DateTime @default(now())
+  quem      String
+  evento    String
+  resultado String
+  detalhe   String   @default("")
+
+  @@index([quando])
+}
+
+/// Regras salvas nas telas de Configurações (condições e vigência, políticas de acesso, alertas)
+model Configuracao {
+  chave   String   @id
+  valor   Json
+  salvoEm DateTime @default(now()) @updatedAt
+  por     String   @default("")
+}

@@ -1,0 +1,641 @@
+{
+  "inicio": {
+    "tipo": "painel",
+    "mostra": "Entrada antiga do portal: atalhos para as áreas, o número de cada frente, carga da semana, situação das aulas e próximas aulas.",
+    "acoes": ["Abrir área"]
+  },
+  "dashboard": {
+    "tipo": "painel",
+    "mostra": "A tela inicial: blocos com o dia da agenda, pendências e ocupação dos cursos, situação, pacote, conflitos e presença dos alunos, carga dos professores e os acessos — e o grupo Qualidade, com aulas não finalizadas, horários sem professor, substituições, aula fora da disponibilidade e módulos sem currículo, que abrem o Kanban já filtrado. Personalizar abre um seletor com checkboxes para escolher os blocos; Salvar grava a configuração para o usuário neste navegador. Só aparecem os blocos que o acesso da pessoa permite, e cada linha abre a tela de origem.",
+    "acoes": [
+      "Personalizar",
+      "Marcar todos / desmarcar por grupo",
+      "Restaurar padrão",
+      "Salvar configuração",
+      "Cancelar",
+      "Abrir bloco",
+      "Abrir no Kanban filtrado"
+    ],
+    "sub": [
+      "Resumo do dia",
+      "Aulas de hoje",
+      "Pendências da semana",
+      "Ocupação por curso",
+      "Alunos por situação",
+      "Consumo do pacote",
+      "Agenda do aluno em conflito",
+      "Presença nos últimos 30 dias",
+      "Aulas por semana por professor",
+      "Aulas não finalizadas",
+      "Horários sem professor",
+      "Substituições nos últimos 30 dias",
+      "Professores com aula fora da disponibilidade",
+      "Módulos e turmas sem currículo",
+      "Acessos ao portal"
+    ],
+    "vai": ["agenda", "curso.grade", "alunoFicha.cursos", "professorFicha.cursos", "usuarios"]
+  },
+  "agenda": {
+    "tipo": "calendario",
+    "mostra": "A agenda de todos os cursos em quatro visões sobre as mesmas aulas, com filtros de aluno, usuário (colaboradores e prestadores), curso e módulo e navegação por período. Dois ícones ao lado dos filtros salvam o layout de cada usuário (filtros, visão e período do Kanban, neste navegador) e resetam os filtros ao padrão; o layout salvo volta quando a pessoa entra na Agenda. Os alertas ficam só no Kanban, que tem também o filtro de qualidade: aula não finalizada, sem professor, substituída, fora da disponibilidade do professor e módulo ou turma sem currículo.",
+    "acoes": ["hoje · ‹ ›", "Trocar visão", "Filtrar", "Filtro de qualidade no Kanban", "Trocar ótica da grade"],
+    "det": [
+      [
+        "eventoForm",
+        "Novo evento ou reunião",
+        "Popup aberto por \"Novo evento\" no cabeçalho da Agenda: tipo (Reunião ou Evento), título, data, início e término, local ou link, descrição e participantes — um ou mais colaboradores (time interno), prestadores (professores) ou alunos, com busca. Avisa quando um professor ou aluno tem aula no mesmo horário. Clicar num evento abre os detalhes com Editar e Excluir.",
+        "form"
+      ],
+      [
+        "aulaDetalhe",
+        "Detalhes da aula",
+        "Clicar numa aula abre o popup com estado, tipo, curso e módulo, o conteúdo do currículo, data e horário, professor (Alterar professor), Abrir sala e copiar o link, folha do professor (situação: paga, descontada por suporte ou pendente, e Pedir suporte; o valor hora/aula e Alterar valor no Alumni Black só aparecem para os setores Pedagógico, Administrativo e Financeiro/Fiscal e o Admin — aluno e professor não veem), Pre class, In class e Post class, gravação, alunos (Gerenciar agendamentos), Cancelar aula e Fechar. \"Detalhes da aula\" abre a página da aula com a sala e a lista de presença: Marcar todos presentes, Iniciar aula, Concluir aula e Presente/Falta por aluno.",
+        "ficha"
+      ],
+      [
+        "aulaApresentacao",
+        "Modo apresentação",
+        "Aberto pelo botão Modo apresentação no popup e na página da aula. Uma página só para o professor dar a aula: Conteúdo — o conteúdo do currículo em slides no idioma do curso (capa, aquecimento, vocabulário, gramática, prática, material In-class e encerramento), com Anterior/Próximo, número do slide e setas do teclado, links de Pre-class, In-class e Post-class e a troca por outro conteúdo do currículo ou de um acervo; Zoom — iniciar a reunião (abre a sala numa aba e começa a aula), copiar e enviar o link aos alunos, gravar e encerrar; Presença — Presente/Falta por aluno, Marcar todos presentes e Concluir aula (encerra a reunião); Anotações da aula. Tudo vai para o histórico da aula.",
+        "ficha"
+      ]
+    ],
+    "sub": ["Mensal", "Semanal", "Diária", "Kanban de alertas"],
+    "vai": ["curso.grade", "alunoFicha.cursos", "professorFicha.cursos"]
+  },
+  "cursos": {
+    "tipo": "cartoes",
+    "mostra": "O catálogo: um cartão por curso disponível, com idioma e tipo, descrição, quem agenda, os módulos ou turmas numerados e quantos professores e alunos tem. A busca filtra por curso, módulo ou turma; o cartão abre o curso na primeira aba liberada. Aparece para quem abre alguma aba de curso.",
+    "acoes": ["Buscar curso, módulo ou turma", "Novo curso", "Abrir curso"],
+    "vai": ["curso.geral"]
+  },
+  "curso.geral": {
+    "tipo": "ficha",
+    "mostra": "O curso aberto pelo Catálogo (menu Cursos): módulos ou turmas numerados com alunos e currículo, a turma selecionada com período, grade, sala e vagas, os alunos com matrícula e os professores habilitados.",
+    "acoes": ["Editar curso", "Novo curso", "Ver na agenda", "Abrir turma"],
+    "vai": ["alunoFicha.cursos", "professorFicha.cursos"]
+  },
+  "curso.regras": {
+    "tipo": "form",
+    "mostra": "As regras fechadas do curso, cada uma com onde é lida: vagas por aula em grupo, duração, modalidades aceitas, pacote padrão, cancelamento sem débito, auto-agendamento e se a alocação exige disponibilidade do aluno.",
+    "acoes": ["Salvar regras"]
+  },
+  "curso.curriculo": {
+    "tipo": "lista",
+    "mostra": "Os currículos do curso com onde são aplicados, versão, conteúdos e conteúdos sem link de In-class — e os módulos ou turmas que ainda não têm currículo.",
+    "acoes": ["Abrir currículo"],
+    "det": [
+      [
+        "curriculoEd",
+        "Edição do currículo",
+        "Versões e cada conteúdo com posição, título, formato, gramática, vocabulário e um link para cada momento: Pre-class, In-class e Post-class. Só Pedagógico e Acadêmico editam.",
+        "ficha"
+      ]
+    ]
+  },
+  "curso.grade": {
+    "tipo": "lista",
+    "mostra": "A oferta semanal do curso: módulo ou turma, quem, dias, horário com a duração da regra, professor, sala e ocupação.",
+    "acoes": ["Abrir professor", "Abrir aluno"]
+  },
+  "acAlocacao": {
+    "tipo": "lista",
+    "mostra": "As pendências de alocação lidas da grade na hora: horário com aluno e sem professor, matrícula ativa sem horário na grade, aluno com duas aulas no mesmo horário ou fora da disponibilidade e professor com aula fora da disponibilidade. Chips por pendência, filtro de curso e busca; a linha abre onde se resolve (grade do curso, alocação na ficha do aluno, disponibilidade do professor) e o que se resolve some daqui.",
+    "acoes": ["Filtrar por pendência", "Filtrar por curso", "Buscar", "Abrir onde se resolve"],
+    "vai": ["curso.grade", "alunoFicha.cursos", "professorFicha.disponibilidade"]
+  },
+  "acFechamento": {
+    "tipo": "lista",
+    "mostra": "A folha de professores da competência: entram todas as alocações dadas no mês. Aula com presença e aula com falta do aluno são pagas; aula em que o professor pediu suporte é descontada; não finalizada fica pendente e trava o fechamento; cancelada não entra. Por professor: aulas pagas (com presença, com falta), descontadas, não finalizadas, horas, bruto, descontos e a pagar, com a linha de total. Alumni Black paga o valor hora/aula da alocação (ou o alterado na aula); os demais cursos, o valor hora do professor. A aula vai para quem deu.",
+    "acoes": [
+      "Competência",
+      "Buscar professor",
+      "Ver aulas do professor",
+      "Abrir a aula",
+      "Fechar competência",
+      "Reabrir competência",
+      "Ver no Kanban"
+    ],
+    "vai": ["aulaDetalhe"]
+  },
+  "acSubstituicao": {
+    "tipo": "kanban",
+    "mostra": "Kanban da substituição de professor: Pedido, Buscando substituto, Confirmado (exige o substituto e troca o professor da aula na agenda), Concluído e Cancelado. O substituto só pode ser alguém habilitado no curso e no módulo da aula. Cada card abre o formulário com as etapas, os campos e o histórico; o card anda pelo botão da próxima etapa, pelo formulário ou arrastando entre colunas. Visão Kanban ou Lista e busca.",
+    "acoes": [
+      "Novo",
+      "Buscar",
+      "Kanban ou Lista",
+      "Abrir o formulário",
+      "Salvar",
+      "Avançar ou voltar de etapa",
+      "Arrastar entre colunas",
+      "Reabrir"
+    ]
+  },
+  "acNivel": {
+    "tipo": "kanban",
+    "mostra": "Kanban da mudança de nível: Solicitada, Teste de nível, Aprovada (exige resultado e módulo novo), Aplicada (troca o módulo da matrícula; grade e agenda seguem) e Mantida. Cada card abre o formulário com as etapas, os campos e o histórico; o card anda pelo botão da próxima etapa, pelo formulário ou arrastando entre colunas. Visão Kanban ou Lista e busca.",
+    "acoes": [
+      "Novo",
+      "Buscar",
+      "Kanban ou Lista",
+      "Abrir o formulário",
+      "Salvar",
+      "Avançar ou voltar de etapa",
+      "Arrastar entre colunas",
+      "Reabrir"
+    ]
+  },
+  "acReposicao": {
+    "tipo": "kanban",
+    "mostra": "Kanban da reposição: Pedido (a aula em que o aluno faltou), Agendada (exige data, hora e professor; registra no aluno), Realizada e Negada. Cada card abre o formulário com as etapas, os campos e o histórico; o card anda pelo botão da próxima etapa, pelo formulário ou arrastando entre colunas. Visão Kanban ou Lista e busca.",
+    "acoes": [
+      "Novo",
+      "Buscar",
+      "Kanban ou Lista",
+      "Abrir o formulário",
+      "Salvar",
+      "Avançar ou voltar de etapa",
+      "Arrastar entre colunas",
+      "Reabrir"
+    ]
+  },
+  "acAdmissao": {
+    "tipo": "kanban",
+    "mostra": "Kanban da admissão: Candidato, Entrevista e aula teste, Documentação (exige e-mail e cursos), Ativo (cria o professor em Professores) e Não seguiu. Cada card abre o formulário com as etapas, os campos e o histórico; o card anda pelo botão da próxima etapa, pelo formulário ou arrastando entre colunas. Visão Kanban ou Lista e busca.",
+    "acoes": [
+      "Novo",
+      "Buscar",
+      "Kanban ou Lista",
+      "Abrir o formulário",
+      "Salvar",
+      "Avançar ou voltar de etapa",
+      "Arrastar entre colunas",
+      "Reabrir"
+    ]
+  },
+  "acCobranca": {
+    "tipo": "kanban",
+    "mostra": "Kanban da cobrança das parcelas vencidas: Em aberto, Contato feito, Negociação (exige o acordo), Pago (baixa as parcelas vencidas e volta o aluno a Ativo) e Sem acordo. Cada card abre o formulário com as etapas, os campos e o histórico; o card anda pelo botão da próxima etapa, pelo formulário ou arrastando entre colunas. Visão Kanban ou Lista e busca.",
+    "acoes": [
+      "Novo",
+      "Buscar",
+      "Kanban ou Lista",
+      "Abrir o formulário",
+      "Salvar",
+      "Avançar ou voltar de etapa",
+      "Arrastar entre colunas",
+      "Reabrir"
+    ]
+  },
+  "acRenovacao": {
+    "tipo": "kanban",
+    "mostra": "Kanban da renovação dos contratos que vencem em até 60 dias: Vence em breve, Contato feito, Proposta enviada (exige o pacote), Renovado (estende o contrato por 12 meses e soma as aulas) e Não renovou. Cada card abre o formulário com as etapas, os campos e o histórico; o card anda pelo botão da próxima etapa, pelo formulário ou arrastando entre colunas. Visão Kanban ou Lista e busca.",
+    "acoes": [
+      "Novo",
+      "Buscar",
+      "Kanban ou Lista",
+      "Abrir o formulário",
+      "Salvar",
+      "Avançar ou voltar de etapa",
+      "Arrastar entre colunas",
+      "Reabrir"
+    ]
+  },
+  "acCampanhas": {
+    "tipo": "kanban",
+    "mostra": "Kanban das campanhas de marketing: Ideia, Em produção (exige canal e público), No ar (exige início e orçamento) e Encerrada (exige os leads gerados). Cada card abre o formulário com as etapas, os campos e o histórico; o card anda pelo botão da próxima etapa, pelo formulário ou arrastando entre colunas. Visão Kanban ou Lista e busca.",
+    "acoes": [
+      "Novo",
+      "Buscar",
+      "Kanban ou Lista",
+      "Abrir o formulário",
+      "Salvar",
+      "Avançar ou voltar de etapa",
+      "Arrastar entre colunas",
+      "Reabrir"
+    ]
+  },
+  "acRetencao": {
+    "tipo": "kanban",
+    "mostra": "Kanban dos pedidos de cancelamento: Pedido, Tentativa de retenção (exige a oferta), Retido e Cancelado (a situação do aluno passa a Cancelado). Cada card abre o formulário com as etapas, os campos e o histórico; o card anda pelo botão da próxima etapa, pelo formulário ou arrastando entre colunas. Visão Kanban ou Lista e busca.",
+    "acoes": [
+      "Novo",
+      "Buscar",
+      "Kanban ou Lista",
+      "Abrir o formulário",
+      "Salvar",
+      "Avançar ou voltar de etapa",
+      "Arrastar entre colunas",
+      "Reabrir"
+    ]
+  },
+  "acFunil": {
+    "tipo": "kanban",
+    "mostra": "Os leads por etapa — Captado, Contato feito, Nivelamento, Proposta enviada, Matriculado e Perdido — com curso de interesse, origem, consultor e tempo na etapa. Avançar muda a etapa; Matricular (na proposta) cria o aluno e leva à ficha para a matrícula; Perder pede o motivo; Reabrir devolve ao funil. Filtros de consultor, curso e origem, busca, e a conversão dos que fecharam. Tudo fica na Auditoria.",
+    "acoes": ["Novo lead", "Avançar", "Matricular", "Perder", "Reabrir", "Filtrar", "Buscar"],
+    "vai": ["alunoFicha.cursos"]
+  },
+  "acAtendimentos": {
+    "tipo": "lista",
+    "mostra": "A fila de atendimentos do CX: os feedbacks e as ocorrências de todos os alunos (reclamação, elogio, sugestão e qualidade), com há quanto tempo estão abertos, área, curso, relato, canal e situação. Abre em Abertos; chips de situação, filtros de tipo e área e busca. Iniciar tratativa e Concluir mudam o registro na ficha do aluno; Novo atendimento escolhe o aluno e abre o registro.",
+    "acoes": ["Novo atendimento", "Iniciar tratativa", "Concluir", "Filtrar", "Buscar", "Abrir aluno"],
+    "vai": ["alunoFicha.feedbacks"]
+  },
+  "pedAlunos": {
+    "tipo": "lista",
+    "mostra": "Alunos com as matrículas empilhadas: curso, módulo ou turma, modalidade, aulas usadas/total, saldo e situação. Busca e filtros de curso, modalidade e situação (inclusive Inativo) funcionam; a linha abre a ficha. O ••• da linha abre as ações do aluno, cada uma pelo nível: Editar (até Editor), Acessar como (abre a área do aluno com uma faixa para voltar), Desativar/Reativar (até Gestor) e Excluir (só Administrador, com confirmação; persona de teste não se exclui).",
+    "acoes": [
+      "Novo aluno",
+      "Abrir ficha",
+      "Exportar",
+      "Editar",
+      "Acessar como",
+      "Desativar",
+      "Reativar",
+      "Excluir (só admin)"
+    ]
+  },
+  "alunoFicha.perfil": {
+    "tipo": "ficha",
+    "mostra": "Os dados do aluno em três cartões: identificação (nome, e-mail, CPF, situação, código), vínculo e contrato (B2B ou B2C, empresa, contrato, matrículas, aulas restantes) e acompanhamento (aulas por semana, presença, próxima aula, feedbacks abertos e a última alteração).",
+    "acoes": ["Editar dados"]
+  },
+  "alunoFicha.log": {
+    "tipo": "lista",
+    "mostra": "O que mudou na ficha, do mais recente ao mais antigo: quando, quem, o que mudou e o detalhe — dados editados, matrícula nova, editada, encerrada ou reativada, alocação, troca de turma ou módulo, disponibilidade e feedbacks. O que se muda no portal entra na hora; cliques seguidos na mesma coisa viram uma linha."
+  },
+  "alunoFicha.cursos": {
+    "tipo": "cartoes",
+    "mostra": "As matrículas ativas com curso, módulo ou turma, modalidade, aulas usadas, saldo e horário na grade (as encerradas abaixo) e, embaixo, um cartão de alocação por matrícula: turma e módulo em grupo trocam de turma ou de módulo; aula individual escolhe professor, dias e hora, com checagem de disponibilidade e de choque de agenda. A alocação só aparece para quem tem o acesso dela.",
+    "acoes": [
+      "Nova matrícula",
+      "Editar",
+      "Encerrar",
+      "Reativar",
+      "Mudar de turma",
+      "Mudar de módulo",
+      "Salvar alocação",
+      "Voltar à sugestão da grade"
+    ]
+  },
+  "alunoFicha.disponibilidade": {
+    "tipo": "matriz",
+    "mostra": "Grade semanal dia × hora (seg a sáb, 07h às 21h) com as horas disponíveis e as aulas da grade dentro e fora da disponibilidade, com o aviso de conflito.",
+    "acoes": ["Marcar hora", "Marcar dia ou hora inteira"],
+    "vai": ["alunoFicha.cursos"]
+  },
+  "alunoFicha.agendamentos": {
+    "tipo": "lista",
+    "mostra": "As aulas do aluno em Próximas (7, 14 ou 30 dias, com professor, sala, situação e até quando cancelar sem débito) e Passadas (30, 60 ou 90 dias, com estado, presença e o resumo de presenças, faltas e canceladas).",
+    "acoes": ["Próximas · Passadas", "Trocar período", "Filtrar por estado", "Abrir na Agenda"],
+    "sub": ["Próximas", "Passadas"],
+    "vai": ["agenda"]
+  },
+  "alunoFicha.feedbacks": {
+    "tipo": "lista",
+    "mostra": "Feedbacks e qualidade do aluno — o único lugar da qualidade do aluno. Em cima, os pontos de qualidade lidos da base: faltas, aulas sem registro de presença, aulas com substituto, conflitos de agenda e módulo sem currículo, cada um com Registrar ocorrência. Embaixo, os registros — reclamação, elogio, sugestão e ocorrência de qualidade — com data, área responsável, curso, relato, anexos (prints e documentos), canal e situação da tratativa. Filtra por tipo e situação.",
+    "acoes": [
+      "Registrar ocorrência",
+      "Novo feedback",
+      "Anexar",
+      "Iniciar tratativa",
+      "Concluir",
+      "Filtrar por tipo e situação"
+    ],
+    "vai": ["alunoFicha.agendamentos", "alunoFicha.cursos"]
+  },
+  "professores": {
+    "tipo": "lista",
+    "mostra": "Professores com cursos habilitados, aulas por semana na grade, carga semanal e situação. Busca, filtro de curso e de situação funcionam; a linha abre a ficha. O ••• da linha abre Editar, Acessar como (o portal como o professor, com a faixa para voltar) e Desativar/Reativar.",
+    "acoes": [
+      "Novo professor",
+      "Buscar",
+      "Filtrar por curso e situação",
+      "Abrir ficha",
+      "Editar",
+      "Acessar como",
+      "Desativar ou reativar"
+    ]
+  },
+  "professorFicha.perfil": {
+    "tipo": "ficha",
+    "mostra": "Os dados do professor em três cartões: identificação (nome, e-mail, situação, código), escala (teto semanal, aulas por semana, horários e alunos na grade, aulas fora da disponibilidade) e cursos e avaliação (cursos habilitados, aulas dadas, nota média e a última alteração).",
+    "acoes": ["Editar dados"]
+  },
+  "professorFicha.log": {
+    "tipo": "lista",
+    "mostra": "O que mudou na ficha do professor: dados editados, habilitação ligada, retirada ou recortada, disponibilidade e avaliações registradas — quando, quem e o detalhe."
+  },
+  "professorFicha.cursos": {
+    "tipo": "cartoes",
+    "mostra": "A habilitação para ministrar: um cartão por curso, habilitado ou não, e os módulos ou turmas em que pode dar aula. Titular de turma não perde a habilitação. A agenda só escala quem está habilitado.",
+    "acoes": ["Habilitar no curso", "Recortar módulos ou turmas"]
+  },
+  "professorFicha.disponibilidade": {
+    "tipo": "matriz",
+    "mostra": "Grade semanal dia × hora do professor com as horas disponíveis e as aulas da grade dentro e fora da disponibilidade.",
+    "acoes": ["Marcar hora", "Marcar dia ou hora inteira"]
+  },
+  "professorFicha.agenda": {
+    "tipo": "lista",
+    "mostra": "As aulas do professor em Próximas (7, 14 ou 30 dias, com turma ou aluno, sala, ocupação e situação) e Passadas (com estado: dadas, substituídas por outro, dadas no lugar de outro, não finalizadas e canceladas).",
+    "acoes": ["Próximas · Passadas", "Trocar período", "Filtrar por estado", "Abrir na Agenda"],
+    "sub": ["Próximas", "Passadas"],
+    "vai": ["agenda"]
+  },
+  "professorFicha.feedbacks": {
+    "tipo": "split",
+    "mostra": "A avaliação que os alunos dão às aulas do professor no período: data, aula, aluno, nota de 1 a 5 e comentário, com a nota média, as notas 4 e 5, as notas baixas e, ao lado, a média por curso. Filtra por nota; Novo feedback registra a avaliação de um aluno.",
+    "acoes": ["Novo feedback", "Filtrar por nota", "Trocar período"],
+    "vai": ["alunoFicha.perfil"]
+  },
+  "rpPresenca": {
+    "tipo": "lista",
+    "mostra": "Alunos · cada aluno com aula dada no período: cursos, aulas dadas, presenças, faltas, sem registro e a taxa de presença. Filtro de qualidade: 2 faltas ou mais, conflito de agenda, aula sem registro de presença, feedback ou ocorrência aberta. O CSV sai com as mesmas linhas; a linha abre as aulas passadas do aluno.",
+    "acoes": ["Filtrar por curso", "Trocar período", "Filtro de qualidade", "Exportar CSV"],
+    "vai": ["alunoFicha.agendamentos"]
+  },
+  "rpPacote": {
+    "tipo": "lista",
+    "mostra": "Alunos · cada matrícula ativa com curso, módulo ou turma, modalidade, aulas usadas, pacote, quanto foi usado, o que resta e a situação do aluno — as mais consumidas primeiro. Filtro de qualidade do aluno, como em Presença por aluno. Exporta CSV; a linha abre as matrículas do aluno.",
+    "acoes": ["Filtrar por curso", "Filtro de qualidade", "Exportar CSV"],
+    "vai": ["alunoFicha.cursos"]
+  },
+  "rpProfessores": {
+    "tipo": "lista",
+    "mostra": "Professores · o que cada um deu no período: aulas e horas, aulas no lugar de outro, vezes substituído, não finalizadas, canceladas e aulas por semana na grade contra o teto. Filtro de qualidade: aula fora da disponibilidade, substituído, aula não finalizada, acima do teto e nota 1 ou 2. Exporta CSV; a linha abre as aulas passadas do professor.",
+    "acoes": ["Filtrar por curso", "Trocar período", "Filtro de qualidade", "Exportar CSV"],
+    "vai": ["professorFicha.agenda"]
+  },
+  "rpAvaliacao": {
+    "tipo": "lista",
+    "mostra": "Professores · a avaliação dos alunos no período: avaliações, nota média, notas 4 e 5, notas 1 e 2 e a média por curso — quem tem nota baixa primeiro. Filtro de qualidade do professor, como em Aulas por professor. Exporta CSV; a linha abre os feedbacks do professor.",
+    "acoes": ["Filtrar por curso", "Trocar período", "Filtro de qualidade", "Exportar CSV"],
+    "vai": ["professorFicha.feedbacks"]
+  },
+  "rpAulas": {
+    "tipo": "lista",
+    "mostra": "Cursos · as aulas do período por curso ou por módulo e turma: no período, executadas, substituídas, não finalizadas, canceladas e quanto do previsto foi realizado. Filtro de qualidade: horário sem professor, módulo ou turma sem currículo, aula não finalizada e horário sem alunos. Exporta CSV; a linha abre a grade do curso.",
+    "acoes": [
+      "Filtrar por curso",
+      "Trocar período",
+      "Por curso · por módulo ou turma",
+      "Filtro de qualidade",
+      "Exportar CSV"
+    ],
+    "vai": ["curso.grade"]
+  },
+  "rpFinanceiro": {
+    "tipo": "painel",
+    "mostra": "Financeiro · a competência do mês lida da base viva: receita reconhecida (aulas dadas × alunos × valor da aula do curso), custo de professores (horas × valor hora de quem deu), margem bruta, recebido no mês, vencido em aberto e carteira a reconhecer (aulas que restam nos pacotes). Gráfico de receita e custo dos últimos 6 meses, tabelas por curso e por professor e cobranças (6 parcelas por matrícula) com Registrar pagamento.",
+    "acoes": [
+      "Competência",
+      "Curso",
+      "Clicar num mês do gráfico",
+      "Vencidas / A vencer / Pagas",
+      "Buscar aluno ou curso",
+      "Registrar pagamento",
+      "Abrir curso, professor ou aluno"
+    ],
+    "vai": ["curso.regras", "professorFicha.historico", "alunoFicha.matriculas"]
+  },
+  "empresas": {
+    "tipo": "lista",
+    "mostra": "As contas B2B e B2B2C, das que vencem antes: empresa e segmento, modelo (turma dedicada quando for FAAP ou Palmares Paulista), gerente da conta, licenças em uso, aulas consumidas, presença em 30 dias, fim do contrato e alertas (vencimento, licenças acima do contratado, consumo, presença baixa, aluno inadimplente). Aviso dos contratos que vencem em até 60 dias com Ver renovações. O Gerente B2B abre já em Minhas contas.",
+    "acoes": ["Nova empresa", "Buscar", "Filtrar por modelo, situação e gerente", "Ver renovações", "Abrir empresa"],
+    "det": [
+      [
+        "empresaFicha",
+        "Ficha da empresa",
+        "Visão geral (licenças, consumo, presença, dias até o fim, receita mensal com a parte da empresa e dos colaboradores no B2B2C, alertas, contrato e gestão da conta), Alunos (vincular aluno sem empresa, desvincular, quem paga) ou Turmas, e Histórico. Editar empresa, Enviar relatório ao RH e Renovar contrato.",
+        "ficha"
+      ]
+    ],
+    "vai": ["alunoFicha.perfil", "curso.grade"]
+  },
+  "rpOcupacao": {
+    "tipo": "lista",
+    "mostra": "Cursos · cada horário da grade: curso, módulo ou turma, turma ou aluno, dias, horário, professor, sala, alunos, vagas e ocupação — os mais cheios primeiro. Filtro de qualidade do curso, como em Aulas por curso. Exporta CSV; a linha abre a grade do curso.",
+    "acoes": ["Filtrar por curso", "Filtro de qualidade", "Exportar CSV"],
+    "vai": ["curso.grade"]
+  },
+  "usuarios": {
+    "tipo": "lista",
+    "mostra": "Usuários com tipo de perfil e cargo, hierarquia e setores, MFA, último acesso e status.",
+    "acoes": ["Novo usuário", "Editar", "Exportar"],
+    "det": [
+      [
+        "usuarioForm",
+        "Novo usuário",
+        "Identidade, cargo (tipo de perfil, setor do cargo e hierarquia sugerida), hierarquia com as ações liberadas, setores — Total, Restrito ou sem acesso — e segurança.",
+        "form"
+      ]
+    ]
+  },
+  "perfis": {
+    "tipo": "matriz",
+    "mostra": "O modelo de acesso em quatro dimensões, os 11 perfis, os 5 níveis com as ações de cada um, a matriz de permissões por perfil, a matriz de acesso por área, as telas de cada área, os recortes do acesso restrito e as regras de governança.",
+    "acoes": ["Novo usuário"]
+  },
+  "sessoes": {
+    "tipo": "lista",
+    "mostra": "Sessões ativas com Encerrar, políticas de acesso que salvam ao clicar e o histórico de acesso filtrável por evento e resultado; encerrar vira \"logout forçado\" no histórico.",
+    "acoes": [
+      "Encerrar sessão",
+      "Encerrar todas as outras",
+      "Ligar e desligar política de acesso",
+      "Filtrar histórico por evento e resultado",
+      "Exportar"
+    ]
+  },
+  "colaboradores": {
+    "tipo": "lista",
+    "mostra": "Colaboradores (o time interno) com departamento, cargo e situação.",
+    "acoes": ["Novo colaborador", "Buscar", "Filtrar por cargo e Ativos/Inativos", "Editar", "Por página e páginas"]
+  },
+  "prestadores": {
+    "tipo": "lista",
+    "mostra": "Prestadores — todos os professores — com e-mail, cursos habilitados, aulas por semana na grade, teto semanal e situação. Busca por nome ou e-mail e filtro de situação; a linha abre a ficha do professor.",
+    "acoes": ["Novo prestador", "Buscar", "Filtrar por situação", "Abrir ficha"],
+    "vai": ["professorFicha.perfil"]
+  },
+  "departamentos": {
+    "tipo": "lista",
+    "mostra": "Departamentos com descrição, pessoas (lidas dos colaboradores) e status; criar, editar, inativar e excluir (só sem uso).",
+    "acoes": [
+      "Novo departamento",
+      "Buscar",
+      "Filtrar Ativos/Inativos",
+      "Editar, inativar e excluir",
+      "Por página e páginas"
+    ]
+  },
+  "cargos": {
+    "tipo": "lista",
+    "mostra": "Cargos com departamento, descrição, pessoas e status; criar, editar, inativar e excluir (só sem uso).",
+    "acoes": ["Novo cargo", "Buscar", "Filtrar Ativos/Inativos", "Editar, inativar e excluir", "Por página e páginas"]
+  },
+  "auditoria": {
+    "tipo": "lista",
+    "mostra": "Item do menu, só para o tipo de perfil Admin. O histórico de alterações, do mais recente ao mais antigo: quando, quem, entidade, o que mudou, registro e detalhe. Junta o que se muda no portal na sessão (fichas de alunos e professores, desativar, reativar, excluir e acessar como, em azul) com o histórico da base. Filtros de entidade e autor e busca funcionam; a linha de aluno ou professor abre o log da ficha.",
+    "acoes": ["Buscar", "Filtrar por entidade", "Filtrar por autor", "Abrir log da ficha"],
+    "vai": ["alunoFicha.log", "professorFicha.log"]
+  },
+  "politicas": {
+    "tipo": "form",
+    "mostra": "Parâmetros de crédito e promoção, cancelamento e falta, contrato e renovação, e automações.",
+    "acoes": ["Salvar políticas (com justificativa)", "Descartar"]
+  },
+  "dias": {
+    "tipo": "form",
+    "mostra": "Horário de funcionamento por dia da semana.",
+    "acoes": ["Ligar e desligar o dia", "Salvar (com justificativa)", "Descartar"]
+  },
+  "feriados": {
+    "tipo": "lista",
+    "mostra": "Feriados nacionais e recessos do ano escolhido, com o dia da semana e a origem. Novo recesso cria um dia por data do intervalo; Importar traz os feriados nacionais do ano (Carnaval, Sexta-feira Santa e Corpus Christi calculados pela Páscoa). A agenda não gera aula nesses dias; remover devolve as aulas.",
+    "acoes": ["Novo recesso", "Filtrar por ano", "Importar feriados nacionais do ano", "Remover"]
+  },
+  "salas": {
+    "tipo": "lista",
+    "mostra": "Salas com o que atendem (tipo de curso ou curso), tipo e link Zoom.",
+    "acoes": ["Nova sala", "Buscar", "Filtrar por tipo e Ativas/Inativas", "Editar", "Por página e páginas"]
+  },
+  "curriculo": {
+    "tipo": "lista",
+    "mostra": "Currículos de curso e acervos (Careers, Grammar Practice, Private for Business) em grupos, com versão, conteúdos e conteúdos sem link de In-class.",
+    "acoes": ["Novo currículo"],
+    "det": [
+      [
+        "curriculoEd",
+        "Edição do currículo",
+        "Versões e cada conteúdo com posição, título, formato, gramática, vocabulário e um link para cada momento: Pre-class, In-class e Post-class. Só Pedagógico e Acadêmico editam.",
+        "ficha"
+      ]
+    ]
+  },
+  "tiposcurso": {
+    "tipo": "lista",
+    "mostra": "Catálogo de tipos de curso — em grupo, particular, híbrido, turma dedicada.",
+    "acoes": ["Novo", "Buscar", "Filtrar Ativos/Inativos", "Editar, inativar e excluir", "Por página e páginas"]
+  },
+  "tiposala": {
+    "tipo": "lista",
+    "mostra": "Catálogo de tipos de sala — virtual, presencial, auditório.",
+    "acoes": ["Novo", "Buscar", "Filtrar Ativos/Inativos", "Editar, inativar e excluir", "Por página e páginas"]
+  },
+  "idiomas": {
+    "tipo": "lista",
+    "mostra": "Catálogo de idiomas dos cursos.",
+    "acoes": ["Novo", "Buscar", "Filtrar Ativos/Inativos", "Editar, inativar e excluir", "Por página e páginas"]
+  },
+  "skills": {
+    "tipo": "lista",
+    "mostra": "Catálogo de skills dos professores.",
+    "acoes": ["Novo", "Buscar", "Filtrar Ativos/Inativos", "Editar, inativar e excluir", "Por página e páginas"]
+  },
+  "generos": {
+    "tipo": "lista",
+    "mostra": "Catálogo de gêneros do cadastro de pessoas.",
+    "acoes": ["Novo", "Buscar", "Filtrar Ativos/Inativos", "Editar, inativar e excluir", "Por página e páginas"]
+  },
+  "responsaveis": {
+    "tipo": "lista",
+    "mostra": "Catálogo de responsáveis financeiros — empresa, particular, convênio, bolsa.",
+    "acoes": ["Novo", "Buscar", "Filtrar Ativos/Inativos", "Editar, inativar e excluir", "Por página e páginas"]
+  },
+  "alertas": {
+    "tipo": "lista",
+    "mostra": "Alertas padrão (ociosidade, fim de contrato, saldo baixo, aula sem professor) que se ligam e desligam, alertas personalizados com gatilho, limite, quem recebe e canal, e Executar rotinas agora, que conta na base quantos avisos cada alerta ligado geraria.",
+    "acoes": ["Novo alerta", "Ligar e desligar alerta", "Excluir alerta personalizado", "Executar agora"]
+  },
+  "admPainel": {
+    "tipo": "painel",
+    "mostra": "Regras no catálogo, regras por domínio, prontidão dos parâmetros e últimas alterações de regra.",
+    "acoes": ["Filtrar alterações por ação e autor", "Exportar"]
+  },
+  "execucoes": {
+    "tipo": "lista",
+    "mostra": "Log dos verbos do sistema com ator, alvo, resultado e crítica.",
+    "acoes": ["Filtrar por verbo e resultado", "Filtrar por período", "Buscar na crítica", "Abrir o payload", "Páginas"]
+  },
+  "docPersonas": {
+    "tipo": "lista",
+    "mostra": "As personas de teste com curso, módulo, objetivo, login, senha, nível e áreas — e o botão para entrar como cada uma.",
+    "acoes": ["Entrar como"]
+  },
+  "docDesign": {
+    "tipo": "lista",
+    "mostra": "A biblioteca de componentes do portal com exemplos vivos, as regras de interface que valem para todo ajuste e a análise pelas 10 heurísticas de Nielsen, com o que mudou em cada uma.",
+    "acoes": ["Trocar de aba", "Testar componente", "Mostrar toast", "Abrir confirmação"]
+  },
+  "docTelas": {
+    "tipo": "lista",
+    "mostra": "Todas as telas do portal por menu, abas das fichas inclusive: caminho, tipo, o que mostra, ações e para onde leva — com busca, filtros e as ilhas fora do menu.",
+    "acoes": ["Buscar", "Filtrar por menu", "Abrir tela"]
+  },
+  "alunoInicio": {
+    "tipo": "painel",
+    "mostra": "A entrada do aluno: saudação, matrículas ativas com modalidade e aulas usadas, aulas restantes e as aulas dos próximos 14 dias. É a única área que o aluno abre; o resto do portal cai em Sem acesso.",
+    "acoes": ["abrir minha agenda", "ver histórico de aulas"],
+    "vai": ["alunoAgenda", "alunoHistorico"]
+  },
+  "alunoAgenda": {
+    "tipo": "calendario",
+    "mostra": "A Agenda já filtrada no próprio aluno, com as mesmas quatro visões e a navegação por período.",
+    "acoes": ["hoje · ‹ ›", "Trocar visão"],
+    "sub": ["Mensal", "Semanal", "Diária", "Kanban"]
+  },
+  "alunoHistorico": {
+    "tipo": "lista",
+    "mostra": "Histórico de aulas do próprio aluno (entrou no lugar do Meu currículo em 15/09/2026): aulas no período, presenças, faltas, taxa de presença e canceladas, e cada aula com data, horário, aula, professor, estado e presença. Só consulta; o aluno não abre a edição do currículo nem a ficha do professor.",
+    "acoes": ["Filtrar por estado", "Trocar período"]
+  },
+  "usuarioForm": {
+    "tipo": "form",
+    "mostra": "Novo usuário e Editar usuário: identidade, cargo (tipo de perfil, setor do cargo e hierarquia sugerida), hierarquia com as ações liberadas, setores — Total, Restrito ou sem acesso, com as telas que cada uma libera — e segurança.",
+    "acoes": ["Criar e enviar convite", "Criar sem convite", "Cancelar"]
+  },
+  "curriculoEd": {
+    "tipo": "ficha",
+    "mostra": "Versões do currículo (publicada, rascunho e substituídas, cada uma com os seus conteúdos) e cada conteúdo com posição, título, formato, gramática, vocabulário e um link para cada momento da aula: Pre-class, In-class e Post-class. Admin e quem tem Acadêmico ou Pedagógico com acesso Total editam: toda mudança cai no rascunho, e as aulas só leem depois de Publicar.",
+    "acoes": [
+      "Voltar",
+      "Editar currículo (nome e onde é aplicado)",
+      "Duplicar currículo",
+      "Excluir currículo",
+      "Nova versão",
+      "Publicar",
+      "Descartar rascunho",
+      "Trocar de versão",
+      "Novo conteúdo (com posição)",
+      "Editar conteúdo",
+      "Editar links",
+      "Subir",
+      "Descer",
+      "Duplicar",
+      "Remover do rascunho"
+    ]
+  },
+  "login": {
+    "tipo": "form",
+    "mostra": "A tela de entrada: login e senha, com a lista das personas de teste ao lado — \"usar\" preenche os dois campos.",
+    "acoes": ["Entrar", "usar"]
+  },
+  "semAcesso": {
+    "tipo": "painel",
+    "mostra": "O aviso que toma o lugar da tela pedida quando ela está fora do acesso da pessoa — por link, rota antiga ou endereço digitado. Diz qual tela foi pedida e de onde vem o acesso.",
+    "acoes": ["Voltar ao início"]
+  },
+  "relatorio": {
+    "tipo": "lista",
+    "mostra": "Relatório por seletores: escolhe alunos, professores ou cursos — só as perspectivas que o acesso da pessoa abre —, filtra por curso e pelo filtro de qualidade da perspectiva, inclui ou tira colunas e exporta o CSV.",
+    "acoes": [
+      "Escolher perspectiva",
+      "Filtrar por curso",
+      "Filtro de qualidade",
+      "Incluir ou tirar colunas",
+      "Exportar CSV"
+    ]
+  }
+}
