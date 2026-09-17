@@ -49,11 +49,12 @@ jobs:
             apps/api/pnpm-lock.yaml
             apps/web/pnpm-lock.yaml
 
+      # --ignore-scripts: o CI usa o PostgreSQL do serviço acima, então não precisa baixar o embutido
       - name: Dependências
         run: |
-          pnpm install --frozen-lockfile
-          pnpm --dir apps/api install --frozen-lockfile
-          pnpm --dir apps/web install --frozen-lockfile
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm --dir apps/api install --frozen-lockfile --ignore-scripts
+          pnpm --dir apps/web install --frozen-lockfile --ignore-scripts
 
       - name: Formato e lint (Biome)
         run: pnpm lint
