@@ -1,6 +1,11 @@
 # Configuração do pnpm só deste app (o monorepo é por pastas, sem workspaces).
+# O PostgreSQL embutido baixa o binário da plataforma em que a instalação roda: Windows aqui, Linux no CI.
 allowBuilds:
   '@embedded-postgres/windows-x64': true
+  '@embedded-postgres/linux-x64': true
+  '@embedded-postgres/linux-arm64': true
+  '@embedded-postgres/darwin-arm64': true
+  '@embedded-postgres/darwin-x64': true
   '@prisma/engines': true
   esbuild: true
   prisma: true

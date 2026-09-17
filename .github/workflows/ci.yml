@@ -49,17 +49,16 @@ jobs:
             apps/api/pnpm-lock.yaml
             apps/web/pnpm-lock.yaml
 
-      # --ignore-scripts: o CI usa o PostgreSQL do serviço acima, então não precisa baixar o embutido
       - name: Dependências
         run: |
-          pnpm install --frozen-lockfile --ignore-scripts
-          pnpm --dir apps/api install --frozen-lockfile --ignore-scripts
-          pnpm --dir apps/web install --frozen-lockfile --ignore-scripts
+          pnpm install --frozen-lockfile
+          pnpm --dir apps/api install --frozen-lockfile
+          pnpm --dir apps/web install --frozen-lockfile
 
       - name: Formato e lint (Biome)
         run: pnpm lint
 
-      # com --ignore-scripts o cliente não nasce sozinho; o seed e os testes leem ele
+      # o seed e os testes leem o cliente gerado em apps/api/src/generated/prisma
       - name: Cliente do Prisma
         run: pnpm --dir apps/api db:generate
 
