@@ -11,6 +11,7 @@ export const ENTIDADE: Record<string, string> = {
   curriculo: 'Currículo',
   empresa: 'Empresa',
   curso: 'Curso',
+  eng: 'Engenharia',
   config: 'Configuração',
   acao: 'Ação',
 };

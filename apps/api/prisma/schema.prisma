@@ -519,3 +519,24 @@ model Configuracao {
   salvoEm DateTime @default(now()) @updatedAt
   por     String   @default("")
 }
+
+// ---------------------------------------------------------------- engenharia
+
+/// Análise de saúde de um repositório do GitHub (Engenharia › Repositórios): os 16 critérios e a nota
+model AnaliseRepo {
+  id      Int      @id @default(autoincrement())
+  dono    String
+  repo    String
+  quando  DateTime @default(now())
+  nota    Int
+  selo    String
+  tom     String
+  ok      Int
+  atencao Int
+  falha   Int
+  /// [{ k, t, d, peso, nivel, detalhe }]
+  itens   Json
+  por     String
+
+  @@index([dono, repo, quando])
+}

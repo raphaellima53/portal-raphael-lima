@@ -32,13 +32,18 @@ pnpm dev:web              # http://localhost:3000
 
 Entre com qualquer persona de teste da tela de login (botão **usar**) — por exemplo `admin@alumni.teste` / `alumni-admin`.
 
+O menu **Engenharia** é opcional e depende de chaves no `.env` da API, todas vazias por padrão:
+
+- `GITHUB_TOKEN` e `GITHUB_OWNER`: sem token, a lista de repositórios usa a API pública do GitHub (60 consultas por hora, só repositório público); com token, entram os privados.
+- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` e `GEMINI_API_KEY` (e os `*_MODEL`): cada provedor sem chave responde dizendo qual variável falta. As chaves ficam só na API e nunca chegam ao navegador.
+
 ## Verificação
 
 | Comando | O que confere |
 | --- | --- |
 | `pnpm lint` | Biome 2 no repositório inteiro |
 | `pnpm typecheck` | TypeScript 7 na API e no front |
-| `pnpm test` | testes da API (login, sessão, menu por persona, agenda, ações na aula com a hierarquia, eventos, Dashboard, alertas, cursos, regras e currículos com versões, alunos: ações por nível, matrículas, alocação, disponibilidade, feedbacks com anexo e Acessar como, empresas: Minhas contas, nova conta, renovar, relatório ao RH, vincular aluno, professores: habilitação com titular, cadastro, avaliação e Acessar como, ações: alocação, fechamento, funil, atendimentos e fluxos com kanban, auditoria, relatórios: recorte, qualidade, seletores por acesso e pagamento no financeiro, configurações: só Admin, novo e editar usuário com governança, bloqueio encerrando sessões, catálogos, feriados, políticas com justificativa, alertas e mapa de telas) |
+| `pnpm test` | testes da API (login, sessão, menu por persona, agenda, ações na aula com a hierarquia, eventos, Dashboard, alertas, cursos, regras e currículos com versões, alunos: ações por nível, matrículas, alocação, disponibilidade, feedbacks com anexo e Acessar como, empresas: Minhas contas, nova conta, renovar, relatório ao RH, vincular aluno, professores: habilitação com titular, cadastro, avaliação e Acessar como, ações: alocação, fechamento, funil, atendimentos e fluxos com kanban, auditoria, relatórios: recorte, qualidade, seletores por acesso e pagamento no financeiro, configurações: só Admin, novo e editar usuário com governança, bloqueio encerrando sessões, catálogos, feriados, políticas com justificativa, alertas e mapa de telas, engenharia: 16 critérios de saúde do repositório e os três provedores de IA) |
 | `node apps/web/scripts/e2e-base.mjs` | fluxo no navegador (Edge instalado): login, Personalizar, alertas, atalhos, sair |
 | `node apps/web/scripts/e2e-agenda.mjs` | Agenda no navegador: visões, filtros, popup e página da aula, presença, apresentação, eventos, layout salvo, aluno e Professora |
 | `node apps/web/scripts/e2e-cursos.mjs` | Cursos no navegador: catálogo, abas por setor, regras, novo e editar curso, currículo com rascunho e publicação, Professora sem acesso |
@@ -49,6 +54,7 @@ Entre com qualquer persona de teste da tela de login (botão **usar**) — por e
 | `node apps/web/scripts/e2e-auditoria.mjs` | Auditoria no navegador: histórico da base, alteração feita no portal com link para o log da ficha, busca e acesso só do Administrador |
 | `node apps/web/scripts/e2e-relatorios.mjs` | Relatórios no navegador: qualidade e CSV, agrupar por módulo, seletores com colunas e perspectivas, gráfico do financeiro abre o mês, registrar pagamento e acesso por setor |
 | `node apps/web/scripts/e2e-configuracoes.mjs` | Configurações no navegador: filtro de usuários e novo usuário a partir de uma pessoa, departamento criado/renomeado/excluído, importar feriados, salvar políticas com justificativa, política de sessão, executar alertas, mapa de telas e Entrar como persona |
+| `node apps/web/scripts/e2e-engenharia.mjs` | Engenharia no navegador (**usa a internet**): lista os repositórios de um dono no GitHub, clona e roda os 16 critérios, e mostra os provedores de IA sem chave |
 | `pnpm build` | build de produção da API e do front |
 
 ### Fidelidade ao portal
@@ -100,7 +106,7 @@ O caminho do HTML vem de `PORTAL_HTML` (padrão: `~/.claude/tools/portal-alumni/
 8. **Auditoria** — todas as alterações do portal junto com o histórico da base: quando (com segundos), quem, entidade, o que mudou, registro com link para o log da ficha e detalhe; busca e filtros de entidade e autor; só o Administrador. ✅
 9. **Relatórios** — Seletores (alunos, professores ou cursos, com colunas escolhidas e só as perspectivas do acesso); Presença por aluno, Consumo do pacote, Aulas por professor, Avaliação dos alunos, Aulas por curso (por curso ou por módulo) e Ocupação da grade, com curso, período, filtro de qualidade, resumo e CSV das mesmas linhas; Dashboard financeiro com receita, custo, margem e variação, gráfico de 6 meses (Recharts, clique abre o mês), por curso, por professor e cobranças com registrar pagamento. ✅
 10. **Configurações** — Pessoas e acessos (Usuários com filtros, ações em massa, novo e editar com prévia do acesso, governança do próprio acesso e do último administrador; Perfis e hierarquias; Sessões e acessos reais com encerrar, políticas e histórico de login; Colaboradores, Prestadores, Departamentos e Cargos), Regras de negócio (Condições e vigência e Dias e horários com justificativa; Feriados e recessos que tiram aula da agenda; Salas; Currículos e acervos; seis catálogos), Alertas (automáticos, Painel administrativo, Execuções do Relógio) e Documentação (Personas de teste com Entrar como, Mapa de telas e Design system). ✅
-11. Engenharia (menu próprio): repositórios do GitHub com 16 critérios de saúde e IA com Anthropic, OpenAI e Gemini
+11. **Engenharia** (menu próprio, só Admin) — GitHub › Repositórios: lista os repositórios de um usuário ou organização, clona o escolhido e roda os **16 critérios de saúde** (README, licença, descrição e tópicos, .gitignore, branch, lockfile, scripts, testes, CI, linter, tipagem, .env.example, segredo no código, atividade, arquivo pesado e guia de contribuição), com nota de 0 a 100 e histórico; IA › Provedores: Anthropic, OpenAI e Google Gemini chamados por fetch, com a mesma pergunta lado a lado e a explicação do que corrigir primeiro na análise. ✅
 
 Telas de etapas futuras abrem com o cabeçalho, as abas de seção e um aviso da etapa; quem não tem acesso vê **Sem acesso a esta tela**, como no portal.
 

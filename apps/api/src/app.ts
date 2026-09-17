@@ -14,6 +14,7 @@ import rotasConfigAcessos from './routes/config-acessos.ts';
 import rotasConfigRegras from './routes/config-regras.ts';
 import rotasCursos from './routes/cursos.ts';
 import rotasEmpresas from './routes/empresas.ts';
+import rotasEngenharia from './routes/engenharia.ts';
 import rotasInicio from './routes/inicio.ts';
 import rotasProfessores from './routes/professores.ts';
 import rotasRelatorios from './routes/relatorios.ts';
@@ -53,5 +54,6 @@ export async function montaApp() {
   await app.register(rotasRelatorios);
   await app.register(rotasConfigAcessos);
   await app.register(rotasConfigRegras);
+  await app.register(rotasEngenharia);
   return app;
 }

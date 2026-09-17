@@ -1,0 +1,71 @@
+# Confere o que dá para conferir sem navegador: formato, tipos, build e os testes da API contra um PostgreSQL 18.
+# Os testes no navegador (apps/web/scripts/e2e-*.mjs) e as conferências contra o portal continuam locais,
+# porque dependem do Edge instalado e do arquivo do portal.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      db:
+        image: postgres:18
+        env:
+          POSTGRES_USER: portal
+          POSTGRES_PASSWORD: portal
+          POSTGRES_DB: portal
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U portal -d portal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://portal:portal@localhost:5432/portal
+      COOKIE_SECRET: segredo-de-integracao-continua
+      TZ: America/Sao_Paulo
+      NEXT_PUBLIC_API_URL: http://localhost:3333
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.27.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            apps/api/pnpm-lock.yaml
+            apps/web/pnpm-lock.yaml
+
+      - name: Dependências
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --dir apps/api install --frozen-lockfile
+          pnpm --dir apps/web install --frozen-lockfile
+
+      - name: Formato e lint (Biome)
+        run: pnpm lint
+
+      - name: Banco (migrações e seed do portal)
+        run: pnpm db:setup
+
+      - name: Tipos
+        run: pnpm typecheck
+
+      - name: Build da API e do front
+        run: pnpm build
+
+      - name: Testes da API
+        run: pnpm test
