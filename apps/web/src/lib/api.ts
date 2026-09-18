@@ -1,5 +1,6 @@
-/** Fetch direto na API (apps/api), com o cookie de sessão. Sem Route Handlers no Next. */
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
+/** Fetch na API (apps/api) pelo rewrite /api do Next, com o cookie de sessão. Sem Route Handlers no Next.
+ *  NEXT_PUBLIC_API_URL só é preciso para falar com a API direto, sem o rewrite. */
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 
 export class ErroApi extends Error {
   constructor(
