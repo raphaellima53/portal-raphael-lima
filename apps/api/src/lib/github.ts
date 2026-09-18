@@ -4,6 +4,7 @@
  */
 import { execFile } from 'node:child_process';
 import { mkdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoMeta } from '../domain/engenharia.ts';
@@ -11,7 +12,8 @@ import { env } from '../env.ts';
 
 const exec = promisify(execFile);
 const API = 'https://api.github.com';
-export const PASTA_CLONES = join(process.cwd(), '.repos');
+/* na Vercel só /tmp é gravável */
+export const PASTA_CLONES = process.env.VERCEL ? join(tmpdir(), 'repos') : join(process.cwd(), '.repos');
 
 export class ErroGitHub extends Error {
   constructor(

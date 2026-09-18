@@ -37,19 +37,22 @@ O menu **Engenharia** é opcional e depende de chaves no `.env` da API, todas va
 - `GITHUB_TOKEN` e `GITHUB_OWNER`: sem token, a lista de repositórios usa a API pública do GitHub (60 consultas por hora, só repositório público); com token, entram os privados.
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` e `GEMINI_API_KEY` (e os `*_MODEL`): cada provedor sem chave responde dizendo qual variável falta. As chaves ficam só na API e nunca chegam ao navegador.
 
-## Publicar (Vercel + Railway + Supabase)
+## Publicar (Vercel + Supabase)
 
+Dois projetos na Vercel, os dois em São Paulo (`gru1`), e o banco na Supabase (`sa-east-1`).
 O front chama `/api/...` no próprio domínio e o Next repassa para a API (rewrite em `apps/web/next.config.ts`),
-então o cookie de sessão é do mesmo site. A API roda como servidor contínuo (cache da base, clone de repositórios, rate-limit).
+então o cookie de sessão é do mesmo site.
 
-1. **Supabase (banco)** — em *Connect*, copiar a URL do **Session pooler** (host `*.pooler.supabase.com`, porta 5432) e
-   acrescentar `?sslmode=require&uselibpqcompat=true`. Carregar uma vez, da máquina local:
-   `DATABASE_URL="<url>" pnpm db:setup` (migrações + seed).
-2. **Railway (API)** — novo serviço a partir do GitHub com **Root Directory `apps/api`**; o build usa o `Dockerfile` e o
-   `railway.json` (migrações antes de cada deploy, saúde em `/saude`). Variáveis: `DATABASE_URL`, `COOKIE_SECRET` (longo e aleatório),
-   `WEB_ORIGIN` (URL da Vercel) e, se quiser a Engenharia, `GITHUB_*` e as chaves de IA. Gerar o domínio público do serviço.
-3. **Vercel (front)** — **Root Directory `apps/web`** e a variável `API_ORIGIN` com a URL pública da API (sem barra no fim).
-   `apps/web/vercel.json` fixa a região em São Paulo (`gru1`) e instala com pnpm 11.
+1. **Supabase (banco)** — em *Connect*, as URLs do pooler com `?sslmode=require&uselibpqcompat=true` no fim.
+   Migrações e seed rodam da máquina local pelo **Session pooler** (porta 5432): `DATABASE_URL="<url>" pnpm db:setup`.
+2. **Vercel — API** (`apps/api`) — projeto com **Root Directory `apps/api`**. `apps/api/vercel.json` builda com pnpm 11 e
+   manda todas as rotas para a função `api/index.js`, que monta o Fastify de `dist/`. Variáveis: `DATABASE_URL` pelo
+   **Transaction pooler** (porta 6543, o indicado para serverless), `COOKIE_SECRET` (longo e aleatório), `NODE_ENV=production`
+   e, se quiser a Engenharia, `GITHUB_*` e as chaves de IA. Migrações novas: rodar `pnpm db:deploy` localmente antes do deploy.
+3. **Vercel — front** (`apps/web`) — projeto com **Root Directory `apps/web`** e `API_ORIGIN` com a URL de produção da API
+   (sem barra no fim).
+
+Na função serverless o cache da base (15 s) é por instância, e a análise de repositórios da Engenharia não roda (não há `git`).
 
 ## Verificação
 
