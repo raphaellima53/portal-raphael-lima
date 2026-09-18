@@ -17,12 +17,7 @@ const tecla = (f: () => void) => (e: React.KeyboardEvent) => {
 };
 
 const NumeroDia = ({ n, hoje }: { n: number; hoje: boolean }) => (
-  <span
-    className={cn(
-      'inline-grid min-w-7 place-items-center font-semibold',
-      hoje && 'size-8 rounded-full bg-azul font-bold text-white',
-    )}
-  >
+  <span className={cn('inline-grid min-w-7 place-items-center', hoje && 'size-8 rounded-full bg-azul text-white')}>
     {n}
   </span>
 );
@@ -98,7 +93,7 @@ export function Mensal({ d, abre }: { d: AgendaResp; abre: Abre }) {
                     className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded-[6px] px-2 py-0.5 text-left text-white hover:brightness-110"
                     style={{ background: x.aula!.cor }}
                   >
-                    <b className="shrink-0">{hh(x.aula!.hora)}</b>
+                    <span className="shrink-0">{hh(x.aula!.hora)}</span>
                     <span className="truncate">{x.aula!.rotulo}</span>
                   </button>
                 ),
@@ -126,7 +121,7 @@ function ChipEvento({ e, abre }: { e: EventoItem; abre: Abre }) {
       className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded-[6px] border border-borda-forte bg-card px-2 py-0.5 text-left text-texto shadow-el-1 hover:shadow-el-2"
     >
       <i className="size-2 shrink-0 rounded-[2px] bg-texto" />
-      <b className="shrink-0">{e.ini}</b>
+      <span className="shrink-0">{e.ini}</span>
       <span className="truncate">{e.titulo}</span>
     </button>
   );
@@ -149,9 +144,9 @@ export function Semanal({ d, abre }: { d: AgendaResp; abre: Abre }) {
             )}
           >
             <div>{dia.rot}</div>
-            <b className="text-texto">
+            <span className="text-texto">
               <NumeroDia n={dia.dia} hoje={dia.hoje} />
-            </b>
+            </span>
             {dia.feriado && <small className="block text-sm">feriado</small>}
           </div>
         ))}
@@ -192,10 +187,10 @@ function Linha({ h, dias, d, abre }: { h: number; dias: NonNullable<AgendaResp['
                   onClick={() => abre.evento(x.ev!.id)}
                   className="min-w-0 cursor-pointer rounded-[6px] border border-borda-forte bg-card px-2 py-1 text-left shadow-el-1 hover:shadow-el-2"
                 >
-                  <b className="flex items-center gap-1.5 truncate">
+                  <span className="flex items-center gap-1.5 truncate">
                     <i className="size-2 shrink-0 rounded-[2px] bg-texto" />
                     <span className="truncate">{x.ev!.titulo}</span>
-                  </b>
+                  </span>
                   <span className="block truncate text-apagado">
                     {x.ev!.ini}–{x.ev!.fim} · {x.ev!.nPart} {x.ev!.nPart === 1 ? 'pessoa' : 'pessoas'}
                   </span>
@@ -231,14 +226,14 @@ function BlocoAula({ a, abre, mini }: { a: AulaItem; abre: Abre; mini?: boolean 
     >
       {mini ? (
         <>
-          <b className="block truncate">{a.rotulo}</b>
+          <span className="block truncate">{a.rotulo}</span>
           <span className="block truncate opacity-90">
             {a.quem} · {a.n}/{a.vagas}
           </span>
         </>
       ) : (
         <>
-          <b className="block">{a.rotulo}</b>
+          <span className="block">{a.rotulo}</span>
           <span className="block opacity-90">
             {hh(a.hora)} · {a.quem} ·{' '}
             {a.prof === '—' ? <span className="opacity-80">professor a definir</span> : a.prof}
@@ -296,7 +291,7 @@ export function Diaria({ d, abre }: { d: AgendaResp; abre: Abre }) {
                   onClick={() => abre.evento(e.id)}
                   className="min-w-0 flex-[1_1_300px] cursor-pointer rounded-md border border-borda-forte bg-card px-3 py-2 text-left shadow-el-1 hover:shadow-el-2"
                 >
-                  <b>{e.titulo}</b> <Badge tom={e.tipo === 'Reunião' ? 'blue' : 'purple'}>{e.tipo}</Badge>
+                  <span>{e.titulo}</span> <Badge tom={e.tipo === 'Reunião' ? 'blue' : 'purple'}>{e.tipo}</Badge>
                   <span className="block text-apagado">
                     {e.ini}–{e.fim} · {e.pessoas}
                   </span>
@@ -325,10 +320,10 @@ export function Kanban({ d, abre }: { d: AgendaResp; abre: Abre }) {
           aria-label={c.rot}
           className="flex w-[184px] shrink-0 flex-col gap-2 rounded-lg bg-[#e6eaf2] p-2.5 dark:bg-hover"
         >
-          <div className="flex items-start gap-2 font-bold text-texto">
+          <div className="flex items-start gap-2 text-texto">
             <i className="mt-[7px] size-2 shrink-0 rounded-full" style={{ background: c.cor }} />
             <span className="flex-1">{c.rot}</span>
-            <span className="rounded-full bg-card px-2 text-sm font-bold text-texto-2">{c.aulas.length}</span>
+            <span className="rounded-full bg-card px-2 text-sm text-texto-2">{c.aulas.length}</span>
           </div>
           <p className="leading-[1.4] text-apagado">{c.desc}</p>
           {c.aulas.length ? (
@@ -343,7 +338,7 @@ export function Kanban({ d, abre }: { d: AgendaResp; abre: Abre }) {
                   <i className="mt-[7px] size-2 shrink-0 rounded-full" style={{ background: a.cor }} />
                   <span>{a.quando}</span>
                 </div>
-                <b className="block text-texto">{a.rotulo}</b>
+                <span className="block text-texto">{a.rotulo}</span>
                 <span className="block text-apagado">
                   {a.mod && !/^Turma /.test(a.mod) ? `${a.prod} · ` : ''}
                   {a.quem}
