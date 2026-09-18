@@ -3,7 +3,7 @@
   "framework": null,
   "regions": ["gru1"],
   "installCommand": "npx --yes pnpm@11.27.0 install --frozen-lockfile",
-  "buildCommand": "npx --yes pnpm@11.27.0 run build && mkdir -p public",
+  "buildCommand": "npx --yes pnpm@11.27.0 run build",
   "outputDirectory": "public",
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
 }
