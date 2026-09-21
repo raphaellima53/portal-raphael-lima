@@ -169,7 +169,7 @@ await passo('menu da linha: desativar e reativar, e Acessar como volta ao portal
   await pg.getByText('Camila Duarte reativado como Ativo.').waitFor();
   await pg.getByRole('button', { name: 'Ações de Camila Duarte' }).click();
   await pg.getByRole('menuitem', { name: 'Acessar como' }).click();
-  await pg.waitForURL(/\/minha-area/);
+  await pg.waitForURL(/\/minha-agenda/);
   await pg.getByText(/Você está vendo o portal como/).waitFor();
   await pg.getByRole('button', { name: 'Voltar ao portal' }).click();
   await pg.waitForURL(/\/alunos$/);

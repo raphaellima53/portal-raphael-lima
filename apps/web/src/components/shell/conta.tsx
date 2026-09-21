@@ -30,7 +30,6 @@ export function Conta({ me, mini }: { me: Me; mini: boolean }) {
   const u = me.usuario;
   const router = useRouter();
   const sair = useLogout();
-  const [perfil, setPerfil] = useState(false);
   const [senha, setSenha] = useState(false);
   const daConta = me.nav.filter((n) => n.lugar === 'conta');
 
@@ -73,9 +72,12 @@ export function Conta({ me, mini }: { me: Me; mini: boolean }) {
             </span>
           </div>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setPerfil(true)}>
-            <UserRoundIcon /> Meu perfil
-          </DropdownMenuItem>
+          {/* Meu perfil é a página do Painel; aluno e professor já o têm no menu */}
+          {!me.nav.some((n) => n.key === 'meuPerfil') && (
+            <DropdownMenuItem onSelect={() => router.push('/meu-perfil')}>
+              <UserRoundIcon /> Meu perfil
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={() => setSenha(true)}>
             <KeyRoundIcon /> Trocar senha
           </DropdownMenuItem>
@@ -101,48 +103,8 @@ export function Conta({ me, mini }: { me: Me; mini: boolean }) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <MeuPerfil me={me} aberto={perfil} setAberto={setPerfil} />
       <TrocarSenha aberto={senha} setAberto={setSenha} />
     </>
-  );
-}
-
-function MeuPerfil({ me, aberto, setAberto }: { me: Me; aberto: boolean; setAberto: (v: boolean) => void }) {
-  const u = me.usuario;
-  const linhas: [string, string][] = [
-    ['Nome', u.nome],
-    ['Login', u.email],
-    ['Perfil', u.perfil],
-    ['Hierarquia', u.nivelNome],
-    ['Acesso', u.resumo],
-  ];
-  return (
-    <Dialog open={aberto} onOpenChange={setAberto}>
-      <DialogContent tamanho="sm">
-        <DialogHead
-          titulo="Meu perfil"
-          descricao="O acesso vem da hierarquia e dos setores do seu cadastro, em Usuários."
-        />
-        <DialogBody>
-          <dl className="grid gap-3">
-            {linhas.map(([k, v]) => (
-              <div
-                key={k}
-                className="grid grid-cols-[120px_1fr] gap-3 border-b border-borda-suave pb-3 last:border-0 last:pb-0"
-              >
-                <dt className="text-apagado">{k}</dt>
-                <dd className="font-medium text-texto">{v}</dd>
-              </div>
-            ))}
-          </dl>
-        </DialogBody>
-        <DialogFoot>
-          <Button variant="primary" onClick={() => setAberto(false)}>
-            Fechar
-          </Button>
-        </DialogFoot>
-      </DialogContent>
-    </Dialog>
   );
 }
 

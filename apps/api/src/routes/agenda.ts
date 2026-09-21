@@ -75,6 +75,7 @@ async function contexto(u: UsuarioSessao, minha: boolean): Promise<Contexto> {
     soAluno,
     alunoNome: soAluno ? (al?.name ?? null) : null,
     cursosDoAluno: al ? [...new Set(alMat(al).map((e) => e.curso))] : [],
+    modulosDoAluno: al ? [...new Set(alMat(al).flatMap((e) => (e.modulo ? [`${e.curso} · ${e.modulo}`] : [])))] : [],
     cursosDoProf: u.tipoPerfil === 'Prestador' ? (prof?.cursos ?? []) : null,
     presa: soAluno ? null : u.agendaPresa,
   };

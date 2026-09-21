@@ -35,7 +35,7 @@ await passo('"usar" da persona F entra direto e volta para a tela pedida', async
   await pg.waitForURL(/\/inicio$/);
   await pg.getByRole('heading', { name: 'Dashboard' }).waitFor();
   const menu = await pg.locator('nav[aria-label="Menu principal"] a').allInnerTexts();
-  assert.deepEqual(menu, ['Início', 'Agenda', 'Usuários', 'Produtos e serviços', 'Atividades']);
+  assert.deepEqual(menu, ['Agenda', 'Usuários', 'Produtos e serviços', 'Atividades']);
 });
 
 await passo('Personalizar: desmarcar um grupo e salvar muda os blocos', async () => {

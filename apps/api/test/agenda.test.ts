@@ -64,7 +64,10 @@ describe('visões e filtros', () => {
     assert.equal(d.vista, 'mensal');
     assert.equal(d.filtros.aluno, 'Breno Carvalho');
     assert.equal(d.filtros.prof, '');
-    assert.deepEqual(d.opcoes, { soAluno: true, cursosDoAluno: [] });
+    /* pirâmide do aluno: filtros Produtos e Módulos, só com os dele */
+    assert.equal(d.opcoes.soAluno, true);
+    assert.deepEqual(d.opcoes.cursosDoAluno, ['Community live classes']);
+    assert.ok(d.opcoes.modulosDoAluno.every((m: string) => m.startsWith('Community live classes · ')));
     assert.equal(d.podeCriarEvento, false);
   });
 

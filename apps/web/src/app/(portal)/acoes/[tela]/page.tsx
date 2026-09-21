@@ -8,6 +8,7 @@ import { TelaAtendimentos } from '@/components/acoes/atendimentos';
 import { TelaFechamento } from '@/components/acoes/fechamento';
 import { TelaFluxo } from '@/components/acoes/fluxo';
 import { TelaFunil } from '@/components/acoes/funil';
+import { TelaSetores } from '@/components/acoes/setores';
 import { Aviso, PageHead } from '@/components/ds';
 import { SecaoAbas } from '@/components/secao-abas';
 import { itemDoCaminho } from '@/components/shell/sidebar';
@@ -25,7 +26,7 @@ const FLUXOS = [
   'acRetencao',
 ];
 
-/** Ações: uma aba por departamento; cada tela abre só para quem tem o setor */
+/** Atividades: o painel de cartões por setor e uma aba por setor; cada tela abre só para quem tem o setor */
 export default function AcoesPage() {
   const { tela } = useParams<{ tela: string }>();
   const caminho = usePathname();
@@ -58,6 +59,7 @@ export default function AcoesPage() {
   const abas = <SecaoAbas item={item} tela={tela} />;
   return (
     <Suspense>
+      {tela === 'atividades' && <TelaSetores item={item} abas={abas} />}
       {tela === 'acAlocacao' && <TelaAlocacao abas={abas} />}
       {tela === 'acFechamento' && <TelaFechamento abas={abas} />}
       {tela === 'acFunil' && <TelaFunil abas={abas} />}

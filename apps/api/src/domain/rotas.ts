@@ -5,6 +5,7 @@
 const SECAO: Record<string, string> = {};
 const MENU_DAS_TELAS: Record<string, string[]> = {
   acoes: [
+    'atividades',
     'acAlocacao',
     'acSubstituicao',
     'acNivel',
@@ -69,10 +70,12 @@ const DIRETAS: Record<string, string> = {
   /* Equipe: professores e colaboradores numa lista só (21/09/2026); a ficha continua em /professores/:id */
   professores: '/equipe',
   auditoria: '/auditoria',
-  alunoInicio: '/minha-area',
+  /* a Minha área virou o Meu perfil (21/09/2026) */
+  alunoInicio: '/meu-perfil',
   alunoAgenda: '/minha-agenda',
   alunoHistorico: '/historico-de-aulas',
   centralAjuda: '/central-de-ajuda',
+  meuPerfil: '/meu-perfil',
 };
 
 type Params = Record<string, string | number | null | undefined>;

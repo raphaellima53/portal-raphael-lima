@@ -116,6 +116,8 @@ export type Contexto = {
   soAluno: boolean;
   alunoNome: string | null;
   cursosDoAluno: string[];
+  /** módulos das matrículas do aluno ("Curso · Módulo") para o filtro Módulos */
+  modulosDoAluno: string[];
   /** Prestador: filtro de produtos com os cursos em que dá aula */
   cursosDoProf: string[] | null;
   presa: Record<string, string> | null;
@@ -278,7 +280,13 @@ export function intervalo(r: Date, p: string): [Date, Date] {
 
 /** opções dos filtros do cabeçalho */
 export function opcoesFiltros(b: Base, f: Filtros, c: Contexto) {
-  if (c.soAluno) return { soAluno: true, cursosDoAluno: c.cursosDoAluno.length > 1 ? c.cursosDoAluno : [] };
+  /* pirâmide do aluno: filtros Produtos e Módulos, sempre com os dele */
+  if (c.soAluno)
+    return {
+      soAluno: true,
+      cursosDoAluno: c.cursosDoAluno,
+      modulosDoAluno: c.modulosDoAluno.filter((m) => !f.prod || m.startsWith(`${f.prod} · `)),
+    };
   const ativos = b.cursos.filter((x) => x.active !== false && (!c.cursosDoProf || c.cursosDoProf.includes(x.name)));
   const ps = evPessoas(b);
   return {

@@ -196,7 +196,7 @@ await passo('aluno: Minha agenda sem Kanban, sem Novo evento e presa nas própri
   );
 });
 await passo('aluno: histórico de aulas com presença', async () => {
-  await aluno.getByRole('link', { name: 'Histórico', exact: true }).click();
+  await aluno.getByRole('link', { name: 'Histórico de aulas', exact: true }).click();
   await aluno.getByText('de presença').waitFor();
   await aluno.getByRole('radio', { name: /Executadas/ }).click();
 });

@@ -120,30 +120,42 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
   const o = d?.opcoes;
   const presaProf = o && !o.soAluno ? o.presa?.prof : undefined;
 
+  /* pirâmide do aluno: filtros Produtos e Módulos, com os cursos e módulos dele */
   const filtrosUi = !o ? null : o.soAluno ? (
-    o.cursosDoAluno.length > 1 ? (
+    <>
       <Escolha
-        rotulo="Todos os meus cursos"
-        todos="Todos os meus cursos"
+        rotulo="Todos os meus produtos"
+        todos="Todos os meus produtos"
         valor={filtros.prod}
-        aoMudar={(v) => vai({ prod: v })}
+        aoMudar={(v) => vai({ prod: v, mod: undefined })}
         opcoes={o.cursosDoAluno.map((c) => ({ v: c, l: c }))}
         className="w-[220px]"
       />
-    ) : null
+      <Escolha
+        rotulo="Todos os meus módulos"
+        todos="Todos os meus módulos"
+        valor={filtros.mod}
+        aoMudar={(v) => vai({ mod: v })}
+        opcoes={o.modulosDoAluno.map((m) => ({ v: m, l: m }))}
+        className="w-[240px]"
+      />
+    </>
   ) : (
     <>
-      <Escolha
-        rotulo="Aulas e eventos"
-        valor={filtros.tipo}
-        todos="Aulas e eventos"
-        aoMudar={(v) => vai({ tipo: v })}
-        opcoes={[
-          { v: 'aulas', l: 'Só aulas' },
-          { v: 'eventos', l: 'Só eventos e reuniões' },
-        ]}
-        className="w-[172px]"
-      />
+      {/* pirâmide do professor: Alunos, Usuários, Produtos e Módulos (sem Aulas e eventos) */}
+      {!presaProf && (
+        <Escolha
+          rotulo="Aulas e eventos"
+          valor={filtros.tipo}
+          todos="Aulas e eventos"
+          aoMudar={(v) => vai({ tipo: v })}
+          opcoes={[
+            { v: 'aulas', l: 'Só aulas' },
+            { v: 'eventos', l: 'Só eventos e reuniões' },
+          ]}
+          className="w-[172px]"
+        />
+      )}
       <Escolha
         rotulo="Todos os alunos"
         todos="Todos os alunos"

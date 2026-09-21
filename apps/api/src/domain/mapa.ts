@@ -502,6 +502,11 @@ const sec = (t: string, ...telas: (string | TelaNav)[]) => ({
   telas: telas.map((x) => (typeof x === 'string' ? { tela: x } : x)),
 });
 
+/*
+ * Pirâmides de 21/09/2026: Operação (A Agenda · B Usuários · C Produtos e serviços · D Atividades · E Auditoria · F Configurações),
+ * Professor e Aluno (A Agenda · B Histórico de aulas · C Meu perfil). O Início sai do menu (fica no logo);
+ * a Central de ajuda, o Meu perfil e o Trocar senha ficam no rodapé.
+ */
 export const NAV_EQUIPE: ItemDef[] = [
   { id: 'agenda', nome: 'Agenda', icon: 'cal', secoes: [sec('Agenda', 'agenda')] },
   {
@@ -519,14 +524,19 @@ export const NAV_EQUIPE: ItemDef[] = [
     id: 'produtos',
     nome: 'Produtos e serviços',
     icon: 'bookOpen',
-    secoes: [sec('Cursos', { tela: 'cursos', label: 'Catálogo' }, 'curriculo'), sec('Serviços', 'servicos')],
+    secoes: [
+      sec('Cursos', { tela: 'cursos', label: 'Catálogo' }),
+      sec('Materiais', { tela: 'curriculo', label: 'Currículos e acervos' }),
+      sec('Serviços', 'servicos'),
+    ],
   },
   {
     id: 'acoes',
-    /* Ações virou Atividades (21/09/2026) */
+    /* Ações virou Atividades (21/09/2026); a primeira aba é o painel de cartões por setor */
     nome: 'Atividades',
     icon: 'zap',
     secoes: [
+      sec('Setores', 'atividades'),
       sec('Pedagógico', 'acAlocacao', 'acSubstituicao'),
       sec('Acadêmico', 'acNivel', 'acReposicao'),
       sec('Administrativo', 'acAdmissao'),
@@ -544,15 +554,21 @@ export const NAV_EQUIPE: ItemDef[] = [
         { tela: 'rpAulas', pai: 'Cursos' },
         { tela: 'rpOcupacao', pai: 'Cursos' },
       ),
-      sec('Auditoria', { tela: 'auditoria', label: 'Histórico de alterações' }),
     ],
+  },
+  /* Auditoria e Configurações voltam ao menu lateral, só para o Admin (a regra de acesso já é essa) */
+  {
+    id: 'auditoria',
+    nome: 'Auditoria',
+    icon: 'shield',
+    secoes: [sec('Auditoria', { tela: 'auditoria', label: 'Histórico de alterações' })],
   },
   {
     id: 'config',
     nome: 'Configurações',
     icon: 'sliders',
-    lugar: 'conta',
     secoes: [
+      sec('Painel', { tela: 'admPainel', label: 'Painel administrativo' }),
       /* a gestão de cada acesso fica na ficha da pessoa; aqui, a visão de todas as contas, perfis e sessões */
       sec('Acessos', { tela: 'usuarios', label: 'Contas de acesso' }, 'perfis', 'sessoes'),
       sec(
@@ -566,7 +582,7 @@ export const NAV_EQUIPE: ItemDef[] = [
           pai: 'Catálogos',
         })),
       ),
-      sec('Alertas', 'alertas', 'admPainel', 'execucoes'),
+      sec('Alertas', 'alertas', 'execucoes'),
       sec('Documentação', 'docPersonas', 'docTelas', 'docDesign'),
     ],
   },
@@ -588,44 +604,35 @@ const direto = (key: string, label: string, icon: string, tela: string): ItemNav
   href: hrefTela(tela),
 });
 
+/** A Agenda · B Histórico de aulas · C Meu perfil (a área do aluno, e a do professor) */
+const agendaAluno = () => direto('alunoAgenda', 'Agenda', 'cal', 'alunoAgenda');
+const historico = () => direto('alunoHistorico', 'Histórico de aulas', 'report', 'alunoHistorico');
+const meuPerfil = () => direto('meuPerfil', 'Meu perfil', 'user', 'meuPerfil');
+
 /** a visão de aluno de quem também estuda: a mesma área do aluno, com o próprio aluno vinculado */
 const visaoAluno = (): ItemNav[] => [
-  { ...direto('vAlunoAgenda', 'Agenda', 'cal', 'alunoAgenda'), visao: 'aluno' },
-  {
-    ...direto('vAlunoHistorico', 'Histórico', 'report', 'alunoHistorico'),
-    href: '/historico-de-aulas?visao=aluno',
-    visao: 'aluno',
-  },
-  {
-    ...direto('vAlunoAjuda', 'Central de ajuda', 'help', 'centralAjuda'),
-    href: '/central-de-ajuda?visao=aluno',
-    visao: 'aluno',
-  },
+  { ...agendaAluno(), key: 'vAlunoAgenda', visao: 'aluno' },
+  { ...historico(), key: 'vAlunoHistorico', href: '/historico-de-aulas?visao=aluno', visao: 'aluno' },
+  { ...meuPerfil(), key: 'vAlunoPerfil', href: '/meu-perfil?visao=aluno', visao: 'aluno' },
 ];
 
 /** Menu lateral da pessoa (itens com lugar 'conta' aparecem no menu da conta; visao 'aluno' atrás do botão Aluno). */
 export function navDe(p: Pessoa & { temAluno: boolean }): ItemNav[] {
-  const ajuda = direto('centralAjuda', 'Central de ajuda', 'help', 'centralAjuda');
-  if (p.ehAluno)
-    return [
-      direto('alunoAgenda', 'Agenda', 'cal', 'alunoAgenda'),
-      direto('alunoHistorico', 'Histórico', 'report', 'alunoHistorico'),
-      ajuda,
-    ];
+  if (p.ehAluno) return [agendaAluno(), historico(), meuPerfil()];
   if (p.tipoPerfil === 'Prestador')
     return [
       direto('agenda', 'Agenda', 'cal', 'agenda'),
-      direto('historico', 'Histórico', 'report', 'alunoHistorico'),
-      ajuda,
+      { ...historico(), key: 'historico' },
+      meuPerfil(),
       ...(p.temAluno ? visaoAluno() : []),
     ];
-  const out: ItemNav[] = [direto('inicio', 'Início', 'home', 'dashboard')];
-  out[0].folha = 'inicio';
+  const out: ItemNav[] = [];
   for (const m of NAV_EQUIPE) {
     const secoes = m.secoes
       .map((sec) => ({
         etapa: sec.t,
         telas: sec.telas.flatMap((x) => {
+          if (x.tela === 'atividades') return [];
           const f = TELAS_MAPA.find((n) => n.tela === x.tela && !n.aba);
           const nova = TELAS_NOVAS[x.tela];
           const chave = f?.chave ?? nova?.chave;
@@ -643,7 +650,16 @@ export function navDe(p: Pessoa & { temAluno: boolean }): ItemNav[] {
       }))
       .filter((sec) => sec.telas.length);
     if (!secoes.length) continue;
+    /* Atividades abre no painel de cartões dos setores que a pessoa vê */
+    if (m.id === 'acoes')
+      secoes.unshift({
+        etapa: 'Setores',
+        telas: [
+          { id: 'acoes-atividades', tela: 'atividades', label: 'Setores', pai: null, href: hrefTela('atividades') },
+        ],
+      });
     const f = secoes[0].telas[0];
+    const umaTela = secoes.length === 1 && secoes[0].telas.length === 1;
     out.push({
       key: m.id,
       label: m.nome,
@@ -653,8 +669,8 @@ export function navDe(p: Pessoa & { temAluno: boolean }): ItemNav[] {
       href: f.href,
       ...(m.lugar ? { lugar: m.lugar } : {}),
       ...(m.prefixos ? { prefixos: m.prefixos } : {}),
-      /* a Agenda é uma tela só: sem abas */
-      ...(m.id === 'agenda' ? {} : { secoes }),
+      /* menu de uma tela só (Agenda, Auditoria): sem abas */
+      ...(umaTela ? {} : { secoes }),
     });
   }
   if (p.temAluno) out.push(...visaoAluno());

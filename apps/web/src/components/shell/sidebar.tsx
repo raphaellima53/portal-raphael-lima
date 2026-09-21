@@ -36,13 +36,13 @@ export function itemDoCaminho(nav: ItemNav[], caminho: string): ItemNav | undefi
 }
 
 /** tela inicial de quem entra: aluno na Minha área, professor na Agenda, equipe no Início */
+/** tela inicial de quem entra: aluno e professor na Agenda (item A da pirâmide); a equipe no Dashboard, que fica no logo */
 export const inicioDe = (u: Me['usuario']) =>
-  u.ehAluno ? '/minha-area' : u.tipoPerfil === 'Prestador' ? '/agenda' : '/inicio';
+  u.ehAluno ? '/minha-agenda' : u.tipoPerfil === 'Prestador' ? '/agenda' : '/inicio';
 
 export function Sidebar({ me, mini }: { me: Me; mini: boolean }) {
   const caminho = usePathname();
   const alternaMini = useUI((s) => s.alternaMini);
-  const setAjuda = useUI((s) => s.setAjuda);
   const setGaveta = useUI((s) => s.setGaveta);
   const ehAluno = me.usuario.ehAluno;
   const router = useRouter();
@@ -68,7 +68,6 @@ export function Sidebar({ me, mini }: { me: Me; mini: boolean }) {
   };
   const voltaRot = me.usuario.tipoPerfil === 'Prestador' ? 'Professor' : 'Equipe';
   /* aluno e professor têm a Central de ajuda na lista; o botão do rodapé fica só para a equipe */
-  const temCentral = lista.some((n) => n.key === 'centralAjuda' || n.key === 'vAlunoAjuda');
   const ativo = itemDoCaminho(lista, caminho);
 
   return (
@@ -119,15 +118,17 @@ export function Sidebar({ me, mini }: { me: Me; mini: boolean }) {
           onClick={alternaMini}
           className="max-lg:hidden"
         />
-        {!temCentral && (
-          <BotaoBarra
-            icone={CircleHelpIcon}
-            texto="Ajuda e atalhos"
-            mini={mini}
-            aria-haspopup="dialog"
-            onClick={() => setAjuda(true)}
-          />
-        )}
+        {/* Central de ajuda no rodapé de todos (pirâmides de 21/09/2026); a tecla ? continua abrindo os atalhos */}
+        <BotaoBarra
+          icone={CircleHelpIcon}
+          texto="Central de ajuda"
+          mini={mini}
+          aria-current={caminho === '/central-de-ajuda' ? 'page' : undefined}
+          onClick={() => {
+            setGaveta(false);
+            router.push(visao === 'aluno' ? '/central-de-ajuda?visao=aluno' : '/central-de-ajuda');
+          }}
+        />
         {temVisaoAluno && (
           <BotaoBarra
             icone={visao === 'aluno' ? BriefcaseIcon : GraduationCapIcon}

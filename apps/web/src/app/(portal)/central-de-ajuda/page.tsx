@@ -50,6 +50,26 @@ const PROFESSOR: Pergunta[] = [
 ];
 
 /* atalhos que valem para quem só tem Agenda, Histórico e Central de ajuda */
+/* a equipe (pirâmide de Operação): onde fica cada coisa no menu */
+const EQUIPE: Pergunta[] = [
+  [
+    'Onde fica cada coisa no menu?',
+    'Agenda: aulas e eventos. Usuários: alunos, equipe e empresas. Produtos e serviços: cursos, materiais e serviços. Atividades: o trabalho de cada setor e os relatórios. Auditoria e Configurações aparecem só para o Admin.',
+  ],
+  [
+    'Onde está o Dashboard?',
+    'No logo, no alto do menu. Os blocos se escolhem em Personalizar e ficam salvos para você.',
+  ],
+  [
+    'Como dou acesso ao portal para alguém?',
+    'Abra a ficha da pessoa (aluno ou professor) na aba Acesso, ou o cadastro do colaborador em Equipe, e use Criar acesso. Só o Admin vê essa aba.',
+  ],
+  [
+    'Também sou aluno. Onde vejo as minhas aulas?',
+    'Use o botão Aluno, no rodapé do menu: ele mostra a sua Agenda, o Histórico de aulas e o Meu perfil como aluno.',
+  ],
+];
+
 const TECLAS = ['/', '?', 'g depois a', '[', 'Esc', 'Alt + ↓', '← → na aba'];
 
 export default function CentralPage() {
@@ -69,7 +89,8 @@ function CentralDeAjuda() {
   }, []);
   if (!me.data) return null;
   const u = me.data.usuario;
-  const perguntas = u.tipoPerfil === 'Prestador' && !comoAluno ? PROFESSOR : ALUNO;
+  const perguntas = u.ehAluno || comoAluno ? ALUNO : u.tipoPerfil === 'Prestador' ? PROFESSOR : EQUIPE;
+  const equipe = perguntas === EQUIPE;
 
   return (
     <>
@@ -101,7 +122,7 @@ function CentralDeAjuda() {
             <CardTitle>Atalhos de teclado</CardTitle>
           </CardHead>
           <div className="p-5">
-            <TabelaAtalhos teclas={TECLAS} />
+            <TabelaAtalhos teclas={equipe ? undefined : TECLAS} />
           </div>
         </Card>
       </div>

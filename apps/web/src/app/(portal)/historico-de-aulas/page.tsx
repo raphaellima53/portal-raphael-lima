@@ -1,5 +1,6 @@
 'use client';
 
+import { SearchIcon } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { PRESENCA } from '@/components/agenda/aula-comum';
@@ -8,10 +9,17 @@ import { Escolha } from '@/components/escolha';
 import { usePaginacao } from '@/components/paginacao';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import { type Historico, useHistoricoAulas } from '@/lib/agenda';
 import { corLegivel } from '@/lib/cor';
 import { cn } from '@/lib/utils';
+
+const norm = (s: string) =>
+  (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
 
 const CHIPS: [string, string][] = [
   ['', 'Todas'],
@@ -33,10 +41,17 @@ export default function HistoricoPage() {
 function HistoricoDeAulas() {
   const [dias, setDias] = useState(60);
   const [est, setEst] = useState('');
+  const [busca, setBusca] = useState('');
+  const [prod, setProd] = useState('');
   const visao = useSearchParams().get('visao') === 'aluno' ? 'aluno' : undefined;
   const q = useHistoricoAulas(dias, visao);
   const todas: Historico['aulas'][number][] = q.data?.aulas ?? [];
-  const ls = est ? todas.filter((x) => x.estado === est) : todas;
+  const n = norm(busca);
+  const doRecorte = todas.filter(
+    (x) => (!prod || x.prod === prod) && (!n || norm(`${x.data} ${x.rotulo} ${x.prod} ${x.prof}`).includes(n)),
+  );
+  const ls = est ? doRecorte.filter((x) => x.estado === est) : doRecorte;
+  const produtos = [...new Set(todas.map((x) => x.prod))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const { fatia, rodape, setPag } = usePaginacao(ls);
   useEffect(() => {
     document.title = 'Histórico de aulas · Portal Raphael Lima';
@@ -78,6 +93,47 @@ function HistoricoDeAulas() {
         </div>
       )}
       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="relative w-[320px] max-w-full">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-apagado" />
+          <Input
+            type="search"
+            aria-label="Pesquisar no histórico"
+            placeholder="Pesquisar por aula, produto ou professor…"
+            className="pl-9"
+            value={busca}
+            onChange={(e) => {
+              setBusca(e.target.value);
+              setPag(1);
+            }}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Escolha
+            rotulo="Produto"
+            todos="Todos os produtos"
+            valor={prod}
+            aoMudar={(v) => {
+              setProd(v);
+              setPag(1);
+            }}
+            opcoes={produtos.map((p) => ({ v: p, l: p }))}
+            className="w-[220px]"
+          />
+          <Escolha
+            rotulo="Período"
+            valor={String(dias)}
+            destacar={false}
+            aoMudar={(v) => setDias(Number(v))}
+            opcoes={[
+              { v: '30', l: 'últimos 30 dias' },
+              { v: '60', l: 'últimos 60 dias' },
+              { v: '90', l: 'últimos 90 dias' },
+            ]}
+            className="w-[180px]"
+          />
+        </div>
+      </div>
+      <div className="mb-3.5">
         <div role="radiogroup" aria-label="Estado da aula" className="flex flex-wrap gap-2">
           {CHIPS.map(([k, l]) => (
             <button
@@ -94,22 +150,10 @@ function HistoricoDeAulas() {
                 est === k && 'bg-azul-suave font-semibold text-azul shadow-[inset_0_0_0_1px_#cfdcfa]',
               )}
             >
-              {l} · {k ? todas.filter((x) => x.estado === k).length : todas.length}
+              {l} · {k ? doRecorte.filter((x) => x.estado === k).length : doRecorte.length}
             </button>
           ))}
         </div>
-        <Escolha
-          rotulo="Período"
-          valor={String(dias)}
-          destacar={false}
-          aoMudar={(v) => setDias(Number(v))}
-          opcoes={[
-            { v: '30', l: 'últimos 30 dias' },
-            { v: '60', l: 'últimos 60 dias' },
-            { v: '90', l: 'últimos 90 dias' },
-          ]}
-          className="w-[180px]"
-        />
       </div>
       <Card className="overflow-hidden">
         <Table>

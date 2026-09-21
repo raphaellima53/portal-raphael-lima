@@ -33,9 +33,24 @@ const ativo = (pg) => pg.locator('nav[aria-label="Menu principal"] a[aria-curren
 
 const adm = await entra('admin@alumni.teste', 'alumni-admin');
 
-await passo('Admin: Início, Agenda, Usuários, Produtos e serviços e Atividades', async () => {
+await passo('Admin: A Agenda · B Usuários · C Produtos e serviços · D Atividades · E Auditoria · F Configurações', async () => {
   await adm.getByRole('heading', { name: 'Dashboard' }).waitFor();
-  assert.deepEqual(await menu(adm), ['Início', 'Agenda', 'Usuários', 'Produtos e serviços', 'Atividades']);
+  assert.deepEqual(await menu(adm), [
+    'Agenda',
+    'Usuários',
+    'Produtos e serviços',
+    'Atividades',
+    'Auditoria',
+    'Configurações',
+  ]);
+  /* rodapé: Central de ajuda; Meu perfil e Trocar senha no menu da conta */
+  await adm.getByRole('button', { name: 'Central de ajuda' }).click();
+  await adm.waitForURL(/\/central-de-ajuda$/);
+  await adm.getByText('Onde fica cada coisa no menu?').waitFor();
+  await adm.getByRole('button', { name: 'Opções da conta' }).click();
+  await adm.getByRole('menuitem', { name: 'Meu perfil' }).click();
+  await adm.waitForURL(/\/meu-perfil$/);
+  await adm.getByText('Conta de acesso').waitFor();
 });
 
 await passo('Usuários abre Alunos com as abas das pessoas; a ficha mantém o menu aceso', async () => {
@@ -77,6 +92,8 @@ await passo('Equipe: professores e colaboradores numa lista só, em ordem alfab�
 await passo('Produtos e serviços: catálogo, currículos e serviços', async () => {
   await adm.getByRole('link', { name: 'Produtos e serviços' }).click();
   await adm.waitForURL(/\/cursos$/);
+  const abasP = await adm.getByRole('tablist', { name: 'Seções' }).getByRole('tab').allInnerTexts();
+  assert.deepEqual(abasP, ['Cursos', 'Materiais', 'Serviços']);
   await adm.getByRole('tab', { name: 'Serviços' }).click();
   await adm.waitForURL(/\/produtos\/servicos$/);
   await adm.getByText('Os serviços (atendimento, acompanhamento e consultoria)').waitFor();
@@ -85,43 +102,47 @@ await passo('Produtos e serviços: catálogo, currículos e serviços', async ()
 
 await passo('Atividades reúne relatórios, financeiro e auditoria', async () => {
   await adm.getByRole('link', { name: 'Atividades' }).click();
-  await adm.waitForURL(/\/acoes\//);
+  /* Atividades abre no painel de cartões por setor */
+  await adm.waitForURL(/\/acoes\/atividades$/);
+  await adm.getByRole('link', { name: 'Pedagógico', exact: true }).waitFor();
   const abas = await adm.getByRole('tablist', { name: 'Seções' }).getByRole('tab').allInnerTexts();
-  for (const a of ['Pedagógico', 'Financeiro/Fiscal', 'CX', 'Relatórios', 'Auditoria']) assert.ok(abas.includes(a), a);
+  for (const a of ['Setores', 'Pedagógico', 'Financeiro/Fiscal', 'CX', 'Relatórios']) assert.ok(abas.includes(a), a);
+  assert.ok(!abas.includes('Auditoria'));
   await adm.getByRole('tab', { name: 'Relatórios' }).click();
   await adm.waitForURL(/\/relatorios\/relatorio$/);
   assert.equal(await ativo(adm), 'Atividades');
-  await adm.getByRole('tab', { name: 'Auditoria' }).click();
+  await adm.getByRole('link', { name: 'Auditoria' }).click();
   await adm.waitForURL(/\/auditoria$/);
-  assert.equal(await ativo(adm), 'Atividades');
+  assert.equal(await ativo(adm), 'Auditoria');
 });
 
-await passo('Configurações e Engenharia ficam no menu da conta', async () => {
-  await adm.getByRole('button', { name: 'Opções da conta' }).click();
-  await adm.getByRole('menuitem', { name: 'Configurações' }).click();
-  /* Configurações abre em Acessos: a visão de todas as contas, perfis e sessões */
-  await adm.waitForURL(/\/configuracoes\/usuarios$/);
+await passo('Configurações abre no Painel; Engenharia fica no menu da conta', async () => {
+  await adm.getByRole('link', { name: 'Configurações' }).click();
+  await adm.waitForURL(/\/configuracoes\/admPainel$/);
+  assert.equal(await ativo(adm), 'Configurações');
   await adm.getByRole('button', { name: 'Opções da conta' }).click();
   await adm.getByRole('menuitem', { name: 'Engenharia' }).waitFor();
   await adm.keyboard.press('Escape');
 });
 
 const aluno = await entra('persona.a@alumni.teste', 'alumni-a');
-await passo('Aluno: Agenda, Histórico e Central de ajuda', async () => {
-  assert.deepEqual(await menu(aluno), ['Agenda', 'Histórico', 'Central de ajuda']);
-  await aluno.getByRole('link', { name: 'Central de ajuda' }).click();
+await passo('Aluno: Agenda, Histórico de aulas e Meu perfil; Central de ajuda no rodapé', async () => {
+  assert.deepEqual(await menu(aluno), ['Agenda', 'Histórico de aulas', 'Meu perfil']);
+  await aluno.getByRole('link', { name: 'Meu perfil' }).click();
+  await aluno.getByText('aulas restantes').waitFor();
+  await aluno.getByRole('button', { name: 'Central de ajuda' }).click();
   await aluno.getByRole('heading', { name: 'Central de ajuda' }).waitFor();
   await aluno.getByText('Faltei. Como peço a reposição?').waitFor();
   assert.equal(await aluno.getByRole('button', { name: 'Ajuda e atalhos' }).count(), 0);
 });
 
 const prof = await entra('persona.i@alumni.teste', 'alumni-i');
-await passo('Professor: entra na Agenda e vê Agenda, Histórico e Central de ajuda', async () => {
+await passo('Professor: entra na Agenda e vê Agenda, Histórico de aulas e Meu perfil', async () => {
   await prof.waitForURL(/\/agenda/);
-  assert.deepEqual(await menu(prof), ['Agenda', 'Histórico', 'Central de ajuda']);
+  assert.deepEqual(await menu(prof), ['Agenda', 'Histórico de aulas', 'Meu perfil']);
 });
 await passo('Professor: histórico com as aulas dele e a contagem de alunos', async () => {
-  await prof.getByRole('link', { name: 'Histórico', exact: true }).click();
+  await prof.getByRole('link', { name: 'Histórico de aulas', exact: true }).click();
   await prof.getByText('executadas', { exact: true }).waitFor();
   await prof.getByRole('columnheader', { name: 'Alunos' }).waitFor();
   const r = await prof.request.get('http://localhost:3333/historico-de-aulas?dias=60');
@@ -166,8 +187,8 @@ await passo('Professor que estuda: botão Aluno acima do perfil troca para a vis
   assert.ok(ordem, 'o botão Aluno vem antes do perfil');
   await botao.click();
   await p.waitForURL(/\/minha-agenda/);
-  assert.deepEqual(await menu(p), ['Agenda', 'Histórico', 'Central de ajuda']);
-  await p.getByRole('link', { name: 'Histórico', exact: true }).click();
+  assert.deepEqual(await menu(p), ['Agenda', 'Histórico de aulas', 'Meu perfil']);
+  await p.getByRole('link', { name: 'Histórico de aulas', exact: true }).click();
   await p.waitForURL(/visao=aluno/);
   await p.getByText('de presença').waitFor();
   await p.getByRole('button', { name: 'Voltar à visão de professor' }).click();

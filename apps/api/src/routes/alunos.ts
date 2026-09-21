@@ -596,7 +596,7 @@ export default async function rotasAlunos(app: FastifyInstance) {
       data: { comoAlunoId: id, comoProfId: null, comoVolta: volta.success ? volta.data.volta : '/alunos' },
     });
     await loga(u, a, 'Acesso como o aluno', `por ${u.nome}`);
-    return { ir: '/minha-area' };
+    return { ir: '/minha-agenda' };
   });
 
   /* ---------------- matrículas ---------------- */

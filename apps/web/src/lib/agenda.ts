@@ -39,7 +39,7 @@ export type EventoItem = {
 };
 export type Dia = { iso: string; dia: number; dow: number; rot: string; feriado: boolean; hoje: boolean };
 export type OpcoesAgenda =
-  | { soAluno: true; cursosDoAluno: string[] }
+  | { soAluno: true; cursosDoAluno: string[]; modulosDoAluno: string[] }
   | {
       soAluno: false;
       presa: Record<string, string> | null;

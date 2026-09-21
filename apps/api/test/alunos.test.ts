@@ -240,7 +240,7 @@ describe('alunos · acessar como', () => {
   test('a sessão vê o portal como o aluno e volta para a tela de onde saiu', async () => {
     const h = await adm();
     const r = await req(h, 'POST', '/alunos/1/acessar-como', { volta: '/alunos/1/perfil' });
-    assert.equal(r.json.ir, '/minha-area');
+    assert.equal(r.json.ir, '/minha-agenda');
     const me = (await req(h, 'GET', '/auth/me')).json.usuario;
     assert.equal(me.ehAluno, true);
     assert.equal(me.nome, 'Alice Ferraz');

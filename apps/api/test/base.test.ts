@@ -81,13 +81,14 @@ describe('menu e acesso', () => {
     type N = { label: string; lugar?: string; secoes?: { etapa: string }[] };
     assert.deepEqual(
       me.nav.map((n: N) => (n.lugar ? `${n.lugar}:${n.label}` : n.label)),
-      ['Início', 'Agenda', 'Usuários', 'Produtos e serviços', 'Atividades', 'conta:Configurações', 'conta:Engenharia'],
+      ['Agenda', 'Usuários', 'Produtos e serviços', 'Atividades', 'Auditoria', 'Configurações', 'conta:Engenharia'],
     );
     const secoes = (k: string) => me.nav.find((n: N) => n.label === k).secoes.map((x: { etapa: string }) => x.etapa);
     assert.deepEqual(secoes('Usuários'), ['Alunos', 'Equipe', 'Empresas']);
-    assert.equal(secoes('Configurações')[0], 'Acessos');
-    assert.deepEqual(secoes('Produtos e serviços'), ['Cursos', 'Serviços']);
-    assert.deepEqual(secoes('Atividades').slice(-2), ['Relatórios', 'Auditoria']);
+    assert.deepEqual(secoes('Produtos e serviços'), ['Cursos', 'Materiais', 'Serviços']);
+    assert.deepEqual(secoes('Configurações').slice(0, 2), ['Painel', 'Acessos']);
+    assert.equal(secoes('Atividades')[0], 'Setores');
+    assert.equal(secoes('Atividades').at(-1), 'Relatórios');
   });
 
   test('professor: Agenda, Histórico e Central de ajuda; o histórico é o das aulas dele', async () => {
@@ -95,7 +96,7 @@ describe('menu e acesso', () => {
     const me = (await app.inject({ url: '/auth/me', headers: h })).json();
     assert.deepEqual(
       me.nav.map((n: { label: string }) => n.label),
-      ['Agenda', 'Histórico', 'Central de ajuda'],
+      ['Agenda', 'Histórico de aulas', 'Meu perfil'],
     );
     const hist = (await app.inject({ url: '/historico-de-aulas?dias=60', headers: h })).json();
     assert.equal(hist.modo, 'professor');
@@ -108,7 +109,7 @@ describe('menu e acesso', () => {
     const me = (await app.inject({ url: '/auth/me', headers: h })).json();
     assert.deepEqual(
       me.nav.map((n: { label: string }) => n.label),
-      ['Agenda', 'Histórico', 'Central de ajuda'],
+      ['Agenda', 'Histórico de aulas', 'Meu perfil'],
     );
     assert.equal((await app.inject({ url: '/dashboard', headers: h })).statusCode, 403);
     const area = (await app.inject({ url: '/minha-area', headers: h })).json();
@@ -122,7 +123,7 @@ describe('menu e acesso', () => {
     const nav: N[] = (await app.inject({ url: '/auth/me', headers: h })).json().nav;
     assert.deepEqual(
       nav.filter((n) => n.visao === 'aluno').map((n) => n.label),
-      ['Agenda', 'Histórico', 'Central de ajuda'],
+      ['Agenda', 'Histórico de aulas', 'Meu perfil'],
     );
     assert.ok(!nav.some((n) => n.label === 'Engenharia'));
   });

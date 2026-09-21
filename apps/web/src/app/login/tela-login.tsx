@@ -28,7 +28,7 @@ export function TelaLogin() {
   const loginRef = useRef<HTMLInputElement | null>(null);
 
   const destino = (ehAluno: boolean) =>
-    volta?.startsWith('/') && !volta.startsWith('//') ? volta : ehAluno ? '/minha-area' : '/inicio';
+    volta?.startsWith('/') && !volta.startsWith('//') ? volta : ehAluno ? '/minha-agenda' : '/inicio';
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: redireciona só quando a sessão aparece
   useEffect(() => {

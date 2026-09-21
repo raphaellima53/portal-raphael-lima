@@ -49,11 +49,11 @@ describe('um ID, vários perfis', () => {
     type N = { label: string; visao?: string };
     assert.deepEqual(
       me.nav.filter((n: N) => !n.visao).map((n: N) => n.label),
-      ['Agenda', 'Histórico', 'Central de ajuda'],
+      ['Agenda', 'Histórico de aulas', 'Meu perfil'],
     );
     assert.deepEqual(
       me.nav.filter((n: N) => n.visao === 'aluno').map((n: N) => n.label),
-      ['Agenda', 'Histórico', 'Central de ajuda'],
+      ['Agenda', 'Histórico de aulas', 'Meu perfil'],
     );
     const comoProf = (await get(h, '/historico-de-aulas?dias=60')).json();
     assert.equal(comoProf.modo, 'professor');
@@ -127,7 +127,10 @@ describe('um ID, vários perfis', () => {
 
   test('aluno sem conta: Criar acesso já leva a pessoa e o vínculo', async () => {
     const h = await entra('admin@alumni.teste', 'alumni-admin');
-    const sem = await prisma.aluno.findFirstOrThrow({ where: { usuario: null, NOT: { id: alunoId } }, orderBy: { id: 'asc' } });
+    const sem = await prisma.aluno.findFirstOrThrow({
+      where: { usuario: null, NOT: { id: alunoId } },
+      orderBy: { id: 'asc' },
+    });
     const f = (await get(h, `/alunos/${sem.id}?aba=acesso`)).json();
     assert.equal(f.dados.usuario, null);
     assert.match(f.dados.criar, new RegExp(`^/configuracoes/usuarios/novo\\?.*aluno=${sem.id}`));
@@ -141,6 +144,22 @@ describe('um ID, vários perfis', () => {
     assert.equal(r.pessoa.nome, c.nome);
     const f = await entra('persona.f@alumni.teste', 'alumni-f');
     assert.equal((await get(f, `/config/acesso?colab=${c.id}`)).statusCode, 403);
+  });
+
+  test('Meu perfil: o aluno vê a área dele; o professor, o resumo; o botão Aluno, a área de aluno', async () => {
+    const a = await entra('persona.a@alumni.teste', 'alumni-a');
+    const pa = (await get(a, '/meu-perfil')).json();
+    assert.equal(pa.papel, 'aluno');
+    assert.ok(pa.aluno.matriculas.length > 0);
+    assert.equal(pa.blocos[0].titulo, 'Conta de acesso');
+    const h = await entra('persona.i@alumni.teste', 'alumni-i');
+    const pp = (await get(h, '/meu-perfil')).json();
+    assert.equal(pp.papel, 'professor');
+    assert.equal(pp.aluno, null);
+    assert.ok(pp.blocos.length > 1, 'conta + resumo do professor');
+    const pv = (await get(h, '/meu-perfil?visao=aluno')).json();
+    assert.equal(pv.papel, 'aluno');
+    assert.equal(pv.aluno.nome, 'Marina Pallotta');
   });
 
   test('vincular aluno a outro usuário é recusado', async () => {

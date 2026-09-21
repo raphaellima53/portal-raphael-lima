@@ -641,6 +641,6 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
     await fechaSessao(rep, req);
     await abreSessao(rep, req, p.id);
     await logAcesso(p.nome, 'login', 'sucesso', `Entrar como, por ${eu.nome}`);
-    return { ir: PERFIS.find((x) => x.id === p.perfilId)?.perfil === 'Aluno' ? '/minha-area' : '/inicio' };
+    return { ir: PERFIS.find((x) => x.id === p.perfilId)?.perfil === 'Aluno' ? '/minha-agenda' : '/inicio' };
   });
 }
