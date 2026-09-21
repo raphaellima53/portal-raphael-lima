@@ -14,8 +14,8 @@ export type Vinculos = {
   papeis: Papel[];
 };
 
-/** ID de usuário como aparece nas telas: #000142 */
-export const codigoUsuario = (id: number) => `#${String(id).padStart(6, '0')}`;
+/** ID de usuário como aparece nas telas: 5 dígitos, #00142 */
+export const codigoUsuario = (id: number) => `#${String(id).padStart(5, '0')}`;
 
 type De = { alunoId: number } | { profId: string };
 

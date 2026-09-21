@@ -67,7 +67,7 @@ describe('um ID, vários perfis', () => {
     const h = await entra('admin@alumni.teste', 'alumni-admin');
     const f = (await get(h, `/alunos/${alunoId}?aba=perfil`)).json();
     const v = f.dados.vinculos;
-    assert.match(v.usuario.codigo, /^#\d{6}$/);
+    assert.match(v.usuario.codigo, /^#\d{5}$/);
     assert.deepEqual(
       v.papeis.map((p: { tipo: string }) => p.tipo),
       ['Aluno', 'Professor'],
