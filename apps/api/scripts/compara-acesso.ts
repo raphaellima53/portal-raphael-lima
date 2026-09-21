@@ -25,7 +25,8 @@ for (const p of portal) {
     temAluno: tipoPerfil !== 'Aluno' && u.alunoId != null,
   };
   const nav = navPortal(pessoa).filter((n) => n.key !== 'engenharia');
-  const menu = nav.map((n) => n.label);
+  /* o menu Ações do portal original se chama Atividades aqui (21/09/2026) */
+  const menu = nav.map((n) => (n.label === 'Atividades' ? 'Ações' : n.label));
   const secoes = Object.fromEntries(
     ['acoes', 'relatorios', 'config'].map((m) => [
       m,

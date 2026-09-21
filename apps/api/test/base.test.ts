@@ -81,13 +81,13 @@ describe('menu e acesso', () => {
     type N = { label: string; lugar?: string; secoes?: { etapa: string }[] };
     assert.deepEqual(
       me.nav.map((n: N) => (n.lugar ? `${n.lugar}:${n.label}` : n.label)),
-      ['Início', 'Agenda', 'Usuários', 'Produtos e serviços', 'Ações', 'conta:Configurações', 'conta:Engenharia'],
+      ['Início', 'Agenda', 'Usuários', 'Produtos e serviços', 'Atividades', 'conta:Configurações', 'conta:Engenharia'],
     );
     const secoes = (k: string) => me.nav.find((n: N) => n.label === k).secoes.map((x: { etapa: string }) => x.etapa);
     assert.deepEqual(secoes('Usuários'), ['Alunos', 'Equipe', 'Empresas']);
     assert.equal(secoes('Configurações')[0], 'Acessos');
     assert.deepEqual(secoes('Produtos e serviços'), ['Cursos', 'Serviços']);
-    assert.deepEqual(secoes('Ações').slice(-2), ['Relatórios', 'Auditoria']);
+    assert.deepEqual(secoes('Atividades').slice(-2), ['Relatórios', 'Auditoria']);
   });
 
   test('professor: Agenda, Histórico e Central de ajuda; o histórico é o das aulas dele', async () => {

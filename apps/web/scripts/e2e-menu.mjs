@@ -33,9 +33,9 @@ const ativo = (pg) => pg.locator('nav[aria-label="Menu principal"] a[aria-curren
 
 const adm = await entra('admin@alumni.teste', 'alumni-admin');
 
-await passo('Admin: Início, Agenda, Usuários, Produtos e serviços e Ações', async () => {
+await passo('Admin: Início, Agenda, Usuários, Produtos e serviços e Atividades', async () => {
   await adm.getByRole('heading', { name: 'Dashboard' }).waitFor();
-  assert.deepEqual(await menu(adm), ['Início', 'Agenda', 'Usuários', 'Produtos e serviços', 'Ações']);
+  assert.deepEqual(await menu(adm), ['Início', 'Agenda', 'Usuários', 'Produtos e serviços', 'Atividades']);
 });
 
 await passo('Usuários abre Alunos com as abas das pessoas; a ficha mantém o menu aceso', async () => {
@@ -83,17 +83,17 @@ await passo('Produtos e serviços: catálogo, currículos e serviços', async ()
   assert.equal(await ativo(adm), 'Produtos e serviços');
 });
 
-await passo('Ações reúne relatórios, financeiro e auditoria', async () => {
-  await adm.getByRole('link', { name: 'Ações' }).click();
+await passo('Atividades reúne relatórios, financeiro e auditoria', async () => {
+  await adm.getByRole('link', { name: 'Atividades' }).click();
   await adm.waitForURL(/\/acoes\//);
   const abas = await adm.getByRole('tablist', { name: 'Seções' }).getByRole('tab').allInnerTexts();
   for (const a of ['Pedagógico', 'Financeiro/Fiscal', 'CX', 'Relatórios', 'Auditoria']) assert.ok(abas.includes(a), a);
   await adm.getByRole('tab', { name: 'Relatórios' }).click();
   await adm.waitForURL(/\/relatorios\/relatorio$/);
-  assert.equal(await ativo(adm), 'Ações');
+  assert.equal(await ativo(adm), 'Atividades');
   await adm.getByRole('tab', { name: 'Auditoria' }).click();
   await adm.waitForURL(/\/auditoria$/);
-  assert.equal(await ativo(adm), 'Ações');
+  assert.equal(await ativo(adm), 'Atividades');
 });
 
 await passo('Configurações e Engenharia ficam no menu da conta', async () => {

@@ -140,7 +140,7 @@ await passo('campanhas: nova campanha entra em Ideia; lista mostra a etapa', asy
   await pg.getByRole('row', { name: /Campanha e2e.*Ideia/ }).waitFor();
 });
 
-await passo('Gerente comercial vê só Comercial em Ações', async () => {
+await passo('Gerente comercial vê só Comercial em Atividades', async () => {
   const l = await entra('persona.l@alumni.teste', 'alumni-l');
   await l.goto(`${BASE}/acoes/acFunil`);
   await l.getByRole('heading', { name: 'Funil de vendas' }).waitFor();

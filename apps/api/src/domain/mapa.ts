@@ -119,7 +119,8 @@ export const MENUS: Menu[] = [
   },
   {
     id: 'acoes',
-    nome: 'Ações',
+    /* Ações virou Atividades (21/09/2026) */
+    nome: 'Atividades',
     nav: 'secoes',
     icon: 'zap',
     etapas: [
@@ -476,7 +477,7 @@ export function navPortal(p: Pessoa & { temAluno: boolean }): ItemNav[] {
 }
 
 /*
- * Menu enxuto (brainstorming de 18/09/2026): a equipe vê Usuários, Produtos e serviços e Ações, mais a Agenda do dia a dia.
+ * Menu enxuto (brainstorming de 18/09/2026): a equipe vê Usuários, Produtos e serviços e Atividades (antes Ações), mais a Agenda do dia a dia.
  * Relatórios, financeiro e auditoria moram dentro de Ações; Configurações e Engenharia vão para o menu da conta.
  * Aluno e professor: Agenda, Histórico e Central de ajuda. As telas e as chaves de acesso continuam as do mapa acima.
  */
@@ -522,7 +523,8 @@ export const NAV_EQUIPE: ItemDef[] = [
   },
   {
     id: 'acoes',
-    nome: 'Ações',
+    /* Ações virou Atividades (21/09/2026) */
+    nome: 'Atividades',
     icon: 'zap',
     secoes: [
       sec('Pedagógico', 'acAlocacao', 'acSubstituicao'),

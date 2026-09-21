@@ -60,7 +60,7 @@ export function TelaFluxo({ chave, abas }: { chave: string; abas: React.ReactNod
   return (
     <>
       <PageHead
-        titulo={F?.t ?? 'Ações'}
+        titulo={F?.t ?? 'Atividades'}
         acoes={
           op && F ? (
             <Button variant="primary" onClick={() => setAbre({ card: null })}>
