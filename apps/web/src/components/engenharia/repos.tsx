@@ -25,6 +25,8 @@ export function TelaRepos({ abas }: { abas: React.ReactNode }) {
   const [ocupado, setOcupado] = useState('');
   const d = q.data;
   const { fatia, rodape } = usePaginacao(d?.linhas ?? []);
+  const crit = usePaginacao(d?.criterios ?? []);
+  const aval = usePaginacao(aberto?.analise.itens ?? []);
 
   const analisar = (repo: RepoLinha) => {
     setOcupado(repo.nome);
@@ -207,7 +209,7 @@ export function TelaRepos({ abas }: { abas: React.ReactNode }) {
               </Tr>
             </THead>
             <TBody>
-              {d.criterios.map((c) => (
+              {crit.fatia.map((c) => (
                 <Tr key={c.k}>
                   <Td className="font-medium whitespace-nowrap text-texto">{c.t}</Td>
                   <Td>{c.d}</Td>
@@ -216,6 +218,7 @@ export function TelaRepos({ abas }: { abas: React.ReactNode }) {
               ))}
             </TBody>
           </Table>
+          {crit.rodape}
         </Painel>
       )}
 
@@ -244,7 +247,7 @@ export function TelaRepos({ abas }: { abas: React.ReactNode }) {
                     </Tr>
                   </THead>
                   <TBody>
-                    {aberto.analise.itens.map((i) => (
+                    {aval.fatia.map((i) => (
                       <Tr key={i.k}>
                         <Td className="font-medium text-texto">{i.t}</Td>
                         <Td>
@@ -256,6 +259,7 @@ export function TelaRepos({ abas }: { abas: React.ReactNode }) {
                     ))}
                   </TBody>
                 </Table>
+                {aval.rodape}
               </>
             )}
           </DialogBody>

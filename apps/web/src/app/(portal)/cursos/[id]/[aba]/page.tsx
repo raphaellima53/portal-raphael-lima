@@ -10,6 +10,7 @@ import { CurriculoFormDialog } from '@/components/cursos/curriculo-forms';
 import { CursoFormDialog } from '@/components/cursos/curso-form';
 import { Aviso, PageHead } from '@/components/ds';
 import { Button } from '@/components/ui/button';
+import { corLegivel } from '@/lib/cor';
 import { type CurriculoAba, type Geral, type Grade, type Regras, useCurso } from '@/lib/cursos';
 
 const ROTULOS = { geral: 'Visão geral', regras: 'Regras', curriculo: 'Currículo', grade: 'Grade semanal' };
@@ -51,7 +52,7 @@ export default function CursoPage() {
   return (
     <>
       <PageHead
-        titulo={<span style={{ color: c.cor }}>{c.nome}</span>}
+        titulo={<span style={{ color: corLegivel(c.cor) }}>{c.nome}</span>}
         acoes={
           <>
             {c.pode.agenda && (

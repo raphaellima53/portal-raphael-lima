@@ -429,12 +429,15 @@ function Formulario({
                   {!busca && g.total > 8 ? ` · digite para ver os ${g.total}` : ''}
                 </small>
                 {g.itens.map((n) => (
-                  <div key={n} className="flex items-center gap-2.5 rounded-sm px-1 py-1.5 hover:bg-hover">
+                  // a linha inteira é o rótulo: alvo de toque confortável no celular
+                  <label
+                    key={n}
+                    htmlFor={`ev-${g.g}-${n}`}
+                    className="flex min-h-9 cursor-pointer items-center gap-2.5 rounded-sm px-1 py-1.5 hover:bg-hover"
+                  >
                     <Checkbox id={`ev-${g.g}-${n}`} checked={tem(g.g, n)} onCheckedChange={() => troca(g.g, n)} />
-                    <label htmlFor={`ev-${g.g}-${n}`} className="flex-1 cursor-pointer">
-                      {n}
-                    </label>
-                  </div>
+                    <span className="flex-1">{n}</span>
+                  </label>
                 ))}
               </div>
             ))}

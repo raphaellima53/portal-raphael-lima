@@ -131,7 +131,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
 const mq = () => window.matchMedia('(min-width: 1024px)');
 /** desktop = 1024px ou mais: a barra lateral fica fixa; abaixo disso vira gaveta */
-function useDesktop() {
+export function useDesktop() {
   return useSyncExternalStore(
     (cb) => {
       const m = mq();

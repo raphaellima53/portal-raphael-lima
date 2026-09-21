@@ -8,6 +8,7 @@ import { useAlertas } from '@/lib/consultas';
 import { cn } from '@/lib/utils';
 import { useUI } from '@/stores/ui';
 import { BotaoBarra } from './botao-barra';
+import { useDesktop } from './shell';
 
 /** Sino da barra lateral: os alertas do momento, filtrados pelo acesso; cada um abre a tela onde se resolve. */
 export function Alertas({ mini, ativo }: { mini: boolean; ativo: boolean }) {
@@ -15,6 +16,8 @@ export function Alertas({ mini, ativo }: { mini: boolean; ativo: boolean }) {
   const aberto = useUI((s) => s.alertas);
   const setAberto = useUI((s) => s.setAlertas);
   const router = useRouter();
+  // na gaveta (abaixo de 1024px) não cabe à direita: abre para cima, já que o sino fica no pé da barra
+  const desktop = useDesktop();
   const n = alertas.length;
 
   return (
@@ -42,9 +45,10 @@ export function Alertas({ mini, ativo }: { mini: boolean; ativo: boolean }) {
         />
       </PopoverTrigger>
       <PopoverContent
-        side="right"
-        align="end"
-        sideOffset={22}
+        side={desktop ? 'right' : 'top'}
+        align={desktop ? 'end' : 'start'}
+        sideOffset={desktop ? 22 : 8}
+        collisionPadding={16}
         className="max-h-[min(560px,calc(100dvh-40px))] w-[360px] max-w-[calc(100vw-32px)] overflow-auto p-1.5"
       >
         <div className="mb-1 flex items-center gap-2.5 border-b border-borda-suave py-2 pr-2 pl-2.5">

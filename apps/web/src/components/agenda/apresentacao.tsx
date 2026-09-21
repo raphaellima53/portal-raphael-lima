@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { type Slide, useAcaoAula, useAula } from '@/lib/agenda';
+import { corSobreEscuro } from '@/lib/cor';
 import { cn } from '@/lib/utils';
 import { iniciais, PRESENCA, TagsAula } from './aula-comum';
 import { FolhaBloco, PresencaBotoes, voltaSegura } from './aula-pagina';
@@ -27,7 +28,7 @@ function SlideVista({ s, cor }: { s: Slide; cor: string }) {
   const rot = (
     <small
       className="text-[clamp(14px,1.1vw,15px)] font-bold tracking-[.14em] uppercase"
-      style={{ color: cor, filter: 'brightness(1.8)' }}
+      style={{ color: corSobreEscuro(cor) }}
     >
       {s.rot}
     </small>

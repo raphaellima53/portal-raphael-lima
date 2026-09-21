@@ -18,6 +18,7 @@ import { Aviso, PageHead } from '@/components/ds';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { corLegivel } from '@/lib/cor';
 import { type Conteudo, useAcaoCurriculo, useCurriculo } from '@/lib/cursos';
 import { cn } from '@/lib/utils';
 
@@ -168,7 +169,7 @@ function Editor() {
         {c.cor ? (
           <span
             className="inline-flex h-[26px] items-center rounded-full px-2.5 font-semibold"
-            style={{ background: `${c.cor}1f`, color: c.cor }}
+            style={{ background: `${corLegivel(c.cor)}1f`, color: corLegivel(c.cor) }}
           >
             {c.grupo}
           </span>

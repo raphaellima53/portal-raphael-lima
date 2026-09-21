@@ -3,6 +3,7 @@
 import { CalendarIcon, ClockIcon, LockIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { AulaModelo } from '@/lib/agenda';
+import { corLegivel } from '@/lib/cor';
 
 export const iniciais = (n: string) =>
   String(n || '?')
@@ -41,7 +42,7 @@ export function TagsAula({
       {!semTipo && <Badge>{a.tipo}</Badge>}
       <span
         className="inline-flex h-[26px] items-center rounded-full px-2.5 font-semibold text-white"
-        style={{ background: a.corCurso }}
+        style={{ background: corLegivel(a.corCurso) }}
       >
         {a.prod}
       </span>

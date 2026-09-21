@@ -24,6 +24,7 @@ import {
   useAcaoCfg,
   useCfg,
 } from '@/lib/config';
+import { corLegivel } from '@/lib/cor';
 import { cn } from '@/lib/utils';
 import {
   AvisoMsg,
@@ -485,7 +486,7 @@ export function TelaSalas({ abas }: { abas: React.ReactNode }) {
                         {s.cor ? (
                           <span
                             className="rounded-full px-2.5 py-0.5 font-medium"
-                            style={{ background: `${s.cor}1a`, color: s.cor }}
+                            style={{ background: `${corLegivel(s.cor)}1a`, color: corLegivel(s.cor) }}
                           >
                             {s.atende}
                           </span>
@@ -625,6 +626,7 @@ export function TelaCurriculos({ abas }: { abas: React.ReactNode }) {
     const gs = cs.filter((c) => c.grupo === g);
     const prod = gs[0].tipo === 'produto';
     const sem = gs.reduce((s, c) => s + c.semLink, 0);
+    const { fatia, rodape } = usePaginacao(gs);
     return (
       <details open={aberto} className="group mb-2 overflow-hidden rounded-lg border border-borda bg-card shadow-el-1">
         <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2.5 px-5 py-3.5 [&::-webkit-details-marker]:hidden">
@@ -653,7 +655,7 @@ export function TelaCurriculos({ abas }: { abas: React.ReactNode }) {
             </Tr>
           </THead>
           <TBody>
-            {gs.map((c) => (
+            {fatia.map((c) => (
               <Tr key={c.id}>
                 <Td className="font-medium">
                   <Link href={`/cursos/curriculos/${c.id}`} className="text-azul hover:underline">
@@ -674,6 +676,7 @@ export function TelaCurriculos({ abas }: { abas: React.ReactNode }) {
             ))}
           </TBody>
         </Table>
+        {rodape}
       </details>
     );
   };

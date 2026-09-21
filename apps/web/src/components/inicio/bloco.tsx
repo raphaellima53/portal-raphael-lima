@@ -6,13 +6,14 @@ import { corTom, Stat, Trilho } from '@/components/ds';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardHead, CardTitle } from '@/components/ui/card';
+import { corLegivel } from '@/lib/cor';
 import type { BlocoDef, CorpoBloco, Linha, Seg } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
 
 const Segs = ({ s }: { s?: Seg[] }) => (
   <>
     {(s ?? []).map((x, i) => (
-      <span key={i} className={cn(x.tom && corTom[x.tom])} style={x.cor ? { color: x.cor } : undefined}>
+      <span key={i} className={cn(x.tom && corTom[x.tom])} style={x.cor ? { color: corLegivel(x.cor) } : undefined}>
         {x.t}
       </span>
     ))}

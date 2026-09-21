@@ -23,6 +23,7 @@ import {
   useFluxo,
   type Valores,
 } from '@/lib/acoes';
+import { corLegivel } from '@/lib/cor';
 import { cn } from '@/lib/utils';
 import { Busca, normaliza } from './alocacao';
 
@@ -202,7 +203,7 @@ function Lista({ F, cards, abrir }: { F: FluxoTela; cards: CardFluxo[]; abrir: (
                     {e && (
                       <span
                         className="inline-flex h-[26px] items-center rounded-full px-2.5 font-semibold whitespace-nowrap"
-                        style={{ background: `${e.cor}1f`, color: e.cor }}
+                        style={{ background: `${corLegivel(e.cor)}1f`, color: corLegivel(e.cor) }}
                       >
                         {e.t}
                       </span>
@@ -402,7 +403,7 @@ function CardDialog({
                         'rounded-full border border-borda px-2.5 py-0.5 text-apagado',
                         x.k === c.etapa && 'font-bold',
                       )}
-                      style={x.k === c.etapa ? { borderColor: x.cor, color: x.cor } : undefined}
+                      style={x.k === c.etapa ? { borderColor: corLegivel(x.cor), color: corLegivel(x.cor) } : undefined}
                     >
                       {x.t}
                     </li>

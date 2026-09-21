@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import { type Historico, useHistoricoAulas } from '@/lib/agenda';
+import { corLegivel } from '@/lib/cor';
 import { cn } from '@/lib/utils';
 
 const CHIPS: [string, string][] = [
@@ -129,7 +130,7 @@ function HistoricoDeAulas() {
                   <Td className="font-medium text-texto">{x.data}</Td>
                   <Td>{x.horario}</Td>
                   <Td>
-                    <b style={{ color: x.cor }}>{x.rotulo}</b>
+                    <b style={{ color: corLegivel(x.cor) }}>{x.rotulo}</b>
                     <div className="text-apagado">{x.prod}</div>
                   </Td>
                   <Td>

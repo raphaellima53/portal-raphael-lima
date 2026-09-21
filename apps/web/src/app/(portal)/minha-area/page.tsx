@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHead, CardTitle } from '@/components/ui/card';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import { useMinhaArea } from '@/lib/consultas';
+import { corLegivel } from '@/lib/cor';
 
 /** Minha área do aluno: matrículas, saldo de aulas e as próximas aulas. */
 export default function MinhaArea() {
@@ -91,7 +92,7 @@ export default function MinhaArea() {
                 <Tr key={i}>
                   <Td>{x.quando}</Td>
                   <Td>
-                    <b style={{ color: x.cor }}>{x.rotulo}</b>
+                    <b style={{ color: corLegivel(x.cor) }}>{x.rotulo}</b>
                   </Td>
                   <Td>{x.prof}</Td>
                   <Td>{x.sala}</Td>

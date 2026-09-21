@@ -1,5 +1,6 @@
 'use client';
 
+import { usePaginacao } from '@/components/paginacao';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
@@ -48,6 +49,7 @@ export function Ajuda() {
 /** Tabela dos atalhos de teclado (diálogo de ajuda e Central de ajuda); `teclas` recorta a lista */
 export function TabelaAtalhos({ teclas }: { teclas?: string[] }) {
   const lista = teclas ? ATALHOS.filter(([t]) => teclas.includes(t)) : ATALHOS;
+  const { fatia, rodape } = usePaginacao(lista);
   return (
     <div className="overflow-hidden rounded-lg border border-borda">
       <Table aria-label="Atalhos de teclado">
@@ -58,7 +60,7 @@ export function TabelaAtalhos({ teclas }: { teclas?: string[] }) {
           </Tr>
         </THead>
         <TBody>
-          {lista.map(([tecla, faz]) => (
+          {fatia.map(([tecla, faz]) => (
             <Tr key={tecla}>
               <Td className="py-2.5 whitespace-nowrap">
                 {tecla.split(' depois ').map((t, i) => (
@@ -73,6 +75,7 @@ export function TabelaAtalhos({ teclas }: { teclas?: string[] }) {
           ))}
         </TBody>
       </Table>
+      {rodape}
     </div>
   );
 }

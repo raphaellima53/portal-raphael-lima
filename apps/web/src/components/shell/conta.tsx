@@ -47,7 +47,7 @@ export function Conta({ me, mini }: { me: Me; mini: boolean }) {
             )}
           >
             <span
-              className="grid size-8 shrink-0 place-items-center rounded-full bg-sb-avatar text-base font-extrabold text-[#3b82f6]"
+              className="grid size-8 shrink-0 place-items-center rounded-full bg-sb-avatar text-base font-extrabold text-[#8fb0ff]"
               aria-hidden
             >
               {u.nome[0]?.toLowerCase()}

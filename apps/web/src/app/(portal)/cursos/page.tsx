@@ -18,6 +18,7 @@ import { AbasDoMenu } from '@/components/secao-abas';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { corLegivel } from '@/lib/cor';
 import { useCatalogo } from '@/lib/cursos';
 
 const norm = (s: string) =>
@@ -88,13 +89,13 @@ export default function Catalogo() {
               <div className="flex items-start gap-3">
                 <span
                   className="grid size-8 shrink-0 place-items-center rounded-md"
-                  style={{ background: `${c.cor}1f`, color: c.cor }}
+                  style={{ background: `${corLegivel(c.cor)}1f`, color: corLegivel(c.cor) }}
                 >
                   <BookOpenIcon className="size-4" />
                 </span>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <em className="font-semibold text-apagado not-italic">{c.n}.</em>
-                  <b className="text-md" style={{ color: c.cor }}>
+                  <b className="text-md" style={{ color: corLegivel(c.cor) }}>
                     {c.nome}
                   </b>
                   {[c.idioma, c.tipo]

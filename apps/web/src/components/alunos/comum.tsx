@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import type { Item } from '@/lib/alunos';
+import { corLegivel } from '@/lib/cor';
 
 /** módulo ou turma pintado pela cor dele; sem cor válida cai no neutro (alBadge) */
 export function ItemBadge({ item }: { item: Item }) {
@@ -9,7 +10,7 @@ export function ItemBadge({ item }: { item: Item }) {
   return /^#[0-9a-f]{6}$/i.test(item.cor) ? (
     <span
       className="inline-flex h-[26px] items-center rounded-full px-2.5 text-sm leading-none font-semibold whitespace-nowrap"
-      style={{ background: `${item.cor}1f`, color: item.cor }}
+      style={{ background: `${corLegivel(item.cor)}1f`, color: corLegivel(item.cor) }}
     >
       {item.nome}
     </span>

@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import type { AgendaResp, AulaItem, EventoItem } from '@/lib/agenda';
+import { corLegivel } from '@/lib/cor';
 import { cn } from '@/lib/utils';
 
 type Item = { q: string; ev?: EventoItem; aula?: AulaItem };
@@ -91,7 +92,7 @@ export function Mensal({ d, abre }: { d: AgendaResp; abre: Abre }) {
                       abre.aula(x.aula!.k);
                     }}
                     className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded-[6px] px-2 py-0.5 text-left text-white hover:brightness-110"
-                    style={{ background: x.aula!.cor }}
+                    style={{ background: corLegivel(x.aula!.cor) }}
                   >
                     <span className="shrink-0">{hh(x.aula!.hora)}</span>
                     <span className="truncate">{x.aula!.rotulo}</span>
@@ -222,7 +223,7 @@ function BlocoAula({ a, abre, mini }: { a: AulaItem; abre: Abre; mini?: boolean 
         'min-w-0 cursor-pointer rounded-[6px] text-left text-white hover:brightness-110',
         mini ? 'px-2 py-1' : 'flex-[1_1_300px] rounded-md px-3 py-2',
       )}
-      style={{ background: a.cor }}
+      style={{ background: corLegivel(a.cor) }}
     >
       {mini ? (
         <>

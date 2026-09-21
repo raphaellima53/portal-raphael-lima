@@ -14,6 +14,7 @@ import { Card, CardHead, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
+import { corLegivel } from '@/lib/cor';
 import {
   type AlunoRoster,
   type CurRef,
@@ -58,6 +59,48 @@ const LinkCur = ({ c, volta }: { c: CurRef; volta: string }) =>
   ) : (
     <span className="text-apagado">—</span>
   );
+
+type ModuloGrade = Extract<Geral, { estrutura: 'modulos' }>['modulos'][number];
+/** Módulos do produto na grade, paginados acima de 10 como toda tabela do DS. */
+function TabelaModulos({ modulos, volta }: { modulos: ModuloGrade[]; volta: string }) {
+  const { fatia, rodape } = usePaginacao(modulos);
+  return (
+    <>
+      <Table>
+        <THead>
+          <Tr>
+            <Th>#</Th>
+            <Th>Módulo</Th>
+            <Th className="text-right">Alunos</Th>
+            <Th className="text-right">Presenciais</Th>
+            <Th>Currículo</Th>
+          </Tr>
+        </THead>
+        <TBody>
+          {fatia.map((m) => (
+            <Tr key={m.nome}>
+              <Td>{m.n}</Td>
+              <Td>
+                <span
+                  className="inline-flex h-[26px] items-center rounded-full px-2.5 font-semibold"
+                  style={{ background: `${corLegivel(m.cor)}1f`, color: corLegivel(m.cor) }}
+                >
+                  {m.nome}
+                </span>
+              </Td>
+              <Td className="text-right tabular-nums">{m.alunos}</Td>
+              <Td className="text-right tabular-nums">{m.presenciais}</Td>
+              <Td>
+                <LinkCur c={m.curriculo} volta={volta} />
+              </Td>
+            </Tr>
+          ))}
+        </TBody>
+      </Table>
+      {rodape}
+    </>
+  );
+}
 
 const Modalidade = ({ m }: { m: string }) => (
   <Badge tom={m === 'Presencial' ? 'purple' : 'gray'}>{m || 'Online'}</Badge>
@@ -261,37 +304,7 @@ export function AbaGeral({ c, g, editar }: { c: CursoResp; g: Geral; editar: () 
                 </Button>
               )}
             </CardHead>
-            <Table>
-              <THead>
-                <Tr>
-                  <Th>#</Th>
-                  <Th>Módulo</Th>
-                  <Th className="text-right">Alunos</Th>
-                  <Th className="text-right">Presenciais</Th>
-                  <Th>Currículo</Th>
-                </Tr>
-              </THead>
-              <TBody>
-                {g.modulos.map((m) => (
-                  <Tr key={m.nome}>
-                    <Td>{m.n}</Td>
-                    <Td>
-                      <span
-                        className="inline-flex h-[26px] items-center rounded-full px-2.5 font-semibold"
-                        style={{ background: `${m.cor}1f`, color: m.cor }}
-                      >
-                        {m.nome}
-                      </span>
-                    </Td>
-                    <Td className="text-right tabular-nums">{m.alunos}</Td>
-                    <Td className="text-right tabular-nums">{m.presenciais}</Td>
-                    <Td>
-                      <LinkCur c={m.curriculo} volta={volta} />
-                    </Td>
-                  </Tr>
-                ))}
-              </TBody>
-            </Table>
+            <TabelaModulos modulos={g.modulos} volta={volta} />
           </Card>
           <Roster titulo="Alunos do produto" lista={g.alunos} vazio="nenhum aluno com matrícula ativa neste produto" />
         </div>

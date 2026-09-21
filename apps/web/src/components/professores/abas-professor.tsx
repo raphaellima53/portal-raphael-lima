@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import type { DispAba } from '@/lib/alunos';
+import { corLegivel } from '@/lib/cor';
 import { type AgendaProf, type FeedbacksProf, type FichaProf, type HabCurso, useAcaoProf } from '@/lib/professores';
 import { cn } from '@/lib/utils';
 
@@ -221,7 +222,7 @@ function Proximas({ f, d, vai }: { f: FichaProf; d: Extract<AgendaProf, { quando
                   <Td className="font-medium whitespace-nowrap text-texto">{x.data}</Td>
                   <Td className="whitespace-nowrap">{x.horario}</Td>
                   <Td>
-                    <b style={{ color: x.cor }}>{x.rotulo}</b>
+                    <b style={{ color: corLegivel(x.cor) }}>{x.rotulo}</b>
                     <div className="text-apagado">{x.prod}</div>
                   </Td>
                   <Td>
@@ -298,7 +299,7 @@ function Passadas({ f, d, vai }: { f: FichaProf; d: Extract<AgendaProf, { quando
                   <Td className="font-medium whitespace-nowrap text-texto">{x.data}</Td>
                   <Td className="whitespace-nowrap">{x.horario}</Td>
                   <Td>
-                    <b style={{ color: x.cor }}>{x.rotulo}</b>
+                    <b style={{ color: corLegivel(x.cor) }}>{x.rotulo}</b>
                     <div className="text-apagado">{x.prod}</div>
                   </Td>
                   <Td>
@@ -324,8 +325,9 @@ function Passadas({ f, d, vai }: { f: FichaProf; d: Extract<AgendaProf, { quando
 /* ---------------- Feedbacks: a avaliação dos alunos ---------------- */
 const Estrelas = ({ n }: { n: number }) => (
   <span role="img" aria-label={`nota ${n} de 5`} className="whitespace-nowrap text-ambar">
+    {/* estrela vazia vazada na mesma cor: a nota se lê pelo formato, não por um cinza sem contraste */}
     {'★'.repeat(n)}
-    <span className="text-borda-forte">{'★'.repeat(5 - n)}</span>
+    {'☆'.repeat(5 - n)}
   </span>
 );
 export function AbaFeedbacksProf({

@@ -99,7 +99,7 @@ export function TelaLogin() {
 
         <section
           aria-labelledby="lg-personas"
-          className="overflow-hidden rounded-[18px] border border-white/8 bg-[#111a36] p-4 text-[#c9d1e2]"
+          className="min-w-0 overflow-hidden rounded-[18px] border border-white/8 bg-[#111a36] p-4 text-[#c9d1e2]"
         >
           <div className="flex flex-wrap items-baseline gap-x-2.5 px-1 pt-1 pb-3">
             <b id="lg-personas" className="text-white">
@@ -109,7 +109,8 @@ export function TelaLogin() {
               {personas.data ? `${personas.data.length} contas · ` : ''}senha à mostra porque é ambiente de teste
             </span>
           </div>
-          <div className="overflow-x-auto">
+          {/* relative: o sr-only do cabeçalho não escapa da rolagem da tabela e alarga a página no celular */}
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse">
               <thead>
                 <tr className="bg-white/95 text-left text-[#566174]">

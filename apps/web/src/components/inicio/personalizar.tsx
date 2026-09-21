@@ -63,14 +63,14 @@ export function Personalizar({
                 <span className="flex-1" />
                 <button
                   type="button"
-                  className="cursor-pointer font-medium text-azul hover:underline"
+                  className="min-h-[24px] cursor-pointer font-medium text-azul hover:underline"
                   onClick={() => grupo(g, true)}
                 >
                   marcar todos
                 </button>
                 <button
                   type="button"
-                  className="cursor-pointer font-medium text-azul hover:underline"
+                  className="min-h-[24px] cursor-pointer font-medium text-azul hover:underline"
                   onClick={() => grupo(g, false)}
                 >
                   desmarcar
