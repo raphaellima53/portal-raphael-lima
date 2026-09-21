@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Abas } from '@/components/abas';
+import { AcessoDaPessoa, type AcessoPessoa } from '@/components/acesso-pessoa';
 import { Aviso, PageHead } from '@/components/ds';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -150,6 +151,7 @@ export function FichaAluno() {
         {f.aba === 'cursos' && <AbaCursos f={f} d={f.dados as CursosAba} setMsg={setMsg} />}
         {f.aba === 'disponibilidade' && <AbaDisponibilidade f={f} d={f.dados as DispAba} setMsg={setMsg} />}
         {f.aba === 'financeiro' && <AbaFinanceiro d={f.dados as FinanceiroAba} />}
+        {f.aba === 'acesso' && <AcessoDaPessoa d={f.dados as AcessoPessoa} />}
         {f.aba === 'agendamentos' && <AbaAgendamentos f={f} d={f.dados as AgendamentosAba} vai={vai} />}
         {f.aba === 'feedbacks' && <AbaFeedbacks f={f} d={f.dados as FeedbacksAba} vai={vai} setMsg={setMsg} />}
       </div>

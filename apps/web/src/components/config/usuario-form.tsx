@@ -2,7 +2,7 @@
 
 import { ChevronLeftIcon, LockIcon, PlusIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { CampoData } from '@/components/campos-data';
 import { Aviso, PageHead } from '@/components/ds';
@@ -54,6 +54,9 @@ const VAZIO = {
 /** Novo usuário e Editar usuário: identidade, cargo, hierarquia, setores e segurança (P.usuarioForm) */
 export function FormUsuario({ id }: { id: number | null }) {
   const router = useRouter();
+  /* Criar acesso / Editar acesso a partir da ficha: a pessoa e o vínculo chegam no endereço, e salvar volta para a ficha */
+  const sp = useSearchParams();
+  const volta = sp.get('volta');
   const q = useCfg<UsuarioForm>(`/usuarios/form${id ? `?id=${id}` : ''}`);
   const acao = useAcaoCfg();
   const [v, setV] = useState(VAZIO);
@@ -83,8 +86,18 @@ export function FormUsuario({ id }: { id: number | null }) {
         seguranca: u.seguranca,
         observacoes: u.observacoes,
       });
-    else setV({ ...VAZIO, responsavel: d.responsaveis[0] ?? '' });
-  }, [d, u]);
+    else
+      setV({
+        ...VAZIO,
+        responsavel: d.responsaveis[0] ?? '',
+        pessoa: sp.get('pessoa') ?? '',
+        nome: sp.get('pessoa') ?? '',
+        email: (sp.get('email') ?? '').toLowerCase(),
+        alunoId: sp.get('aluno') ? Number(sp.get('aluno')) : null,
+        professor: sp.get('professor') ?? '',
+        colaborador: sp.get('colaborador') ?? '',
+      });
+  }, [d, u, sp]);
   useEffect(() => {
     document.title = `${ed ? 'Editar usuário' : 'Novo usuário'} · Portal Raphael Lima`;
   }, [ed]);
@@ -106,7 +119,8 @@ export function FormUsuario({ id }: { id: number | null }) {
         json: { ...v, convite, seguranca: Object.fromEntries((d?.seguranca ?? []).map((s) => [s.k, seg(s.k)])) },
       },
       {
-        onSuccess: (r) => router.push(`/configuracoes/usuarios?msg=${encodeURIComponent(r.msg)}`),
+        onSuccess: (r) =>
+          router.push(volta?.startsWith('/') ? volta : `/configuracoes/usuarios?msg=${encodeURIComponent(r.msg)}`),
         onError: (e) => {
           setAviso(e.message);
           setTimeout(() => avisoRef.current?.scrollIntoView({ block: 'center' }), 0);

@@ -19,6 +19,8 @@ import {
   perfilNome,
   RECORTES,
 } from '../domain/acesso.ts';
+import { acessoDaPessoa } from '../domain/acesso-pessoa.ts';
+import { base } from '../domain/base.ts';
 import {
   acessoTelas,
   dispositivo,
@@ -491,6 +493,21 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
     const v = (c?.valor as Record<string, boolean>) ?? {};
     return SES_POL.map(([k, t, d, padrao]) => ({ k, t, d, on: k in v ? v[k] : padrao }));
   };
+  /* acesso de uma pessoa (o colaborador não tem ficha: o cadastro dele mostra a mesma seção Acesso) */
+  app.get('/config/acesso', { preHandler: exigeCfg }, async (req, rep) => {
+    const q = req.query as { colab?: string; aluno?: string; prof?: string };
+    const de = q.colab
+      ? { colabId: Number(q.colab) }
+      : q.aluno
+        ? { alunoId: Number(q.aluno) }
+        : q.prof
+          ? { profId: q.prof }
+          : null;
+    const r = de ? await acessoDaPessoa(await base(), de, req.usuario!) : null;
+    if (!r) return rep.code(404).send({ erro: 'Pessoa não encontrada.' });
+    return r;
+  });
+
   app.get('/config/sessoes', { preHandler: exigeCfg }, async (req) => {
     const eu = req.usuario!;
     const [ss, hist] = await Promise.all([

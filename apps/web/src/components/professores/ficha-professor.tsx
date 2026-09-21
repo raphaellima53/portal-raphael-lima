@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Abas } from '@/components/abas';
+import { AcessoDaPessoa, type AcessoPessoa } from '@/components/acesso-pessoa';
 import { AbaLog, AbaPerfil } from '@/components/alunos/abas-aluno';
 import type { Msg } from '@/components/alunos/comum';
 import { Aviso, PageHead } from '@/components/ds';
@@ -145,6 +146,7 @@ export function FichaProfessor() {
         {f.aba === 'disponibilidade' && <AbaDispProf f={f} d={f.dados as DispAba} setMsg={setMsg} />}
         {f.aba === 'agenda' && <AbaAgendaProf f={f} d={f.dados as AgendaProf} vai={vai} />}
         {f.aba === 'feedbacks' && <AbaFeedbacksProf f={f} d={f.dados as FeedbacksProf} vai={vai} setMsg={setMsg} />}
+        {f.aba === 'acesso' && <AcessoDaPessoa d={f.dados as AcessoPessoa} />}
       </div>
       <ProfessorFormDialog abre={editar} aoFechar={() => setEditar(null)} aoSalvo={(res) => setMsg({ txt: res.msg })} />
     </>

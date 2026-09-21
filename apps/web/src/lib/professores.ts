@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { AcessoPessoa } from '@/components/acesso-pessoa';
 import type { DispAba, LogAba, Perfil, StatA } from './alunos';
 import { api } from './api';
 import type { Tom } from './tipos';
@@ -18,7 +19,7 @@ export type ProfLinha = {
 export type PodeProfLista = { criar: boolean; editar: boolean; desativar: boolean; como: boolean; ficha: boolean };
 export type ListaProf = { professores: ProfLinha[]; cursos: string[]; pode: PodeProfLista };
 
-export type AbaProf = 'perfil' | 'log' | 'cursos' | 'disponibilidade' | 'agenda' | 'feedbacks';
+export type AbaProf = 'perfil' | 'log' | 'cursos' | 'disponibilidade' | 'agenda' | 'feedbacks' | 'acesso';
 export type HabCurso = {
   id: number;
   curso: string;
@@ -70,7 +71,7 @@ export type FichaProf = {
   grupos: { k: string; rotulo: string; abas: { k: AbaProf; rotulo: string }[] }[];
   aba: AbaProf;
   quando: 'proximas' | 'passadas';
-  dados: Perfil | LogAba | { cursos: HabCurso[] } | DispAba | AgendaProf | FeedbacksProf;
+  dados: Perfil | LogAba | { cursos: HabCurso[] } | DispAba | AgendaProf | FeedbacksProf | AcessoPessoa;
   pode: { editar: boolean; desativar: boolean; como: boolean; operar: boolean; agenda: boolean; alunos: boolean };
 };
 export type ProfForm = { nome: string; email: string; teto: number; cursos: string[]; ativo: boolean };

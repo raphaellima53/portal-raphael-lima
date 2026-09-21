@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db.ts';
 import { podeAcao } from '../domain/acesso.ts';
+import { acessoDaPessoa } from '../domain/acesso-pessoa.ts';
 import {
   AL_SIT,
   agHH,
@@ -64,6 +65,7 @@ const AL_ABAS = [
   ['financeiro', 'Parcelas', 'financeiro'],
   ['agendamentos', 'Agendamentos', 'historico'],
   ['feedbacks', 'Feedbacks', 'historico'],
+  ['acesso', 'Conta de acesso', 'acesso'],
 ] as const;
 type Aba = (typeof AL_ABAS)[number][0];
 const GRUPOS: Record<string, string> = {
@@ -71,6 +73,7 @@ const GRUPOS: Record<string, string> = {
   matriculas: 'Matrícula',
   financeiro: 'Financeiro',
   historico: 'Histórico',
+  acesso: 'Acesso',
 };
 /** abas antigas caem na subaba nova; o 2º item escolhe Próximas ou Passadas */
 const ALIAS: Record<string, [Aba, string?]> = {
@@ -319,6 +322,8 @@ export default async function rotasAlunos(app: FastifyInstance) {
         const dias = [7, 14, 30].includes(Number(q.dias)) ? Number(q.dias) : 14;
         dados = { quando, ...alAgenda(b, a, dias, ofs, agora) };
       }
+    } else if (aba === 'acesso') {
+      dados = await acessoDaPessoa(b, { alunoId: a.id }, u);
     } else if (aba === 'financeiro') {
       /* as parcelas das matrículas do aluno (finCobrancas), com o que já foi baixado em ParcelaPaga */
       const pagas = new Map((await prisma.parcelaPaga.findMany()).map((p) => [p.chave, p.quando]));

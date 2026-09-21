@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db.ts';
 import { podeAcao } from '../domain/acesso.ts';
+import { acessoDaPessoa } from '../domain/acesso-pessoa.ts';
 import { agOfertas, agRotulo, crsItens, prDisp } from '../domain/agenda.ts';
 import { dispChaveValida, dispPainel, dispTroca } from '../domain/alunos.ts';
 import { type Base, base, invalidaBase, type ProfessorB } from '../domain/base.ts';
@@ -36,9 +37,16 @@ const PR_ABAS = [
   ['disponibilidade', 'Disponibilidade', 'acessos'],
   ['agenda', 'Agenda', 'historico'],
   ['feedbacks', 'Feedbacks', 'historico'],
+  ['acesso', 'Conta de acesso', 'conta'],
 ] as const;
 type Aba = (typeof PR_ABAS)[number][0];
-const GRUPOS: Record<string, string> = { dados: 'Dados', acessos: 'Acessos', historico: 'Histórico' };
+/* 'acessos' = cursos habilitados e disponibilidade (Habilitação); 'conta' = a conta de acesso ao portal (Acesso) */
+const GRUPOS: Record<string, string> = {
+  dados: 'Dados',
+  acessos: 'Habilitação',
+  historico: 'Histórico',
+  conta: 'Acesso',
+};
 const ALIAS: Record<string, [Aba, string?]> = { habilitacao: ['cursos'], historico: ['agenda', 'passadas'] };
 /** ações da linha por nível: Editar até o Editor, Desativar até o Gestor, Acessar como para todos */
 const NIVEL = { editar: 3, desativar: 2, como: 5 } as const;
@@ -167,6 +175,8 @@ export default async function rotasProfessores(app: FastifyInstance) {
         ),
         vinculos: await vinculosDe(b, { profId: t.id }),
       };
+    } else if (aba === 'acesso') {
+      dados = await acessoDaPessoa(b, { profId: t.id }, u);
     } else if (aba === 'log') {
       const vivos = await prisma.logAlteracao.findMany({
         where: { entidade: 'Professor', entidadeId: t.id },

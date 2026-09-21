@@ -34,6 +34,7 @@ import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import { ErroApi } from '@/lib/api';
 import { type Colaboradores, useCfg } from '@/lib/config';
 import { useMe } from '@/lib/consultas';
+import { idCadastro } from '@/lib/ids';
 import { type PodeProfLista, type ProfLinha, useAcaoProf, useProfessores } from '@/lib/professores';
 import { ProfessorFormDialog } from './professor-form';
 
@@ -46,8 +47,8 @@ const norm = (s: string) =>
 
 /** uma pessoa da equipe: professor (prestador) ou colaborador */
 type Pessoa =
-  | { k: string; tipo: 'Professor'; nome: string; email: string; ativo: boolean; prof: ProfLinha }
-  | { k: string; tipo: 'Colaborador'; nome: string; email: string; ativo: boolean; colab: ColabLinha };
+  | { k: string; id: string; tipo: 'Professor'; nome: string; email: string; ativo: boolean; prof: ProfLinha }
+  | { k: string; id: string; tipo: 'Colaborador'; nome: string; email: string; ativo: boolean; colab: ColabLinha };
 
 /**
  * Equipe: professores e colaboradores numa lista só, em ordem alfabética (pedido de 21/09/2026).
@@ -76,11 +77,20 @@ export function ListaEquipe() {
     () =>
       [
         ...(q.data?.professores ?? []).map(
-          (t): Pessoa => ({ k: `p${t.id}`, tipo: 'Professor', nome: t.nome, email: t.email, ativo: t.ativo, prof: t }),
+          (t): Pessoa => ({
+            k: `p${t.id}`,
+            id: idCadastro(t.id),
+            tipo: 'Professor',
+            nome: t.nome,
+            email: t.email,
+            ativo: t.ativo,
+            prof: t,
+          }),
         ),
         ...(veColab ? (qc.data?.linhas ?? []) : []).map(
           (c): Pessoa => ({
             k: `c${c.id}`,
+            id: idCadastro(c.id),
             tipo: 'Colaborador',
             nome: c.nome,
             email: c.email,
@@ -98,7 +108,7 @@ export function ListaEquipe() {
         (sit === 'Todos' || (sit === 'Ativos') === p.ativo) &&
         (!tipo || p.tipo === tipo) &&
         (!curso || (p.tipo === 'Professor' && p.prof.cursos.some((c) => c.nome === curso))) &&
-        (!n || norm(`${p.nome} ${p.email}`).includes(n)),
+        (!n || norm(`${p.id} ${p.nome} ${p.email}`).includes(n)),
     );
   }, [todos, busca, tipo, curso, sit]);
   const { fatia, rodape, setPag } = usePaginacao(lista);
@@ -226,8 +236,8 @@ export function ListaEquipe() {
         <Table aria-label="Equipe">
           <THead>
             <Tr>
+              <Th>ID</Th>
               <Th>Nome</Th>
-              <Th>E-mail</Th>
               <Th>Tipo</Th>
               <Th>Cursos ou cargo</Th>
               <Th className="text-right">Aulas/sem · teto</Th>
@@ -245,6 +255,7 @@ export function ListaEquipe() {
                     onClick={() => abre(p)}
                     className={clica ? 'cursor-pointer transition-colors hover:bg-hover' : undefined}
                   >
+                    <Td className="whitespace-nowrap text-apagado tabular-nums">{p.id}</Td>
                     <Td className="font-medium whitespace-nowrap text-texto">
                       {p.tipo === 'Professor' && pode?.ficha ? (
                         <Link
@@ -257,8 +268,9 @@ export function ListaEquipe() {
                       ) : (
                         p.nome
                       )}
+                      {/* o e-mail fica embaixo do nome: sobra espaço para Ações a 1440 px */}
+                      <div className="font-normal text-apagado">{p.email}</div>
                     </Td>
-                    <Td>{p.email}</Td>
                     <Td>
                       <Badge tom={p.tipo === 'Professor' ? 'blue' : 'gray'}>{p.tipo}</Badge>
                     </Td>

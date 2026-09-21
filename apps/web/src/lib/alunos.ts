@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { AcessoPessoa } from '@/components/acesso-pessoa';
 import { api } from './api';
 import type { Tom } from './tipos';
 
@@ -28,7 +29,15 @@ export type PodeLista = {
 };
 export type ListaResp = { alunos: AlunoLinha[]; produtos: string[]; situacoes: string[]; pode: PodeLista };
 
-export type AbaAluno = 'perfil' | 'log' | 'cursos' | 'disponibilidade' | 'financeiro' | 'agendamentos' | 'feedbacks';
+export type AbaAluno =
+  | 'perfil'
+  | 'log'
+  | 'cursos'
+  | 'disponibilidade'
+  | 'financeiro'
+  | 'agendamentos'
+  | 'feedbacks'
+  | 'acesso';
 /** um ID de usuário, vários perfis: aluno, professor e colaborador vinculados */
 export type Vinculos = {
   usuario: { id: number; codigo: string; email: string; perfil: string; status: string } | null;
@@ -166,7 +175,7 @@ export type FichaResp = {
   grupos: { k: string; rotulo: string; abas: { k: AbaAluno; rotulo: string }[] }[];
   aba: AbaAluno;
   quando: 'proximas' | 'passadas';
-  dados: Perfil | LogAba | CursosAba | DispAba | FinanceiroAba | AgendamentosAba | FeedbacksAba;
+  dados: Perfil | LogAba | CursosAba | DispAba | FinanceiroAba | AgendamentosAba | FeedbacksAba | AcessoPessoa;
   persona: boolean;
   inativo: boolean;
   pode: {

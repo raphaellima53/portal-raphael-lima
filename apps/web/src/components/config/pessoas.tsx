@@ -2,6 +2,7 @@
 
 import { PlusIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { AcessoDaPessoa, type AcessoPessoa } from '@/components/acesso-pessoa';
 import { PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { usePaginacao } from '@/components/paginacao';
@@ -144,6 +145,7 @@ export function ColaboradorFormDialog({
             aoMudar={(v) => setForm({ ...form, ativo: v })}
             rotulo="Colaborador ativo"
           />
+          {form.id != null && <AcessoColaborador id={form.id} />}
         </>
       )}
     </FormDialog>
@@ -360,5 +362,16 @@ export function TelaCatalogo({ k, abas }: { k: string; abas: React.ReactNode }) 
         </>
       )}
     </>
+  );
+}
+
+/** a gestão de acesso do colaborador mora no cadastro dele (ele não tem ficha) */
+function AcessoColaborador({ id }: { id: number }) {
+  const q = useCfg<AcessoPessoa>(`/acesso?colab=${id}`);
+  return (
+    <div className="sm:col-span-2">
+      <h3 className="mt-2 mb-3 text-md font-bold text-texto">Acesso ao portal</h3>
+      {q.data ? <AcessoDaPessoa d={q.data} compacto /> : <p className="text-apagado">Carregando…</p>}
+    </div>
   );
 }

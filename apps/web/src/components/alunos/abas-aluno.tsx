@@ -78,9 +78,7 @@ function CartaoVinculos({ v }: { v: Vinculos }) {
       </CardHead>
       <div className="flex flex-wrap items-center gap-2 px-5 py-4">
         {!u && (
-          <span className="mr-2 text-apagado">
-            Sem usuário de acesso. O vínculo nasce quando o usuário é criado em Usuários › Acessos.
-          </span>
+          <span className="mr-2 text-apagado">Sem usuário de acesso. O acesso se cria na aba Acesso desta ficha.</span>
         )}
         {v.papeis.map((p) => {
           const rot = (

@@ -41,7 +41,7 @@ await passo('lista: 40 alunos paginados, busca por CPF e filtro de produto', asy
   await pg.getByRole('combobox', { name: 'Produto' }).click();
   await pg.getByRole('option', { name: 'FAAP' }).click();
   await pg.waitForTimeout(200);
-  const nomes = await pg.locator('main tbody tr td:nth-child(2)').allInnerTexts();
+  const nomes = await pg.locator('main tbody tr td:nth-child(3)').allInnerTexts();
   assert.ok(nomes.length > 0 && nomes.every((t) => t.includes('FAAP')));
 });
 
@@ -50,7 +50,7 @@ await passo('linha abre a ficha e as abas em dois níveis levam às subabas', as
   await pg.getByRole('link', { name: 'Alice Ferraz' }).click();
   await pg.waitForURL(/\/alunos\/1\/perfil$/);
   await pg.getByText('Vínculo e contrato').waitFor();
-  await pg.getByRole('tab', { name: 'Matrículas' }).click();
+  await pg.getByRole('tab', { name: 'Matrícula', exact: true }).click();
   await pg.waitForURL(/\/alunos\/1\/cursos$/);
   await pg.getByText('Alocação de cada matrícula').waitFor();
   await pg.getByRole('tab', { name: 'Histórico' }).click();
@@ -192,7 +192,7 @@ await passo('Marketing (só Perfil): ficha sem as outras abas e sem Nova matríc
   const k = await entra('persona.k@alumni.teste', 'alumni-k');
   await k.goto(`${BASE}/alunos/1/cursos`);
   await k.waitForURL(/\/alunos\/1\/perfil$/);
-  assert.equal(await k.getByRole('tab', { name: 'Matrículas' }).count(), 0);
+  assert.equal(await k.getByRole('tab', { name: 'Matrícula', exact: true }).count(), 0);
   assert.equal(await k.getByRole('button', { name: 'Nova matrícula' }).count(), 0);
 });
 

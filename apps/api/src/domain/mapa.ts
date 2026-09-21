@@ -68,6 +68,8 @@ export const MENUS: Menu[] = [
               { t: 'Feedbacks', tela: 'alunoFicha', aba: 'feedbacks' },
             ],
           },
+          /* a gestão de acessos mora dentro de cada pessoa (21/09/2026) */
+          { t: 'Acesso', c: [{ t: 'Conta de acesso', tela: 'alunoFicha', aba: 'acesso' }] },
         ],
       },
     ],
@@ -97,7 +99,7 @@ export const MENUS: Menu[] = [
             ],
           },
           {
-            t: 'Acessos',
+            t: 'Habilitação',
             c: [
               { t: 'Cursos', tela: 'professorFicha', aba: 'cursos' },
               { t: 'Disponibilidade', tela: 'professorFicha', aba: 'disponibilidade' },
@@ -110,6 +112,7 @@ export const MENUS: Menu[] = [
               { t: 'Feedbacks', tela: 'professorFicha', aba: 'feedbacks' },
             ],
           },
+          { t: 'Acesso', c: [{ t: 'Conta de acesso', tela: 'professorFicha', aba: 'acesso' }] },
         ],
       },
     ],
@@ -509,7 +512,6 @@ export const NAV_EQUIPE: ItemDef[] = [
       sec('Alunos', 'pedAlunos'),
       sec('Equipe', { tela: 'professores', label: 'Equipe' }, 'departamentos', 'cargos'),
       sec('Empresas', 'empresas'),
-      sec('Acessos', { tela: 'usuarios', label: 'Contas de acesso' }, 'perfis', 'sessoes'),
     ],
   },
   {
@@ -549,6 +551,8 @@ export const NAV_EQUIPE: ItemDef[] = [
     icon: 'sliders',
     lugar: 'conta',
     secoes: [
+      /* a gestão de cada acesso fica na ficha da pessoa; aqui, a visão de todas as contas, perfis e sessões */
+      sec('Acessos', { tela: 'usuarios', label: 'Contas de acesso' }, 'perfis', 'sessoes'),
       sec(
         'Regras de negócio',
         'politicas',

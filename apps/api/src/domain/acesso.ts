@@ -447,12 +447,15 @@ export function telaPermitida(u: UsuarioAcesso | null | undefined, t: TelaAcesso
                   ? 'professores'
                   : '';
     if (menu && MENU_PERFIS[menu] && !MENU_PERFIS[menu].includes(u.tipoPerfil)) return false;
+    /* a aba Acesso das fichas (gestão de acessos dentro de cada pessoa) é só do tipo Admin */
+    if (c.endsWith('.acesso')) return u.tipoPerfil === 'Admin';
     if (menu === 'config' || menu === 'engenharia' || c === 'cfg' || c === 'auditoria' || t.m === 'fora' || !c)
       return u.tipoPerfil === 'Admin';
     if (c === 'agenda') return true;
   }
   if (t.m === 'config' || t.m === 'fora' || !t.chave) return u.nivel === 1;
   if (t.chave === 'auditoria') return u.nivel === 1;
+  if (String(t.chave).endsWith('.acesso')) return u.nivel === 1;
   if (t.chave === 'cfg') return u.nivel === 1;
   if (t.chave === 'catalogo') {
     return ['geral', 'regras', 'curriculo', 'grade'].some((k) => telaPermitida(u, { ...t, chave: `curso.${k}` }));

@@ -42,11 +42,14 @@ await passo('Usuários abre Alunos com as abas das pessoas; a ficha mantém o me
   await adm.getByRole('link', { name: 'Usuários' }).click();
   await adm.waitForURL(/\/alunos$/);
   const abas = await adm.getByRole('tablist', { name: 'Seções' }).getByRole('tab').allInnerTexts();
-  assert.deepEqual(abas, ['Alunos', 'Equipe', 'Empresas', 'Acessos']);
-  await adm.getByRole('tab', { name: 'Acessos' }).click();
-  await adm.waitForURL(/\/configuracoes\/usuarios$/);
-  await adm.getByRole('heading', { name: 'Contas de acesso' }).or(adm.getByRole('heading', { name: 'Usuários' })).first().waitFor();
-  assert.equal(await ativo(adm), 'Usuários');
+  assert.deepEqual(abas, ['Alunos', 'Equipe', 'Empresas']);
+  /* o ID do cadastro vem antes do nome, com 5 dígitos */
+  await adm.getByText(/^Mostrando 1–10 de/).waitFor();
+  const linha1 = await adm.locator('main table tbody tr').first().locator('td').allInnerTexts();
+  assert.match(linha1[0], /^\d{5}$/);
+  await adm.getByRole('tab', { name: 'Empresas' }).click();
+  await adm.waitForURL(/\/empresas$/);
+  await adm.getByRole('cell', { name: /^E\d{4}$/ }).first().waitFor();
   await adm.goto(`${BASE}/professores/p1/perfil`);
   await adm.getByText('Cursos e avaliação').waitFor();
   assert.equal(await ativo(adm), 'Usuários');
@@ -61,7 +64,8 @@ await passo('Equipe: professores e colaboradores numa lista só, em ordem alfab�
   await adm.getByRole('option', { name: '50' }).click();
   await adm.waitForTimeout(300);
   const linhas = adm.locator('main table[aria-label="Equipe"] tbody tr');
-  const nomes = await linhas.locator('td:nth-child(1)').allInnerTexts();
+  /* colunas: ID · Nome (com o e-mail embaixo) · Tipo */
+  const nomes = (await linhas.locator('td:nth-child(2)').allInnerTexts()).map((t) => t.split('\n')[0]);
   const tipos = await linhas.locator('td:nth-child(3)').allInnerTexts();
   assert.ok(tipos.includes('Professor') && tipos.includes('Colaborador'), tipos.join());
   const ordem = [...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
@@ -95,7 +99,8 @@ await passo('Ações reúne relatórios, financeiro e auditoria', async () => {
 await passo('Configurações e Engenharia ficam no menu da conta', async () => {
   await adm.getByRole('button', { name: 'Opções da conta' }).click();
   await adm.getByRole('menuitem', { name: 'Configurações' }).click();
-  await adm.waitForURL(/\/configuracoes\/politicas$/);
+  /* Configurações abre em Acessos: a visão de todas as contas, perfis e sessões */
+  await adm.waitForURL(/\/configuracoes\/usuarios$/);
   await adm.getByRole('button', { name: 'Opções da conta' }).click();
   await adm.getByRole('menuitem', { name: 'Engenharia' }).waitFor();
   await adm.keyboard.press('Escape');
@@ -177,6 +182,32 @@ await passo('Ficha do aluno: Matrícula, Financeiro e os perfis vinculados', asy
   await adm.waitForURL(/\/financeiro$/);
   await adm.getByRole('table', { name: 'Parcelas' }).waitFor();
   await adm.getByRole('tab', { name: 'Matrícula' }).waitFor();
+});
+await passo('Ficha do aluno: aba Acesso com a conta vinculada; Editar acesso volta para a ficha', async () => {
+  await adm.getByRole('tab', { name: 'Acesso', exact: true }).click();
+  await adm.waitForURL(/\/acesso$/);
+  await adm.getByText('persona.i@alumni.teste').first().waitFor();
+  await adm.getByRole('table', { name: 'Histórico de acesso' }).waitFor();
+  await adm.getByRole('link', { name: 'Editar acesso' }).click();
+  await adm.waitForURL(/\/configuracoes\/usuarios\/\d+\?volta=/);
+  await adm.getByRole('combobox', { name: 'Vincular a aluno' }).waitFor();
+});
+await passo('Aluno sem conta: Criar acesso abre o Novo usuário preenchido', async () => {
+  const form = await (await adm.request.get(`${API}/config/usuarios/form`)).json();
+  const outro = form.alunos.find((a) => !a.usuario && a.id !== alunoLivre.id);
+  await adm.goto(`${BASE}/alunos/${outro.id}/acesso`);
+  await adm.getByRole('link', { name: 'Criar acesso' }).click();
+  await adm.waitForURL(/\/configuracoes\/usuarios\/novo\?/);
+  await adm.waitForTimeout(800);
+  assert.equal(await adm.locator('#nu-nome').inputValue(), outro.nome);
+});
+await passo('Equipe: o cadastro do colaborador mostra o Acesso ao portal', async () => {
+  await adm.goto(`${BASE}/equipe`);
+  await adm.getByRole('combobox', { name: 'Tipo' }).click();
+  await adm.getByRole('option', { name: 'Colaboradores' }).click();
+  await adm.getByRole('button', { name: /^Editar / }).first().click();
+  await adm.getByRole('dialog').getByRole('heading', { name: 'Acesso ao portal' }).waitFor();
+  await adm.keyboard.press('Escape');
 });
 if (alunoLivre) await vincula(null);
 

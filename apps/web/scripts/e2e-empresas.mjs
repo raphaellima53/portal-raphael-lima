@@ -49,7 +49,7 @@ await passo('Gerente B2B abre em Minhas contas', async () => {
   const s = await entra('persona.s@alumni.teste', 'alumni-s');
   await s.goto(`${BASE}/empresas`);
   await s.getByRole('combobox', { name: 'Gerente da conta' }).getByText('Minhas contas').waitFor();
-  const linhas = await s.locator('main tbody tr td:nth-child(2)').allInnerTexts();
+  const linhas = await s.locator('main tbody tr td:nth-child(3)').allInnerTexts();
   assert.ok(linhas.length > 0 && linhas.every((t) => t === 'Sílvia Monteiro'));
 });
 

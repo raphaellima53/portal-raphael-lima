@@ -87,7 +87,7 @@ describe('um ID, vários perfis', () => {
     const f = (await get(h, `/alunos/${alunoId}?aba=financeiro`)).json();
     assert.deepEqual(
       f.grupos.map((g: { rotulo: string }) => g.rotulo),
-      ['Dados', 'Matrícula', 'Financeiro', 'Histórico'],
+      ['Dados', 'Matrícula', 'Financeiro', 'Histórico', 'Acesso'],
     );
     assert.equal(f.aba, 'financeiro');
     assert.ok(f.dados.linhas.length > 0);
@@ -99,6 +99,48 @@ describe('um ID, vários perfis', () => {
     const h = await entra('persona.f@alumni.teste', 'alumni-f');
     const f = await get(h, `/alunos/${alunoId}?aba=financeiro`);
     if (f.statusCode === 200) assert.notEqual(f.json().aba, 'financeiro');
+  });
+
+  test('aba Acesso: a conta vinculada, com sessões e histórico; só o Admin vê', async () => {
+    const h = await entra('admin@alumni.teste', 'alumni-admin');
+    const f = (await get(h, `/alunos/${alunoId}?aba=acesso`)).json();
+    assert.equal(f.aba, 'acesso');
+    assert.deepEqual(
+      f.grupos.map((g: { rotulo: string }) => g.rotulo),
+      ['Dados', 'Matrícula', 'Financeiro', 'Histórico', 'Acesso'],
+    );
+    assert.equal(f.dados.usuario.email, 'persona.i@alumni.teste');
+    assert.match(f.dados.usuario.codigo, /^#\d{5}$/);
+    assert.ok(Array.isArray(f.dados.sessoes) && Array.isArray(f.dados.historico));
+    /* o professor vinculado mostra a mesma conta na ficha dele */
+    const prof = f.dados.usuario.email;
+    const profId = (await get(h, `/alunos/${alunoId}?aba=perfil`)).json().dados.vinculos.papeis[1].href.split('/')[2];
+    const fp = (await get(h, `/professores/${profId}?aba=acesso`)).json();
+    assert.equal(fp.aba, 'acesso');
+    assert.equal(fp.dados.usuario.email, prof);
+    /* quem não é Admin não tem a aba */
+    const g = await entra('persona.o@alumni.teste', 'alumni-o');
+    const fo = (await get(g, `/alunos/${alunoId}?aba=acesso`)).json();
+    assert.notEqual(fo.aba, 'acesso');
+    assert.ok(!fo.grupos.some((x: { rotulo: string }) => x.rotulo === 'Acesso'));
+  });
+
+  test('aluno sem conta: Criar acesso já leva a pessoa e o vínculo', async () => {
+    const h = await entra('admin@alumni.teste', 'alumni-admin');
+    const sem = await prisma.aluno.findFirstOrThrow({ where: { usuario: null, NOT: { id: alunoId } }, orderBy: { id: 'asc' } });
+    const f = (await get(h, `/alunos/${sem.id}?aba=acesso`)).json();
+    assert.equal(f.dados.usuario, null);
+    assert.match(f.dados.criar, new RegExp(`^/configuracoes/usuarios/novo\\?.*aluno=${sem.id}`));
+  });
+
+  test('colaborador: a mesma seção Acesso pelo cadastro', async () => {
+    const h = await entra('admin@alumni.teste', 'alumni-admin');
+    const c = await prisma.colaborador.findFirstOrThrow({ orderBy: { id: 'asc' } });
+    const r = (await get(h, `/config/acesso?colab=${c.id}`)).json();
+    assert.equal(r.pessoa.tipo, 'Colaborador');
+    assert.equal(r.pessoa.nome, c.nome);
+    const f = await entra('persona.f@alumni.teste', 'alumni-f');
+    assert.equal((await get(f, `/config/acesso?colab=${c.id}`)).statusCode, 403);
   });
 
   test('vincular aluno a outro usuário é recusado', async () => {

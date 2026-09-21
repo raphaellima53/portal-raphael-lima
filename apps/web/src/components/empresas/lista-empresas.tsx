@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import { ErroApi } from '@/lib/api';
 import { useEmpresas } from '@/lib/empresas';
+import { idCadastro } from '@/lib/ids';
 import { EmpresaFormDialog } from './empresa-form';
 
 const norm = (s: string) =>
@@ -50,7 +51,7 @@ export function ListaEmpresas() {
           (!modelo || e.modelo === modelo) &&
           (!sit || e.sit === sit) &&
           (!g || e.gerente === g) &&
-          (!busca || norm(`${e.nome} ${e.cnpj} ${e.segmento}`).includes(norm(busca))),
+          (!busca || norm(`${idCadastro(e.id)} ${e.nome} ${e.cnpj} ${e.segmento}`).includes(norm(busca))),
       ),
     [todas, modelo, sit, g, busca],
   );
@@ -148,6 +149,7 @@ export function ListaEmpresas() {
         <Table>
           <THead>
             <Tr>
+              <Th>ID</Th>
               <Th>Empresa</Th>
               <Th>Gerente da conta</Th>
               <Th className="text-right">Licenças</Th>
@@ -165,6 +167,7 @@ export function ListaEmpresas() {
                   onClick={() => router.push(`/empresas/${e.id}/geral`)}
                   className="cursor-pointer transition-colors hover:bg-hover"
                 >
+                  <Td className="whitespace-nowrap text-apagado tabular-nums">{idCadastro(e.id)}</Td>
                   <Td className="min-w-[250px]">
                     <Link
                       href={`/empresas/${e.id}/geral`}
@@ -203,7 +206,7 @@ export function ListaEmpresas() {
               ))
             ) : (
               <Tr>
-                <Td colSpan={7} className="py-10 text-center text-apagado-2">
+                <Td colSpan={8} className="py-10 text-center text-apagado-2">
                   {q.isPending ? 'Carregando…' : 'nenhuma empresa neste filtro'}
                 </Td>
               </Tr>

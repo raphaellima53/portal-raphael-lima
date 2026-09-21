@@ -35,6 +35,7 @@ import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import { type AlunoLinha, useAcaoAluno, useAlunos } from '@/lib/alunos';
 import { ErroApi } from '@/lib/api';
 import { useMe } from '@/lib/consultas';
+import { idCadastro } from '@/lib/ids';
 import { AlunoFormDialog } from './aluno-form';
 import { ItemBadge, Modalidade, type Msg } from './comum';
 
@@ -98,6 +99,7 @@ export function ListaAlunos() {
       (a) =>
         (!n ||
           norm(a.nome).includes(n) ||
+          (!!d && idCadastro(a.id).includes(d)) ||
           norm(a.email).includes(n) ||
           (!!d && a.cpf.replace(/\D/g, '').includes(d))) &&
         (!sit || a.sit === sit) &&
@@ -213,6 +215,7 @@ export function ListaAlunos() {
         <Table>
           <THead>
             <Tr>
+              <Th>ID</Th>
               <Th>Aluno</Th>
               <Th>Produto</Th>
               <Th>Módulo / turma</Th>
@@ -234,6 +237,7 @@ export function ListaAlunos() {
                     onClick={abre}
                     className={pode?.ficha ? 'cursor-pointer transition-colors hover:bg-hover' : undefined}
                   >
+                    <Td className="whitespace-nowrap text-apagado tabular-nums">{idCadastro(a.id)}</Td>
                     <Td className="font-medium text-texto">
                       {pode?.ficha ? (
                         <Link
@@ -310,7 +314,7 @@ export function ListaAlunos() {
               })
             ) : (
               <Tr>
-                <Td colSpan={8} className="py-10 text-center text-apagado-2">
+                <Td colSpan={9} className="py-10 text-center text-apagado-2">
                   {q.isPending
                     ? 'Carregando…'
                     : todos.length
