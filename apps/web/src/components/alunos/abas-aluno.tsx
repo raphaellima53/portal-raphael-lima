@@ -145,7 +145,7 @@ export function AbaFinanceiro({ d }: { d: FinanceiroAba }) {
                 <Tr key={x.key}>
                   <Td>
                     <span className="font-medium text-texto">{x.curso}</span>
-                    {x.item && <div className="text-apagado">{x.item}</div>}
+                    {x.item && x.item !== '—' && <div className="text-apagado">{x.item}</div>}
                   </Td>
                   <Td className="tabular-nums">{x.parcela}</Td>
                   <Td className="tabular-nums">{x.venc}</Td>
