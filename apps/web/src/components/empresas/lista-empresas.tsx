@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { usePaginacao } from '@/components/paginacao';
+import { AbasDoMenu } from '@/components/secao-abas';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -80,6 +81,7 @@ export function ListaEmpresas() {
           ) : null
         }
       />
+      <AbasDoMenu />
       {q.isError && (
         <Aviso tom="red" icone="alerta">
           {q.error.message}

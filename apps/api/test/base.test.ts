@@ -75,25 +75,31 @@ describe('login e sessão', () => {
 });
 
 describe('menu e acesso', () => {
-  test('Admin vê todos os menus, com Engenharia no fim', async () => {
+  test('Admin: menu enxuto, com Configurações e Engenharia no menu da conta', async () => {
     const h = await entra('admin@alumni.teste', 'alumni-admin');
+    const me = (await app.inject({ url: '/auth/me', headers: h })).json();
+    type N = { label: string; lugar?: string; secoes?: { etapa: string }[] };
+    assert.deepEqual(
+      me.nav.map((n: N) => (n.lugar ? `${n.lugar}:${n.label}` : n.label)),
+      ['Início', 'Agenda', 'Usuários', 'Produtos e serviços', 'Ações', 'conta:Configurações', 'conta:Engenharia'],
+    );
+    const secoes = (k: string) => me.nav.find((n: N) => n.label === k).secoes.map((x: { etapa: string }) => x.etapa);
+    assert.deepEqual(secoes('Usuários'), ['Alunos', 'Professores', 'Empresas', 'Equipe', 'Acessos']);
+    assert.deepEqual(secoes('Produtos e serviços'), ['Cursos', 'Serviços']);
+    assert.deepEqual(secoes('Ações').slice(-2), ['Relatórios', 'Auditoria']);
+  });
+
+  test('professor: Agenda, Histórico e Central de ajuda; o histórico é o das aulas dele', async () => {
+    const h = await entra('persona.i@alumni.teste', 'alumni-i');
     const me = (await app.inject({ url: '/auth/me', headers: h })).json();
     assert.deepEqual(
       me.nav.map((n: { label: string }) => n.label),
-      [
-        'Início',
-        'Agenda',
-        'Cursos',
-        'Alunos',
-        'Empresas',
-        'Professores',
-        'Ações',
-        'Auditoria',
-        'Relatórios',
-        'Configurações',
-        'Engenharia',
-      ],
+      ['Agenda', 'Histórico', 'Central de ajuda'],
     );
+    const hist = (await app.inject({ url: '/historico-de-aulas?dias=60', headers: h })).json();
+    assert.equal(hist.modo, 'professor');
+    assert.ok(hist.aulas.length > 0);
+    for (const a of hist.aulas) assert.ok(a.prof === 'Marina Pallotta' || a.sub === 'Marina Pallotta');
   });
 
   test('aluno entra na área do aluno e não abre o dashboard', async () => {
@@ -101,7 +107,7 @@ describe('menu e acesso', () => {
     const me = (await app.inject({ url: '/auth/me', headers: h })).json();
     assert.deepEqual(
       me.nav.map((n: { label: string }) => n.label),
-      ['Minha área', 'Minha agenda', 'Histórico de aulas'],
+      ['Agenda', 'Histórico', 'Central de ajuda'],
     );
     assert.equal((await app.inject({ url: '/dashboard', headers: h })).statusCode, 403);
     const area = (await app.inject({ url: '/minha-area', headers: h })).json();

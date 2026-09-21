@@ -327,23 +327,32 @@ export function useMassa() {
   });
 }
 
-export type Historico = {
-  dias: number;
-  stats: { aulas: number; presencas: number; faltas: number; pct: number | null; canceladas: number };
-  aulas: {
-    k: string;
-    data: string;
-    horario: string;
-    rotulo: string;
-    cor: string;
-    prod: string;
-    prof: string;
-    sub: string | null;
-    estado: string;
-    estadoTag: [string, Tom];
-    presenca: 'presente' | 'falta' | 'pendente' | null;
-  }[];
+type AulaHistorico = {
+  k: string;
+  data: string;
+  horario: string;
+  rotulo: string;
+  cor: string;
+  prod: string;
+  prof: string;
+  sub: string | null;
+  estado: string;
+  estadoTag: [string, Tom];
 };
+/** o histórico do aluno traz a presença; o do professor, quantos alunos tinha a turma */
+export type Historico =
+  | {
+      modo: 'aluno';
+      dias: number;
+      stats: { aulas: number; presencas: number; faltas: number; pct: number | null; canceladas: number };
+      aulas: (AulaHistorico & { presenca: 'presente' | 'falta' | 'pendente' | null })[];
+    }
+  | {
+      modo: 'professor';
+      dias: number;
+      stats: { aulas: number; executadas: number; substituidas: number; naoFinalizadas: number; canceladas: number };
+      aulas: (AulaHistorico & { alunos: number })[];
+    };
 export const useHistoricoAulas = (dias: number) =>
   useQuery({
     queryKey: ['historico-aulas', dias],

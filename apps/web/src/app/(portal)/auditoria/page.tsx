@@ -7,6 +7,7 @@ import { Busca, normaliza } from '@/components/acoes/alocacao';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { usePaginacao } from '@/components/paginacao';
+import { AbasDoMenu } from '@/components/secao-abas';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHead, CardTitle } from '@/components/ui/card';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
@@ -47,6 +48,7 @@ export default function AuditoriaPage() {
   return (
     <>
       <PageHead titulo="Auditoria" />
+      <AbasDoMenu />
       {q.isError && (
         <Aviso tom="red" icone="alerta">
           {q.error.message}

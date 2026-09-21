@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Aviso, PageHead } from '@/components/ds';
 import { SecaoAbas } from '@/components/secao-abas';
-import { itemAtivo } from '@/components/shell/sidebar';
+import { inicioDe, itemDoCaminho } from '@/components/shell/sidebar';
 import { Button } from '@/components/ui/button';
 import { useMe } from '@/lib/consultas';
 
@@ -16,12 +16,12 @@ export default function TelaPendente() {
   const caminho = usePathname();
   const me = useMe();
   if (!me.data) return null;
-  const item = me.data.nav.find((n) => itemAtivo(n, caminho));
+  const item = itemDoCaminho(me.data.nav, caminho);
   const tela = caminho.split('/')[2];
   const folha = item?.secoes?.flatMap((s) => s.telas).find((t) => t.tela === tela);
 
   if (!item || (item.secoes && tela && !folha)) {
-    const inicio = me.data.usuario.ehAluno ? '/minha-area' : '/inicio';
+    const inicio = inicioDe(me.data.usuario);
     return (
       <>
         <PageHead
@@ -44,10 +44,17 @@ export default function TelaPendente() {
     <>
       <PageHead titulo={folha?.label ?? item.label} />
       {item.secoes ? <SecaoAbas item={item} tela={folha?.tela ?? item.tela} /> : null}
-      <Aviso tom="blue" icone="info">
-        <b>{item.label}</b> entra na próxima etapa da réplica do portal. A base (login, personas, acessos, menu,
-        Dashboard e alertas) já está pronta.
-      </Aviso>
+      {tela === 'servicos' ? (
+        <Aviso tom="blue" icone="info">
+          Os serviços (atendimento, acompanhamento e consultoria) ainda não têm cadastro. Eles entram aqui, ao lado dos
+          cursos, quando o cadastro de serviços for definido.
+        </Aviso>
+      ) : (
+        <Aviso tom="blue" icone="info">
+          <b>{item.label}</b> entra na próxima etapa da réplica do portal. A base (login, personas, acessos, menu,
+          Dashboard e alertas) já está pronta.
+        </Aviso>
+      )}
     </>
   );
 }

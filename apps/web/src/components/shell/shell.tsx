@@ -12,7 +12,7 @@ import { Ajuda } from './ajuda';
 import { Atalhos } from './atalhos';
 import { FaixaComoAluno } from './como-aluno';
 import { Logo } from './logo';
-import { Sidebar } from './sidebar';
+import { inicioDe, Sidebar } from './sidebar';
 
 /**
  * Casca do portal: barra lateral flutuante (desktop), gaveta com barra no topo (mobile e tablet),
@@ -75,7 +75,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         >
           {gaveta ? <XIcon className="size-5" /> : <MenuIcon className="size-5" />}
         </button>
-        <Logo escuro={false} href={me.data.usuario.ehAluno ? '/minha-area' : '/inicio'} />
+        <Logo escuro={false} href={inicioDe(me.data.usuario)} />
         <span className="flex-1" />
         {!me.data.usuario.ehAluno && (
           <button

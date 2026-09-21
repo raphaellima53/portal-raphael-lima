@@ -650,18 +650,52 @@ export default async function rotasAgenda(app: FastifyInstance) {
     return { msg: `${e.tipo === 'Reunião' ? 'Reunião excluída' : 'Evento excluído'}.` };
   });
 
-  /* ---- Histórico de aulas do aluno (área do aluno) ---- */
+  /* ---- Histórico de aulas: o do aluno (área do aluno) e o do professor (as aulas que deu ou em que foi substituído) ---- */
   app.get('/historico-de-aulas', { preHandler: exigeAgenda }, async (req, rep) => {
     const u = req.usuario!;
     const b = await base();
-    const al = u.alunoId != null ? b.alunos.find((a) => a.id === u.alunoId) : undefined;
-    if (!al) return rep.code(404).send({ erro: 'Entre com uma persona de aluno para ver o histórico de aulas.' });
     const dias = [30, 60, 90].includes(Number((req.query as { dias?: string }).dias))
       ? Number((req.query as { dias?: string }).dias)
       : 60;
     const agora = new Date();
     const ini = new Date();
     ini.setDate(ini.getDate() - dias);
+    if (u.tipoPerfil === 'Prestador') {
+      const prof = u.agendaPresa?.prof ?? u.nome;
+      const todas = agAulasEntre(b, ini, agora, agora)
+        .filter((x) => x.quando < agora && (x.prof === prof || x.sub === prof))
+        .reverse();
+      const n = (e: string) => todas.filter((x) => x.estado === e).length;
+      return {
+        modo: 'professor' as const,
+        dias,
+        stats: {
+          aulas: todas.length,
+          executadas: n('executada'),
+          substituidas: n('substituida'),
+          naoFinalizadas: n('naoFinalizada'),
+          canceladas: n('cancelada'),
+        },
+        aulas: todas.map((x) => {
+          const fim = x.quando.getHours() * 60 + (x.duracao || 50);
+          return {
+            k: x.k,
+            data: fmt.semana(x.quando),
+            horario: `${agHH(x.quando.getHours())}–${String(Math.floor(fim / 60)).padStart(2, '0')}:${String(fim % 60).padStart(2, '0')}`,
+            rotulo: agRotulo(x),
+            cor: b.corModulo[x.mod ?? ''] || b.corCurso[x.prod] || '#1e46c8',
+            prod: x.prod,
+            prof: x.prof,
+            sub: x.sub,
+            estado: x.estado,
+            estadoTag: FX_ESTADO[x.estado],
+            alunos: x.alunos.length,
+          };
+        }),
+      };
+    }
+    const al = u.alunoId != null ? b.alunos.find((a) => a.id === u.alunoId) : undefined;
+    if (!al) return rep.code(404).send({ erro: 'Entre com uma persona de aluno para ver o histórico de aulas.' });
     const todas = agAulasEntre(b, ini, agora, agora)
       .filter((x) => x.quando < agora && x.alunos.includes(al.name))
       .reverse();
@@ -669,6 +703,7 @@ export default async function rotasAgenda(app: FastifyInstance) {
     const np = pres.filter((p) => p === 'presente').length;
     const nf = pres.filter((p) => p === 'falta').length;
     return {
+      modo: 'aluno' as const,
       dias,
       stats: {
         aulas: todas.length,

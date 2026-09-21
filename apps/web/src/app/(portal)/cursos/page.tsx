@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { CursoFormDialog } from '@/components/cursos/curso-form';
 import { Aviso, PageHead } from '@/components/ds';
+import { AbasDoMenu } from '@/components/secao-abas';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +51,7 @@ export default function Catalogo() {
           ) : null
         }
       />
+      <AbasDoMenu />
       {q.isError && (
         <Aviso tom="red" icone="alerta">
           {q.error.message}

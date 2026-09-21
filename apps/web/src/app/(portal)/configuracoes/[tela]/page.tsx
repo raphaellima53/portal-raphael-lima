@@ -11,7 +11,7 @@ import { TelaCurriculos, TelaDias, TelaFeriados, TelaPoliticas, TelaSalas } from
 import { TelaUsuarios } from '@/components/config/usuarios';
 import { Aviso, PageHead } from '@/components/ds';
 import { SecaoAbas } from '@/components/secao-abas';
-import { itemAtivo } from '@/components/shell/sidebar';
+import { itemDoCaminho } from '@/components/shell/sidebar';
 import { Button } from '@/components/ui/button';
 import { useMe } from '@/lib/consultas';
 
@@ -41,7 +41,7 @@ function Tela() {
   const caminho = usePathname();
   const sp = useSearchParams();
   const me = useMe();
-  const item = me.data?.nav.find((n) => itemAtivo(n, caminho));
+  const item = itemDoCaminho(me.data?.nav ?? [], caminho);
   const folha = item?.secoes?.flatMap((s) => s.telas).find((t) => t.tela === tela);
   useEffect(() => {
     if (folha) document.title = `${folha.label} · Portal Raphael Lima`;

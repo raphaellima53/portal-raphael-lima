@@ -1,6 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { itemDoCaminho } from '@/components/shell/sidebar';
+import { useMe } from '@/lib/consultas';
 import type { ItemNav } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
 
@@ -59,4 +62,14 @@ export function SecaoAbas({ item, tela }: { item: ItemNav; tela: string }) {
       )}
     </div>
   );
+}
+
+/** Abas do menu nas telas de rota própria (Alunos, Professores, Empresas, Cursos, Auditoria): a tela diz onde está. */
+export function AbasDoMenu() {
+  const caminho = usePathname();
+  const me = useMe();
+  const item = itemDoCaminho(me.data?.nav ?? [], caminho);
+  const tela = item?.secoes?.flatMap((s) => s.telas).find((t) => t.href.split('?')[0] === caminho);
+  if (!item || !tela) return null;
+  return <SecaoAbas item={item} tela={tela.tela} />;
 }

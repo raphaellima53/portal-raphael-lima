@@ -2,6 +2,7 @@ import {
   BookOpenIcon,
   Building2Icon,
   CalendarIcon,
+  CircleHelpIcon,
   Code2Icon,
   FileTextIcon,
   GraduationCapIcon,
@@ -11,6 +12,7 @@ import {
   ShieldCheckIcon,
   SlidersHorizontalIcon,
   UserIcon,
+  UsersIcon,
   ZapIcon,
 } from 'lucide-react';
 
@@ -27,6 +29,8 @@ export const ICONES: Record<string, LucideIcon> = {
   report: FileTextIcon,
   sliders: SlidersHorizontalIcon,
   code: Code2Icon,
+  users: UsersIcon,
+  help: CircleHelpIcon,
 };
 
 export const iconeDe = (nome: string): LucideIcon => ICONES[nome] ?? LayoutGridIcon;

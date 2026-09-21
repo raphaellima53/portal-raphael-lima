@@ -8,7 +8,7 @@ import { usePaginacao } from '@/components/paginacao';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
-import { useHistoricoAulas } from '@/lib/agenda';
+import { type Historico, useHistoricoAulas } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
 
 const CHIPS: [string, string][] = [
@@ -19,12 +19,12 @@ const CHIPS: [string, string][] = [
   ['cancelada', 'Canceladas'],
 ];
 
-/** Histórico de aulas do aluno: as aulas passadas, só para consulta. */
+/** Histórico de aulas do aluno ou do professor: as aulas passadas, só para consulta. */
 export default function HistoricoDeAulas() {
   const [dias, setDias] = useState(60);
   const [est, setEst] = useState('');
   const q = useHistoricoAulas(dias);
-  const todas = q.data?.aulas ?? [];
+  const todas: Historico['aulas'][number][] = q.data?.aulas ?? [];
   const ls = est ? todas.filter((x) => x.estado === est) : todas;
   const { fatia, rodape, setPag } = usePaginacao(ls);
   useEffect(() => {
@@ -38,10 +38,25 @@ export default function HistoricoDeAulas() {
         <Aviso icone="info">{q.error.message}</Aviso>
       </>
     );
-  const s = q.data?.stats;
+  const d = q.data;
+  const prof = d?.modo === 'professor';
+  const s = d?.modo === 'aluno' ? d.stats : undefined;
   return (
     <>
       <PageHead titulo="Histórico de aulas" />
+      {d?.modo === 'professor' && (
+        <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+          <Stat valor={d.stats.aulas} rotulo="aulas no período" />
+          <Stat valor={d.stats.executadas} rotulo="executadas" tom="green" />
+          <Stat valor={d.stats.substituidas} rotulo="substituídas" />
+          <Stat
+            valor={d.stats.naoFinalizadas}
+            rotulo="não finalizadas"
+            tom={d.stats.naoFinalizadas ? 'red' : undefined}
+          />
+          <Stat valor={d.stats.canceladas} rotulo="canceladas" />
+        </div>
+      )}
       {s && (
         <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
           <Stat valor={s.aulas} rotulo="aulas no período" />
@@ -94,7 +109,7 @@ export default function HistoricoDeAulas() {
               <Th>Aula</Th>
               <Th>Professor</Th>
               <Th>Estado</Th>
-              <Th>Presença</Th>
+              <Th>{prof ? 'Alunos' : 'Presença'}</Th>
             </Tr>
           </THead>
           <TBody>
@@ -115,7 +130,9 @@ export default function HistoricoDeAulas() {
                     <Badge tom={x.estadoTag[1]}>{x.estadoTag[0]}</Badge>
                   </Td>
                   <Td>
-                    {x.presenca ? (
+                    {'alunos' in x ? (
+                      x.alunos
+                    ) : x.presenca ? (
                       <Badge tom={PRESENCA[x.presenca][1] === 'gray' ? 'amber' : PRESENCA[x.presenca][1]}>
                         {PRESENCA[x.presenca][0]}
                       </Badge>

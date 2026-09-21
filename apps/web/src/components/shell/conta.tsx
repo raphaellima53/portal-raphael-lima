@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Aviso } from '@/components/ds';
+import { iconeDe } from '@/components/icones';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
 import {
@@ -24,13 +25,14 @@ import { useLogout } from '@/lib/consultas';
 import type { Me } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
 
-/** Conta no rodapé do menu: quem está logado, meu perfil, trocar senha e sair. */
+/** Conta no rodapé do menu: quem está logado, meu perfil, trocar senha, as áreas do Admin (Configurações e Engenharia) e sair. */
 export function Conta({ me, mini }: { me: Me; mini: boolean }) {
   const u = me.usuario;
   const router = useRouter();
   const sair = useLogout();
   const [perfil, setPerfil] = useState(false);
   const [senha, setSenha] = useState(false);
+  const daConta = me.nav.filter((n) => n.lugar === 'conta');
 
   return (
     <>
@@ -77,6 +79,16 @@ export function Conta({ me, mini }: { me: Me; mini: boolean }) {
           <DropdownMenuItem onSelect={() => setSenha(true)}>
             <KeyRoundIcon /> Trocar senha
           </DropdownMenuItem>
+          {daConta.length > 0 && <DropdownMenuSeparator />}
+          {daConta.map((n) => {
+            const Icone = iconeDe(n.icon);
+            return (
+              <DropdownMenuItem key={n.key} onSelect={() => router.push(n.href)}>
+                <Icone /> {n.label}
+              </DropdownMenuItem>
+            );
+          })}
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             perigo
             onSelect={() =>

@@ -10,7 +10,7 @@ import { TelaFluxo } from '@/components/acoes/fluxo';
 import { TelaFunil } from '@/components/acoes/funil';
 import { Aviso, PageHead } from '@/components/ds';
 import { SecaoAbas } from '@/components/secao-abas';
-import { itemAtivo } from '@/components/shell/sidebar';
+import { itemDoCaminho } from '@/components/shell/sidebar';
 import { Button } from '@/components/ui/button';
 import { useMe } from '@/lib/consultas';
 
@@ -30,7 +30,7 @@ export default function AcoesPage() {
   const { tela } = useParams<{ tela: string }>();
   const caminho = usePathname();
   const me = useMe();
-  const item = me.data?.nav.find((n) => itemAtivo(n, caminho));
+  const item = itemDoCaminho(me.data?.nav ?? [], caminho);
   const folha = item?.secoes?.flatMap((s) => s.telas).find((t) => t.tela === tela);
   useEffect(() => {
     if (folha) document.title = `${folha.label} · Portal Raphael Lima`;

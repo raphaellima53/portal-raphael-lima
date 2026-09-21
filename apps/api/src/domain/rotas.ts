@@ -55,6 +55,8 @@ const MENU_DAS_TELAS: Record<string, string[]> = {
     'docDesign',
   ],
   engenharia: ['engRepos', 'engIA'],
+  /* Produtos e serviços (menu de 21/09/2026): serviços ainda sem cadastro */
+  produtos: ['servicos'],
 };
 for (const [menu, telas] of Object.entries(MENU_DAS_TELAS)) for (const t of telas) SECAO[t] = menu;
 
@@ -69,6 +71,7 @@ const DIRETAS: Record<string, string> = {
   alunoInicio: '/minha-area',
   alunoAgenda: '/minha-agenda',
   alunoHistorico: '/historico-de-aulas',
+  centralAjuda: '/central-de-ajuda',
 };
 
 type Params = Record<string, string | number | null | undefined>;

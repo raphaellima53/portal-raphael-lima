@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Aviso, PageHead } from '@/components/ds';
 import { Bloco } from '@/components/inicio/bloco';
 import { Personalizar } from '@/components/inicio/personalizar';
+import { inicioDe } from '@/components/shell/sidebar';
 import { Card } from '@/components/ui/card';
 import { useDashboard, useMe } from '@/lib/consultas';
 
@@ -17,16 +18,18 @@ const quando = (iso: string) =>
 export default function Inicio() {
   const me = useMe();
   const router = useRouter();
-  const ehAluno = !!me.data?.usuario.ehAluno;
-  const d = useDashboard(!!me.data && !ehAluno);
+  /* aluno vai para a Minha área e professor para a Agenda: o Dashboard é da equipe */
+  const destino = me.data ? inicioDe(me.data.usuario) : '/inicio';
+  const fora = destino !== '/inicio';
+  const d = useDashboard(!!me.data && !fora);
   const [msg, setMsg] = useState<{ txt: string; erro?: boolean } | null>(null);
 
   useEffect(() => {
     document.title = 'Dashboard · Portal Raphael Lima';
-    if (ehAluno) router.replace('/minha-area');
-  }, [ehAluno, router]);
+    if (fora) router.replace(destino);
+  }, [fora, destino, router]);
 
-  if (!me.data || ehAluno) return null;
+  if (!me.data || fora) return null;
   const nome = me.data.usuario.nome;
 
   return (

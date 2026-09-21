@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { prisma } from '../src/db.ts';
 import { type Areas, PERFIS, type TipoPerfil } from '../src/domain/acesso.ts';
-import { chavesDe, navDe } from '../src/domain/mapa.ts';
+import { chavesDe, navPortal } from '../src/domain/mapa.ts';
 /* o seed tem e-mails fictícios: o lado do portal passa pela mesma troca antes de comparar */
 import { anonimizaEmails } from './anonimiza.ts';
 
@@ -24,7 +24,7 @@ for (const p of portal) {
     ehAluno: tipoPerfil === 'Aluno',
     temAluno: tipoPerfil !== 'Aluno' && u.alunoId != null,
   };
-  const nav = navDe(pessoa).filter((n) => n.key !== 'engenharia');
+  const nav = navPortal(pessoa).filter((n) => n.key !== 'engenharia');
   const menu = nav.map((n) => n.label);
   const secoes = Object.fromEntries(
     ['acoes', 'relatorios', 'config'].map((m) => [

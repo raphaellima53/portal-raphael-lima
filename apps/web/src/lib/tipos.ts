@@ -7,6 +7,8 @@ export type ItemNav = {
   tela: string;
   folha: string;
   href: string;
+  /** 'conta': o item mora no menu da conta (Configurações e Engenharia), não na lista lateral */
+  lugar?: 'conta';
   secoes?: { etapa: string; telas: { id: string; tela: string; label: string; pai: string | null; href: string }[] }[];
 };
 

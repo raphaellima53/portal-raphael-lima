@@ -183,7 +183,7 @@ await passo('Diária: ação em massa sem marcar pede a marcação', async () =>
 
 const aluno = await entra('persona.a@alumni.teste', 'alumni-a');
 await passo('aluno: Minha agenda sem Kanban, sem Novo evento e presa nas próprias aulas', async () => {
-  await aluno.getByRole('link', { name: 'Minha agenda' }).click();
+  await aluno.getByRole('link', { name: 'Agenda', exact: true }).click();
   await aluno.getByRole('heading', { name: 'Agenda' }).waitFor();
   assert.equal(await aluno.getByRole('tab', { name: 'Kanban' }).count(), 0);
   assert.equal(await aluno.getByRole('button', { name: 'Novo evento' }).count(), 0);
@@ -196,7 +196,7 @@ await passo('aluno: Minha agenda sem Kanban, sem Novo evento e presa nas própri
   );
 });
 await passo('aluno: histórico de aulas com presença', async () => {
-  await aluno.getByRole('link', { name: 'Histórico de aulas' }).click();
+  await aluno.getByRole('link', { name: 'Histórico', exact: true }).click();
   await aluno.getByText('de presença').waitFor();
   await aluno.getByRole('radio', { name: /Executadas/ }).click();
 });

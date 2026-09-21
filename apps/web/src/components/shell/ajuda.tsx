@@ -29,31 +29,7 @@ export function Ajuda() {
       <DialogContent tamanho="sm">
         <DialogHead titulo="Ajuda e atalhos" descricao="O portal funciona inteiro pelo teclado." />
         <DialogBody>
-          <div className="overflow-hidden rounded-lg border border-borda">
-            <Table aria-label="Atalhos de teclado">
-              <THead>
-                <Tr>
-                  <Th>Tecla</Th>
-                  <Th>O que faz</Th>
-                </Tr>
-              </THead>
-              <TBody>
-                {ATALHOS.map(([tecla, faz]) => (
-                  <Tr key={tecla}>
-                    <Td className="py-2.5 whitespace-nowrap">
-                      {tecla.split(' depois ').map((t, i) => (
-                        <span key={t}>
-                          {i > 0 && ' depois '}
-                          <kbd>{t}</kbd>
-                        </span>
-                      ))}
-                    </Td>
-                    <Td className="py-2.5">{faz}</Td>
-                  </Tr>
-                ))}
-              </TBody>
-            </Table>
-          </div>
+          <TabelaAtalhos />
           <p className="mt-3 text-apagado">
             Filtros ficam salvos enquanto você navega; <b>Limpar filtros</b> volta a lista ao começo. Ações que apagam
             dados pedem confirmação, e fechar um formulário alterado pergunta antes de descartar.
@@ -66,5 +42,37 @@ export function Ajuda() {
         </DialogFoot>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Tabela dos atalhos de teclado (diálogo de ajuda e Central de ajuda); `teclas` recorta a lista */
+export function TabelaAtalhos({ teclas }: { teclas?: string[] }) {
+  const lista = teclas ? ATALHOS.filter(([t]) => teclas.includes(t)) : ATALHOS;
+  return (
+    <div className="overflow-hidden rounded-lg border border-borda">
+      <Table aria-label="Atalhos de teclado">
+        <THead>
+          <Tr>
+            <Th>Tecla</Th>
+            <Th>O que faz</Th>
+          </Tr>
+        </THead>
+        <TBody>
+          {lista.map(([tecla, faz]) => (
+            <Tr key={tecla}>
+              <Td className="py-2.5 whitespace-nowrap">
+                {tecla.split(' depois ').map((t, i) => (
+                  <span key={t}>
+                    {i > 0 && ' depois '}
+                    <kbd>{t}</kbd>
+                  </span>
+                ))}
+              </Td>
+              <Td className="py-2.5">{faz}</Td>
+            </Tr>
+          ))}
+        </TBody>
+      </Table>
+    </div>
   );
 }

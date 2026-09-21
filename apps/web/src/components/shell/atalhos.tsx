@@ -11,8 +11,17 @@ export function Atalhos({ me }: { me: Me }) {
   useEffect(() => {
     let g = 0;
     const destino = (tecla: string) => {
-      const menu = { i: 'inicio', a: 'agenda', l: 'alunos', p: 'professores', c: 'cursos', r: 'relatorios' }[tecla];
-      return menu ? me.nav.find((n) => n.key === menu)?.href : undefined;
+      const telas = {
+        i: ['dashboard'],
+        a: ['agenda', 'alunoAgenda'],
+        l: ['pedAlunos'],
+        p: ['professores'],
+        c: ['cursos'],
+        r: ['relatorio'],
+      }[tecla];
+      if (!telas) return undefined;
+      const todas = [...me.nav, ...me.nav.flatMap((n) => n.secoes ?? []).flatMap((s) => s.telas)];
+      return todas.find((t) => telas.includes(t.tela))?.href;
     };
     const tecla = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
