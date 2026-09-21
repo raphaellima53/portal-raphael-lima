@@ -11,6 +11,8 @@ export type ItemNav = {
   lugar?: 'conta';
   /** caminhos de fichas que acendem o item sem serem abas */
   prefixos?: string[];
+  /** 'aluno': item da visão de aluno de quem também estuda (o botão Aluno troca a visão) */
+  visao?: 'aluno';
   secoes?: { etapa: string; telas: { id: string; tela: string; label: string; pai: string | null; href: string }[] }[];
 };
 

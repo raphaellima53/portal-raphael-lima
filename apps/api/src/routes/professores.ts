@@ -23,6 +23,7 @@ import {
   prResumo,
   titularDe,
 } from '../domain/professores.ts';
+import { vinculosDe } from '../domain/vinculos.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
@@ -154,15 +155,18 @@ export default async function rotasProfessores(app: FastifyInstance) {
         where: { entidade: 'Professor', entidadeId: t.id },
         orderBy: { quando: 'desc' },
       });
-      dados = prPerfil(
-        b,
-        t,
-        ofs,
-        hist,
-        fbProf(b, t, hist, ofs, await avaliacoesRegistradas(t.id), agora),
-        ult ? { quando: ult.quando, acao: ult.acao } : null,
-        agora,
-      );
+      dados = {
+        ...prPerfil(
+          b,
+          t,
+          ofs,
+          hist,
+          fbProf(b, t, hist, ofs, await avaliacoesRegistradas(t.id), agora),
+          ult ? { quando: ult.quando, acao: ult.acao } : null,
+          agora,
+        ),
+        vinculos: await vinculosDe(b, { profId: t.id }),
+      };
     } else if (aba === 'log') {
       const vivos = await prisma.logAlteracao.findMany({
         where: { entidade: 'Professor', entidadeId: t.id },

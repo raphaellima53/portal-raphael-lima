@@ -48,7 +48,9 @@ import {
   garantirFeedbacks,
   lerAnexos,
 } from '../domain/feedbacks-db.ts';
+import { finCobrancas, finR } from '../domain/financeiro.ts';
 import { podeChave } from '../domain/mapa.ts';
+import { vinculosDe } from '../domain/vinculos.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
@@ -59,17 +61,24 @@ const AL_ABAS = [
   ['log', 'Log', 'dados'],
   ['cursos', 'Cursos', 'matriculas'],
   ['disponibilidade', 'Disponibilidade', 'matriculas'],
+  ['financeiro', 'Parcelas', 'financeiro'],
   ['agendamentos', 'Agendamentos', 'historico'],
   ['feedbacks', 'Feedbacks', 'historico'],
 ] as const;
 type Aba = (typeof AL_ABAS)[number][0];
-const GRUPOS: Record<string, string> = { dados: 'Dados', matriculas: 'Matrículas', historico: 'Histórico' };
+const GRUPOS: Record<string, string> = {
+  dados: 'Dados',
+  matriculas: 'Matrícula',
+  financeiro: 'Financeiro',
+  historico: 'Histórico',
+};
 /** abas antigas caem na subaba nova; o 2º item escolhe Próximas ou Passadas */
 const ALIAS: Record<string, [Aba, string?]> = {
   matriculas: ['cursos'],
   alocacoes: ['cursos'],
   agenda: ['agendamentos', 'proximas'],
   historico: ['agendamentos', 'passadas'],
+  parcelas: ['financeiro'],
 };
 /** ações da linha por nível (AL_ACAO_NIVEL): Editar até o Editor, Desativar até o Gestor, Excluir só o Administrador */
 const AL_ACAO_NIVEL = { editar: 3, desativar: 2, excluir: 1, como: 5 } as const;
@@ -275,10 +284,13 @@ export default async function rotasAlunos(app: FastifyInstance) {
         where: { entidade: 'Aluno', entidadeId: String(a.id) },
         orderBy: { quando: 'desc' },
       });
-      dados = alPerfil(b, a, ofs, hist, {
-        abertos: fb.filter((x) => x.status !== 'Concluído').length,
-        ultima: ult ? { quando: ult.quando, acao: ult.acao } : null,
-      });
+      dados = {
+        ...alPerfil(b, a, ofs, hist, {
+          abertos: fb.filter((x) => x.status !== 'Concluído').length,
+          ultima: ult ? { quando: ult.quando, acao: ult.acao } : null,
+        }),
+        vinculos: await vinculosDe(b, { alunoId: a.id }),
+      };
     } else if (aba === 'log') {
       const vivos = await prisma.logAlteracao.findMany({
         where: { entidade: 'Aluno', entidadeId: String(a.id) },
@@ -307,6 +319,38 @@ export default async function rotasAlunos(app: FastifyInstance) {
         const dias = [7, 14, 30].includes(Number(q.dias)) ? Number(q.dias) : 14;
         dados = { quando, ...alAgenda(b, a, dias, ofs, agora) };
       }
+    } else if (aba === 'financeiro') {
+      /* as parcelas das matrículas do aluno (finCobrancas), com o que já foi baixado em ParcelaPaga */
+      const pagas = new Map((await prisma.parcelaPaga.findMany()).map((p) => [p.chave, p.quando]));
+      const cobs = finCobrancas(b, pagas, agora)
+        .filter((c) => c.alunoId === a.id)
+        .sort((x, z) => +x.venc - +z.venc || x.curso.localeCompare(z.curso));
+      const soma = (f: (c: (typeof cobs)[number]) => boolean) => cobs.filter(f).reduce((s, c) => s + c.valor, 0);
+      const vencidas = cobs.filter((c) => c.sit === 'vencida');
+      dados = {
+        stats: [
+          { valor: finR(soma(() => true)), rotulo: 'em contrato' },
+          { valor: finR(soma((c) => c.sit === 'paga')), rotulo: 'pago', tom: 'green' },
+          {
+            valor: finR(soma((c) => c.sit === 'vencida')),
+            rotulo: `vencido · ${vencidas.length} ${vencidas.length === 1 ? 'parcela' : 'parcelas'}`,
+            tom: vencidas.length ? 'red' : undefined,
+          },
+          { valor: finR(soma((c) => c.sit === 'aVencer')), rotulo: 'a vencer' },
+        ],
+        linhas: cobs.map((c) => ({
+          key: c.key,
+          curso: c.curso,
+          item: c.item,
+          parcela: c.parcela,
+          venc: fmt.data(c.venc),
+          valor: finR(c.valor),
+          pago: c.pago ? fmt.data(c.pago) : null,
+          sit: c.sit,
+          atraso: c.atraso,
+        })),
+        cobranca: podeChave(u, 'acCobranca') ? '/acoes/acCobranca' : null,
+      };
     } else {
       const fb = await feedbacksDe(b, a);
       const conta = (t: string) => fb.filter((x) => x.tipo === t).length;

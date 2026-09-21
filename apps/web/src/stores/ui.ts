@@ -13,6 +13,9 @@ type UI = {
   setAjuda: (on: boolean) => void;
   alertas: boolean;
   setAlertas: (on: boolean) => void;
+  /** visão secundária de quem também estuda: 'aluno' mostra a área do aluno no menu */
+  visao: 'principal' | 'aluno';
+  setVisao: (v: 'principal' | 'aluno') => void;
 };
 
 export const useUI = create<UI>()(
@@ -26,7 +29,9 @@ export const useUI = create<UI>()(
       setAjuda: (ajuda) => set({ ajuda }),
       alertas: false,
       setAlertas: (alertas) => set({ alertas }),
+      visao: 'principal',
+      setVisao: (visao) => set({ visao }),
     }),
-    { name: 'portal.ui', partialize: (s) => ({ sbMini: s.sbMini }) },
+    { name: 'portal.ui', partialize: (s) => ({ sbMini: s.sbMini, visao: s.visao }) },
   ),
 );

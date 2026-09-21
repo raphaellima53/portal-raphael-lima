@@ -14,11 +14,12 @@ import {
   type CursosAba,
   type DispAba,
   type FeedbacksAba,
+  type FinanceiroAba,
   type LogAba,
   type Perfil,
   useFicha,
 } from '@/lib/alunos';
-import { AbaAgendamentos, AbaDisponibilidade, AbaLog, AbaPerfil } from './abas-aluno';
+import { AbaAgendamentos, AbaDisponibilidade, AbaFinanceiro, AbaLog, AbaPerfil } from './abas-aluno';
 import { AlunoFormDialog } from './aluno-form';
 import type { Msg } from './comum';
 import { AbaCursos } from './cursos-aluno';
@@ -148,6 +149,7 @@ export function FichaAluno() {
         {f.aba === 'log' && <AbaLog d={f.dados as LogAba} />}
         {f.aba === 'cursos' && <AbaCursos f={f} d={f.dados as CursosAba} setMsg={setMsg} />}
         {f.aba === 'disponibilidade' && <AbaDisponibilidade f={f} d={f.dados as DispAba} setMsg={setMsg} />}
+        {f.aba === 'financeiro' && <AbaFinanceiro d={f.dados as FinanceiroAba} />}
         {f.aba === 'agendamentos' && <AbaAgendamentos f={f} d={f.dados as AgendamentosAba} vai={vai} />}
         {f.aba === 'feedbacks' && <AbaFeedbacks f={f} d={f.dados as FeedbacksAba} vai={vai} setMsg={setMsg} />}
       </div>

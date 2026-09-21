@@ -31,6 +31,7 @@ import {
   USU_STATUS,
 } from '../domain/configuracoes.ts';
 import { podeChave, TELAS_MAPA } from '../domain/mapa.ts';
+import { Prisma } from '../generated/prisma/client.ts';
 import { logAcesso } from '../lib/acesso-log.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
@@ -85,6 +86,9 @@ const UsuarioIn = z.object({
   setores: Setores.default({}),
   pessoa: z.string().trim().max(200).default(''),
   colaborador: z.string().trim().max(200).default(''),
+  /** um ID, vários perfis: o aluno e o professor vinculados ao usuário (ausente = não mexe) */
+  alunoId: z.number().int().nullable().optional(),
+  professor: z.string().trim().max(200).optional(),
   telefone: z.string().trim().max(40).default(''),
   validoAte: z.string().max(10).default(''),
   responsavel: z.string().trim().max(200).default(''),
@@ -236,6 +240,14 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
       acoes: ACOES,
       pessoas,
       colaboradores: colabs.map((c) => c.nome),
+      alunos: (await prisma.aluno.findMany({ orderBy: { nome: 'asc' }, select: { id: true, nome: true } })).map(
+        (a) => ({
+          id: a.id,
+          nome: a.nome,
+          usuario: usuarios.find((x) => x.alunoId === a.id && x.id !== id)?.nome ?? null,
+        }),
+      ),
+      professores: profs.map((t) => t.nome).sort((x, z) => x.localeCompare(z, 'pt-BR')),
       responsaveis: usuarios
         .filter((x) => x.status === 'Ativo' && (x.perfilLegado === 'Administrador' || ehAdmin1(x)))
         .map((x) => x.nome),
@@ -250,6 +262,8 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
             setores,
             pessoa: u.pessoa ?? u.nome,
             colaborador: u.colaborador ?? '',
+            alunoId: u.alunoId,
+            professor: (u.agendaPresa as { prof?: string } | null)?.prof ?? '',
             telefone: u.telefone ?? '',
             validoAte: u.validoAte ? u.validoAte.toISOString().slice(0, 10) : '',
             responsavel: u.responsavel ?? '',
@@ -300,6 +314,17 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
     if (falta.length) return rep.code(400).send({ erro: `Para salvar o usuário, falta: ${falta.join(', ')}.` });
     if (!id && !z.string().email().safeParse(v.email).success)
       return rep.code(400).send({ erro: 'E-mail de acesso inválido.' });
+    if (v.alunoId != null) {
+      const outro = await prisma.usuario.findFirst({ where: { alunoId: v.alunoId, NOT: { id: id ?? -1 } } });
+      if (outro) return rep.code(400).send({ erro: `Esse aluno já está vinculado ao usuário ${outro.nome}.` });
+    }
+    const vinculos = {
+      ...(v.alunoId !== undefined ? { alunoId: v.alunoId } : {}),
+      /* professor vinculado: a agenda do prestador fica presa nele */
+      ...(v.professor !== undefined && p?.perfil === 'Prestador'
+        ? { agendaPresa: v.professor ? { prof: v.professor } : Prisma.DbNull }
+        : {}),
+    };
     const validoAte = /^\d{4}-\d{2}-\d{2}$/.test(v.validoAte) ? new Date(`${v.validoAte}T00:00:00Z`) : null;
     const extras = {
       pessoa: v.pessoa || null,
@@ -328,6 +353,7 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
           justificativa: v.justificativa,
           ordem,
           ...extras,
+          ...vinculos,
         },
       });
       await cfgLog(
@@ -367,6 +393,7 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
         escopoLegado: null,
         justificativa: v.justificativa || atual.justificativa,
         ...extras,
+        ...vinculos,
       },
     });
     if (mudaAcesso) {

@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardHead, CardTitle } from '@/components/ui/card';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
-import type { AgendamentosAba, DispAba, FichaResp, LogAba, Perfil } from '@/lib/alunos';
+import type { AgendamentosAba, DispAba, FichaResp, FinanceiroAba, LogAba, Perfil, Vinculos } from '@/lib/alunos';
 import { useAcaoAluno } from '@/lib/alunos';
 import { cn } from '@/lib/utils';
 import type { Msg } from './comum';
@@ -33,6 +33,7 @@ const Vazio = ({ n, txt }: { n: number; txt: string }) => (
 export function AbaPerfil({ d }: { d: Perfil }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
+      {d.vinculos && <CartaoVinculos v={d.vinculos} />}
       {d.blocos.map((b) => (
         <Card key={b.titulo} className="min-w-0">
           <CardHead>
@@ -57,6 +58,121 @@ export function AbaPerfil({ d }: { d: Perfil }) {
         </Card>
       ))}
     </div>
+  );
+}
+
+/** Usuário e perfis vinculados: um ID, e o mesmo usuário pode ser aluno, professor e colaborador */
+function CartaoVinculos({ v }: { v: Vinculos }) {
+  const u = v.usuario;
+  return (
+    <Card className="min-w-0 lg:col-span-3">
+      <CardHead className="flex-wrap">
+        <CardTitle>Usuário e perfis vinculados</CardTitle>
+        <span className="flex-1" />
+        {u ? (
+          <span className="text-apagado">
+            ID <b className="font-semibold text-texto tabular-nums">{u.codigo}</b> · {u.email} · {u.perfil}
+          </span>
+        ) : null}
+      </CardHead>
+      <div className="flex flex-wrap items-center gap-2 px-5 py-4">
+        {!u && (
+          <span className="mr-2 text-apagado">
+            Sem usuário de acesso. O vínculo nasce quando o usuário é criado em Usuários › Acessos.
+          </span>
+        )}
+        {v.papeis.map((p) => {
+          const rot = (
+            <>
+              <span className="font-semibold">{p.tipo}</span>
+              <span className="text-apagado">{p.nome}</span>
+              {p.atual && <span className="text-apagado">· esta ficha</span>}
+            </>
+          );
+          const cls =
+            'inline-flex min-h-9 items-center gap-2 rounded-full border border-borda bg-card px-3.5 transition-shadow';
+          return p.href && !p.atual ? (
+            <Link key={p.tipo} href={p.href} className={cn(cls, 'hover:shadow-el-2')}>
+              {rot}
+            </Link>
+          ) : (
+            <span key={p.tipo} className={cn(cls, p.atual && 'bg-azul-suave')}>
+              {rot}
+            </span>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+/* ---------------- Financeiro ---------------- */
+const SIT_PARCELA: Record<FinanceiroAba['linhas'][number]['sit'], [string, 'green' | 'red' | 'gray']> = {
+  paga: ['Paga', 'green'],
+  vencida: ['Vencida', 'red'],
+  aVencer: ['A vencer', 'gray'],
+};
+export function AbaFinanceiro({ d }: { d: FinanceiroAba }) {
+  const { fatia, rodape } = usePaginacao(d.linhas);
+  return (
+    <>
+      <Stats s={d.stats} />
+      <Card className="overflow-hidden">
+        <CardHead className="flex-wrap">
+          <CardTitle>Parcelas das matrículas</CardTitle>
+          <Badge tom="blue">{d.linhas.length}</Badge>
+          <span className="flex-1" />
+          {d.cobranca && (
+            <Button asChild size="sm">
+              <Link href={d.cobranca}>Abrir na Cobrança</Link>
+            </Button>
+          )}
+        </CardHead>
+        <Table aria-label="Parcelas">
+          <THead>
+            <Tr>
+              <Th>Curso</Th>
+              <Th>Parcela</Th>
+              <Th>Vencimento</Th>
+              <Th className="text-right">Valor</Th>
+              <Th>Pago em</Th>
+              <Th>Situação</Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {fatia.length ? (
+              fatia.map((x) => (
+                <Tr key={x.key}>
+                  <Td>
+                    <span className="font-medium text-texto">{x.curso}</span>
+                    {x.item && <div className="text-apagado">{x.item}</div>}
+                  </Td>
+                  <Td className="tabular-nums">{x.parcela}</Td>
+                  <Td className="tabular-nums">{x.venc}</Td>
+                  <Td className="text-right tabular-nums">{x.valor}</Td>
+                  <Td className="tabular-nums">{x.pago ?? <span className="text-apagado">—</span>}</Td>
+                  <Td>
+                    <Badge tom={SIT_PARCELA[x.sit][1]}>{SIT_PARCELA[x.sit][0]}</Badge>
+                    {x.sit === 'vencida' && x.atraso > 0 && (
+                      <span className="ml-2 text-apagado">
+                        {x.atraso} {x.atraso === 1 ? 'dia' : 'dias'}
+                      </span>
+                    )}
+                  </Td>
+                </Tr>
+              ))
+            ) : (
+              <Tr>
+                <Td colSpan={6} className="py-10 text-center text-apagado-2">
+                  nenhuma parcela: o aluno não tem matrícula ativa cobrada
+                </Td>
+              </Tr>
+            )}
+          </TBody>
+        </Table>
+        {rodape}
+      </Card>
+    </>
   );
 }
 

@@ -38,6 +38,8 @@ const VAZIO = {
   email: '',
   pessoa: '',
   colaborador: '',
+  alunoId: null as number | null,
+  professor: '',
   telefone: '',
   perfilId: null as number | null,
   validoAte: '',
@@ -69,6 +71,8 @@ export function FormUsuario({ id }: { id: number | null }) {
         email: u.email,
         pessoa: u.pessoa,
         colaborador: u.colaborador,
+        alunoId: u.alunoId,
+        professor: u.professor,
         telefone: u.telefone,
         perfilId: u.perfilId,
         validoAte: u.validoAte,
@@ -201,6 +205,36 @@ export function FormUsuario({ id }: { id: number | null }) {
                   opcoes={d.colaboradores.map((c) => ({ v: c, l: c }))}
                 />
               </Campo>
+              {perfil?.tipo !== 'Aluno' && (
+                <Campo
+                  rotulo="Vincular a aluno"
+                  ajuda="quem também estuda ganha o botão Aluno no menu, para gerir as próprias aulas"
+                >
+                  <Escolha
+                    rotulo="Vincular a aluno"
+                    todos="— nenhum —"
+                    destacar={false}
+                    valor={v.alunoId == null ? '' : String(v.alunoId)}
+                    aoMudar={(x) => set('alunoId', x ? Number(x) : null)}
+                    opcoes={d.alunos.map((a) => ({
+                      v: String(a.id),
+                      l: a.usuario ? `${a.nome} (já vinculado a ${a.usuario})` : a.nome,
+                    }))}
+                  />
+                </Campo>
+              )}
+              {perfil?.tipo === 'Prestador' && (
+                <Campo rotulo="Vincular a professor" ajuda="a agenda do professor fica presa nas aulas dele">
+                  <Escolha
+                    rotulo="Vincular a professor"
+                    todos="— nenhum —"
+                    destacar={false}
+                    valor={v.professor}
+                    aoMudar={(x) => set('professor', x)}
+                    opcoes={d.professores.map((t) => ({ v: t, l: t }))}
+                  />
+                </Campo>
+              )}
               <Campo id="nu-tel" rotulo="Telefone">
                 <Input
                   id="nu-tel"

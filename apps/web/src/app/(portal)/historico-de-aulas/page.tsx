@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import { PRESENCA } from '@/components/agenda/aula-comum';
 import { Aviso, PageHead, Stat } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
@@ -19,11 +20,20 @@ const CHIPS: [string, string][] = [
   ['cancelada', 'Canceladas'],
 ];
 
-/** Histórico de aulas do aluno ou do professor: as aulas passadas, só para consulta. */
-export default function HistoricoDeAulas() {
+export default function HistoricoPage() {
+  return (
+    <Suspense>
+      <HistoricoDeAulas />
+    </Suspense>
+  );
+}
+
+/** Histórico de aulas do aluno ou do professor: as aulas passadas, só para consulta. ?visao=aluno = as aulas como aluno. */
+function HistoricoDeAulas() {
   const [dias, setDias] = useState(60);
   const [est, setEst] = useState('');
-  const q = useHistoricoAulas(dias);
+  const visao = useSearchParams().get('visao') === 'aluno' ? 'aluno' : undefined;
+  const q = useHistoricoAulas(dias, visao);
   const todas: Historico['aulas'][number][] = q.data?.aulas ?? [];
   const ls = est ? todas.filter((x) => x.estado === est) : todas;
   const { fatia, rodape, setPag } = usePaginacao(ls);

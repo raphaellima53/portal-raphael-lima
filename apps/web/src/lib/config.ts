@@ -43,6 +43,9 @@ export type UsuarioForm = {
   acoes: string[];
   pessoas: { nome: string; email: string; tipo: string; usuario: string | null }[];
   colaboradores: string[];
+  /** um ID, vários perfis: alunos e professores que o usuário pode representar */
+  alunos: { id: number; nome: string; usuario: string | null }[];
+  professores: string[];
   responsaveis: string[];
   seguranca: { k: string; t: string; padrao: boolean }[];
   usuario: {
@@ -54,6 +57,8 @@ export type UsuarioForm = {
     setores: Setores;
     pessoa: string;
     colaborador: string;
+    alunoId: number | null;
+    professor: string;
     telefone: string;
     validoAte: string;
     responsavel: string;

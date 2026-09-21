@@ -53,12 +53,14 @@ export const MENUS: Menu[] = [
             ],
           },
           {
-            t: 'Matrículas',
+            t: 'Matrícula',
             c: [
               { t: 'Cursos', tela: 'alunoFicha', aba: 'cursos' },
               { t: 'Disponibilidade', tela: 'alunoFicha', aba: 'disponibilidade' },
             ],
           },
+          /* Financeiro na ficha do aluno (21/09/2026): as parcelas das matrículas */
+          { t: 'Financeiro', c: [{ t: 'Parcelas', tela: 'alunoFicha', aba: 'financeiro' }] },
           {
             t: 'Histórico',
             c: [
@@ -370,6 +372,8 @@ export type ItemNav = {
   lugar?: 'conta';
   /** caminhos de fichas que acendem o item sem serem abas */
   prefixos?: string[];
+  /** 'aluno': item da visão de aluno de quem também estuda (o botão Aluno troca a visão) */
+  visao?: 'aluno';
   secoes?: { etapa: string; telas: { id: string; tela: string; label: string; pai: string | null; href: string }[] }[];
 };
 
@@ -578,7 +582,22 @@ const direto = (key: string, label: string, icon: string, tela: string): ItemNav
   href: hrefTela(tela),
 });
 
-/** Menu lateral da pessoa (itens com lugar 'conta' aparecem no menu da conta). */
+/** a visão de aluno de quem também estuda: a mesma área do aluno, com o próprio aluno vinculado */
+const visaoAluno = (): ItemNav[] => [
+  { ...direto('vAlunoAgenda', 'Agenda', 'cal', 'alunoAgenda'), visao: 'aluno' },
+  {
+    ...direto('vAlunoHistorico', 'Histórico', 'report', 'alunoHistorico'),
+    href: '/historico-de-aulas?visao=aluno',
+    visao: 'aluno',
+  },
+  {
+    ...direto('vAlunoAjuda', 'Central de ajuda', 'help', 'centralAjuda'),
+    href: '/central-de-ajuda?visao=aluno',
+    visao: 'aluno',
+  },
+];
+
+/** Menu lateral da pessoa (itens com lugar 'conta' aparecem no menu da conta; visao 'aluno' atrás do botão Aluno). */
 export function navDe(p: Pessoa & { temAluno: boolean }): ItemNav[] {
   const ajuda = direto('centralAjuda', 'Central de ajuda', 'help', 'centralAjuda');
   if (p.ehAluno)
@@ -592,6 +611,7 @@ export function navDe(p: Pessoa & { temAluno: boolean }): ItemNav[] {
       direto('agenda', 'Agenda', 'cal', 'agenda'),
       direto('historico', 'Histórico', 'report', 'alunoHistorico'),
       ajuda,
+      ...(p.temAluno ? visaoAluno() : []),
     ];
   const out: ItemNav[] = [direto('inicio', 'Início', 'home', 'dashboard')];
   out[0].folha = 'inicio';
@@ -631,12 +651,7 @@ export function navDe(p: Pessoa & { temAluno: boolean }): ItemNav[] {
       ...(m.id === 'agenda' ? {} : { secoes }),
     });
   }
-  if (p.temAluno)
-    out.push(
-      direto('alunoInicio', 'Minha área', 'user', 'alunoInicio'),
-      direto('alunoAgenda', 'Minha agenda', 'cal', 'alunoAgenda'),
-      direto('alunoHistorico', 'Histórico de aulas', 'report', 'alunoHistorico'),
-    );
+  if (p.temAluno) out.push(...visaoAluno());
   return out;
 }
 

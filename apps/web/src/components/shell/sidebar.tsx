@@ -1,8 +1,9 @@
 'use client';
 
-import { CircleHelpIcon, MenuIcon, PanelLeftOpenIcon } from 'lucide-react';
+import { BriefcaseIcon, CircleHelpIcon, GraduationCapIcon, MenuIcon, PanelLeftOpenIcon } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { iconeDe } from '@/components/icones';
 import { Dica } from '@/components/ui/tooltip';
 import type { ItemNav, Me } from '@/lib/tipos';
@@ -44,9 +45,31 @@ export function Sidebar({ me, mini }: { me: Me; mini: boolean }) {
   const setAjuda = useUI((s) => s.setAjuda);
   const setGaveta = useUI((s) => s.setGaveta);
   const ehAluno = me.usuario.ehAluno;
+  const router = useRouter();
+  /* visão secundária: quem também estuda (professor ou colaborador) troca para a área do aluno pelo botão Aluno */
+  const temVisaoAluno = me.nav.some((n) => n.visao === 'aluno');
+  const visaoSalva = useUI((s) => s.visao);
+  const setVisao = useUI((s) => s.setVisao);
+  const visao = temVisaoAluno ? visaoSalva : 'principal';
+  const lista = me.nav.filter((n) => n.lugar !== 'conta' && (visao === 'aluno' ? n.visao === 'aluno' : !n.visao));
+  /* entrar por um endereço da área do aluno já abre a visão de aluno */
+  useEffect(() => {
+    if (!temVisaoAluno) return;
+    const daArea =
+      caminho.startsWith('/minha-') || new URLSearchParams(window.location.search).get('visao') === 'aluno';
+    if (daArea) setVisao('aluno');
+  }, [caminho, temVisaoAluno, setVisao]);
+  const trocaVisao = () => {
+    const nova = visao === 'aluno' ? 'principal' : 'aluno';
+    setVisao(nova);
+    const primeiro = me.nav.find((n) => n.lugar !== 'conta' && (nova === 'aluno' ? n.visao === 'aluno' : !n.visao));
+    if (primeiro) router.push(primeiro.href);
+    setGaveta(false);
+  };
+  const voltaRot = me.usuario.tipoPerfil === 'Prestador' ? 'Professor' : 'Equipe';
   /* aluno e professor têm a Central de ajuda na lista; o botão do rodapé fica só para a equipe */
-  const temCentral = me.nav.some((n) => n.key === 'centralAjuda');
-  const ativo = itemDoCaminho(me.nav, caminho);
+  const temCentral = lista.some((n) => n.key === 'centralAjuda' || n.key === 'vAlunoAjuda');
+  const ativo = itemDoCaminho(lista, caminho);
 
   return (
     <div className="flex h-full flex-col">
@@ -63,28 +86,26 @@ export function Sidebar({ me, mini }: { me: Me; mini: boolean }) {
         className={cn('min-h-0 flex-1 overflow-y-auto pt-1 pb-3', mini ? 'px-2.5' : 'px-3')}
       >
         <ul className="grid gap-0.5">
-          {me.nav
-            .filter((item) => item.lugar !== 'conta')
-            .map((item) => {
-              const Icone = iconeDe(item.icon);
-              const on = item === ativo;
-              const link = (
-                <Link
-                  href={item.href}
-                  aria-current={on ? 'page' : undefined}
-                  onClick={() => setGaveta(false)}
-                  className={cn(
-                    'flex min-h-[42px] items-center gap-[11px] rounded-md text-sb-texto transition-colors hover:bg-white/6 hover:text-white',
-                    mini ? 'justify-center px-0 py-2.5' : 'px-3 py-[9px]',
-                    on && 'bg-azul font-semibold text-white shadow-[0_6px_16px_-6px_rgba(26,79,214,.7)] hover:bg-azul',
-                  )}
-                >
-                  <Icone className="size-4 shrink-0" strokeWidth={1.8} aria-hidden />
-                  <span className={cn(mini && 'sr-only')}>{item.label}</span>
-                </Link>
-              );
-              return <li key={item.key}>{mini ? <Dica texto={item.label}>{link}</Dica> : link}</li>;
-            })}
+          {lista.map((item) => {
+            const Icone = iconeDe(item.icon);
+            const on = item === ativo;
+            const link = (
+              <Link
+                href={item.href}
+                aria-current={on ? 'page' : undefined}
+                onClick={() => setGaveta(false)}
+                className={cn(
+                  'flex min-h-[42px] items-center gap-[11px] rounded-md text-sb-texto transition-colors hover:bg-white/6 hover:text-white',
+                  mini ? 'justify-center px-0 py-2.5' : 'px-3 py-[9px]',
+                  on && 'bg-azul font-semibold text-white shadow-[0_6px_16px_-6px_rgba(26,79,214,.7)] hover:bg-azul',
+                )}
+              >
+                <Icone className="size-4 shrink-0" strokeWidth={1.8} aria-hidden />
+                <span className={cn(mini && 'sr-only')}>{item.label}</span>
+              </Link>
+            );
+            return <li key={item.key}>{mini ? <Dica texto={item.label}>{link}</Dica> : link}</li>;
+          })}
         </ul>
       </nav>
       <div className={cn('flex flex-col gap-0.5 border-t border-white/7 pt-2', mini ? 'mx-2.5' : 'mx-3')}>
@@ -105,6 +126,17 @@ export function Sidebar({ me, mini }: { me: Me; mini: boolean }) {
             mini={mini}
             aria-haspopup="dialog"
             onClick={() => setAjuda(true)}
+          />
+        )}
+        {temVisaoAluno && (
+          <BotaoBarra
+            icone={visao === 'aluno' ? BriefcaseIcon : GraduationCapIcon}
+            texto={visao === 'aluno' ? voltaRot : 'Aluno'}
+            mini={mini}
+            aria-pressed={visao === 'aluno'}
+            aria-label={visao === 'aluno' ? `Voltar à visão de ${voltaRot.toLowerCase()}` : 'Abrir a visão de aluno'}
+            onClick={trocaVisao}
+            className={cn(visao === 'aluno' && 'bg-white/8 text-white')}
           />
         )}
       </div>

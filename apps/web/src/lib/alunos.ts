@@ -28,8 +28,31 @@ export type PodeLista = {
 };
 export type ListaResp = { alunos: AlunoLinha[]; produtos: string[]; situacoes: string[]; pode: PodeLista };
 
-export type AbaAluno = 'perfil' | 'log' | 'cursos' | 'disponibilidade' | 'agendamentos' | 'feedbacks';
-export type Perfil = { blocos: { titulo: string; itens: { k: string; v: string | null; tom?: Tom }[] }[] };
+export type AbaAluno = 'perfil' | 'log' | 'cursos' | 'disponibilidade' | 'financeiro' | 'agendamentos' | 'feedbacks';
+/** um ID de usuário, vários perfis: aluno, professor e colaborador vinculados */
+export type Vinculos = {
+  usuario: { id: number; codigo: string; email: string; perfil: string; status: string } | null;
+  papeis: { tipo: 'Aluno' | 'Professor' | 'Colaborador'; nome: string; href: string | null; atual: boolean }[];
+};
+export type Perfil = {
+  blocos: { titulo: string; itens: { k: string; v: string | null; tom?: Tom }[] }[];
+  vinculos?: Vinculos;
+};
+export type FinanceiroAba = {
+  stats: { valor: string; rotulo: string; tom?: 'red' | 'green' }[];
+  linhas: {
+    key: string;
+    curso: string;
+    item: string;
+    parcela: string;
+    venc: string;
+    valor: string;
+    pago: string | null;
+    sit: 'paga' | 'vencida' | 'aVencer';
+    atraso: number;
+  }[];
+  cobranca: string | null;
+};
 export type LogAba = {
   linhas: { quando: string; quem: string; base: boolean; acao: string; vezes: number; detalhe: string }[];
 };
@@ -143,7 +166,7 @@ export type FichaResp = {
   grupos: { k: string; rotulo: string; abas: { k: AbaAluno; rotulo: string }[] }[];
   aba: AbaAluno;
   quando: 'proximas' | 'passadas';
-  dados: Perfil | LogAba | CursosAba | DispAba | AgendamentosAba | FeedbacksAba;
+  dados: Perfil | LogAba | CursosAba | DispAba | FinanceiroAba | AgendamentosAba | FeedbacksAba;
   persona: boolean;
   inativo: boolean;
   pode: {

@@ -115,13 +115,15 @@ describe('menu e acesso', () => {
     assert.equal(area.restam, 40);
   });
 
-  test('colaborador que também é aluno (M) ganha a área do aluno no fim do menu', async () => {
+  test('colaborador que também é aluno (M) ganha a visão de aluno atrás do botão Aluno', async () => {
     const h = await entra('persona.m@alumni.teste', 'alumni-m');
-    const labels = (await app.inject({ url: '/auth/me', headers: h }))
-      .json()
-      .nav.map((n: { label: string }) => n.label);
-    assert.deepEqual(labels.slice(-3), ['Minha área', 'Minha agenda', 'Histórico de aulas']);
-    assert.ok(!labels.includes('Engenharia'));
+    type N = { label: string; visao?: string };
+    const nav: N[] = (await app.inject({ url: '/auth/me', headers: h })).json().nav;
+    assert.deepEqual(
+      nav.filter((n) => n.visao === 'aluno').map((n) => n.label),
+      ['Agenda', 'Histórico', 'Central de ajuda'],
+    );
+    assert.ok(!nav.some((n) => n.label === 'Engenharia'));
   });
 
   test('Diretoria tem hierarquia 1, mas Configurações e Auditoria são só do tipo Admin', () => {

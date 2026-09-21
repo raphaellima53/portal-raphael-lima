@@ -96,7 +96,14 @@ async function aulaVisivel(u: UsuarioSessao, k: string) {
     const al = b.alunos.find((x) => x.id === u.alunoId);
     if (!al || !a.alunos.includes(al.name)) return { b, a: null, erro: 'Sem acesso a esta aula.' };
   }
-  if (!u.ehAluno && u.agendaPresa?.prof && a.prof !== u.agendaPresa.prof && a.sub !== u.agendaPresa.prof) {
+  const doProprioAluno = u.alunoId != null && a.alunos.includes(b.alunos.find((x) => x.id === u.alunoId)?.name ?? '');
+  if (
+    !u.ehAluno &&
+    !doProprioAluno &&
+    u.agendaPresa?.prof &&
+    a.prof !== u.agendaPresa.prof &&
+    a.sub !== u.agendaPresa.prof
+  ) {
     return { b, a: null, erro: 'Sem acesso a esta aula.' };
   }
   return { b, a, erro: null };
@@ -660,7 +667,7 @@ export default async function rotasAgenda(app: FastifyInstance) {
     const agora = new Date();
     const ini = new Date();
     ini.setDate(ini.getDate() - dias);
-    if (u.tipoPerfil === 'Prestador') {
+    if (u.tipoPerfil === 'Prestador' && (req.query as { visao?: string }).visao !== 'aluno') {
       const prof = u.agendaPresa?.prof ?? u.nome;
       const todas = agAulasEntre(b, ini, agora, agora)
         .filter((x) => x.quando < agora && (x.prof === prof || x.sub === prof))

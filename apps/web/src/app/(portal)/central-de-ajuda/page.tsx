@@ -1,7 +1,8 @@
 'use client';
 
 import { ChevronRightIcon } from 'lucide-react';
-import { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect } from 'react';
 import { PageHead } from '@/components/ds';
 import { TabelaAtalhos } from '@/components/shell/ajuda';
 import { Card, CardHead, CardTitle } from '@/components/ui/card';
@@ -51,15 +52,24 @@ const PROFESSOR: Pergunta[] = [
 /* atalhos que valem para quem só tem Agenda, Histórico e Central de ajuda */
 const TECLAS = ['/', '?', 'g depois a', '[', 'Esc', 'Alt + ↓', '← → na aba'];
 
-/** Central de ajuda do aluno e do professor: perguntas frequentes e atalhos de teclado. */
-export default function CentralDeAjuda() {
+export default function CentralPage() {
+  return (
+    <Suspense>
+      <CentralDeAjuda />
+    </Suspense>
+  );
+}
+
+/** Central de ajuda do aluno e do professor: perguntas frequentes e atalhos de teclado. ?visao=aluno = a do aluno. */
+function CentralDeAjuda() {
   const me = useMe();
+  const comoAluno = useSearchParams().get('visao') === 'aluno';
   useEffect(() => {
     document.title = 'Central de ajuda · Portal Raphael Lima';
   }, []);
   if (!me.data) return null;
   const u = me.data.usuario;
-  const perguntas = u.tipoPerfil === 'Prestador' ? PROFESSOR : ALUNO;
+  const perguntas = u.tipoPerfil === 'Prestador' && !comoAluno ? PROFESSOR : ALUNO;
 
   return (
     <>

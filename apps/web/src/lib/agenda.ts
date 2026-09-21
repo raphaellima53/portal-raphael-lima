@@ -353,10 +353,10 @@ export type Historico =
       stats: { aulas: number; executadas: number; substituidas: number; naoFinalizadas: number; canceladas: number };
       aulas: (AulaHistorico & { alunos: number })[];
     };
-export const useHistoricoAulas = (dias: number) =>
+export const useHistoricoAulas = (dias: number, visao?: 'aluno') =>
   useQuery({
-    queryKey: ['historico-aulas', dias],
-    queryFn: () => api<Historico>(`/historico-de-aulas?dias=${dias}`),
+    queryKey: ['historico-aulas', dias, visao ?? ''],
+    queryFn: () => api<Historico>(`/historico-de-aulas?dias=${dias}${visao ? `&visao=${visao}` : ''}`),
     placeholderData: keepPreviousData,
   });
 

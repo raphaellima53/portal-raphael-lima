@@ -126,6 +126,60 @@ await passo('Professor: histórico com as aulas dele e a contagem de alunos', as
   assert.ok(d.aulas.every((a) => a.prof === 'Marina Pallotta' || a.sub === 'Marina Pallotta'));
 });
 
+/* um ID, vários perfis: o admin vincula um aluno ao usuário da Professora, que ganha o botão Aluno */
+const API = 'http://localhost:3333';
+const usuarioI = async () => {
+  const lista = await (await adm.request.get(`${API}/config/usuarios`)).json();
+  return lista.linhas.find((l) => l.email === 'persona.i@alumni.teste');
+};
+const vincula = async (alunoId) => {
+  const u = await usuarioI();
+  const form = (await (await adm.request.get(`${API}/config/usuarios/form?id=${u.id}`)).json()).usuario;
+  const r = await adm.request.put(`${API}/config/usuarios/${u.id}`, { data: { ...form, alunoId } });
+  assert.equal(r.status(), 200, await r.text());
+};
+let alunoLivre = null;
+await passo('Usuários › Acessos: o formulário tem Vincular a aluno e Vincular a professor', async () => {
+  const u = await usuarioI();
+  await adm.goto(`${BASE}/configuracoes/usuarios/${u.id}`);
+  await adm.getByRole('combobox', { name: 'Vincular a aluno' }).waitFor();
+  await adm.getByRole('combobox', { name: 'Vincular a professor' }).waitFor();
+  const form = await (await adm.request.get(`${API}/config/usuarios/form?id=${u.id}`)).json();
+  alunoLivre = form.alunos.find((a) => !a.usuario);
+  assert.ok(alunoLivre, 'um aluno sem usuário');
+  await vincula(alunoLivre.id);
+});
+await passo('Professor que estuda: botão Aluno acima do perfil troca para a visão de aluno e volta', async () => {
+  const p = await entra('persona.i@alumni.teste', 'alumni-i');
+  const botao = p.getByRole('button', { name: 'Abrir a visão de aluno' });
+  await botao.waitFor();
+  const ordem = await p.evaluate(() => {
+    const b = document.querySelector('button[aria-label="Abrir a visão de aluno"]');
+    const conta = document.querySelector('button[aria-label="Opções da conta"]');
+    return !!(b.compareDocumentPosition(conta) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  assert.ok(ordem, 'o botão Aluno vem antes do perfil');
+  await botao.click();
+  await p.waitForURL(/\/minha-agenda/);
+  assert.deepEqual(await menu(p), ['Agenda', 'Histórico', 'Central de ajuda']);
+  await p.getByRole('link', { name: 'Histórico', exact: true }).click();
+  await p.waitForURL(/visao=aluno/);
+  await p.getByText('de presença').waitFor();
+  await p.getByRole('button', { name: 'Voltar à visão de professor' }).click();
+  await p.waitForURL(/\/agenda/);
+  await p.getByRole('button', { name: 'Abrir a visão de aluno' }).waitFor();
+});
+await passo('Ficha do aluno: Matrícula, Financeiro e os perfis vinculados', async () => {
+  await adm.goto(`${BASE}/alunos/${alunoLivre.id}/perfil`);
+  await adm.getByText('Usuário e perfis vinculados').waitFor();
+  await adm.getByRole('link', { name: /Professor\s*Marina Pallotta/ }).waitFor();
+  await adm.getByRole('tab', { name: 'Financeiro' }).click();
+  await adm.waitForURL(/\/financeiro$/);
+  await adm.getByRole('table', { name: 'Parcelas' }).waitFor();
+  await adm.getByRole('tab', { name: 'Matrícula' }).waitFor();
+});
+if (alunoLivre) await vincula(null);
+
 if (erros.length) {
   console.log('erros de página:', [...new Set(erros)].join(' | '));
   process.exitCode = 1;
