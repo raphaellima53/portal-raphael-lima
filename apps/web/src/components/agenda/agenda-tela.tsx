@@ -158,12 +158,10 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
         valor={presaProf ?? filtros.prof}
         aoMudar={(v) => vai({ prof: v })}
         disabled={!!presaProf}
-        grupos={[
-          ...(o.colaboradores.length
-            ? [{ rot: 'Colaboradores', opcoes: o.colaboradores.map((n) => ({ v: n, l: n })) }]
-            : []),
-          { rot: 'Prestadores', opcoes: o.prestadores.map((n) => ({ v: n, l: n })) },
-        ]}
+        /* uma lista só, em ordem alfabética: colaborador e prestador não se separam (21/09/2026) */
+        opcoes={[...new Set([...o.colaboradores, ...o.prestadores])]
+          .sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }))
+          .map((n) => ({ v: n, l: n }))}
         className="w-[180px]"
       />
       <Escolha
