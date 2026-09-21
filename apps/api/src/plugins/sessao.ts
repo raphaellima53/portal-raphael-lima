@@ -95,7 +95,7 @@ async function carregaUsuario(req: FastifyRequest): Promise<UsuarioSessao | null
         temAluno: false,
         personaLetra: null,
         agendaPresa: { prof: t.nome },
-        como: { quem: u.nome, volta: s.comoVolta ?? '/professores' },
+        como: { quem: u.nome, volta: s.comoVolta ?? '/equipe' },
       };
   }
   if (s.comoAlunoId != null) {

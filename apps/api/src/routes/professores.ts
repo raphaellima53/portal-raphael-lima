@@ -356,12 +356,12 @@ export default async function rotasProfessores(app: FastifyInstance) {
           .string()
           .regex(/^\/[\w\-/?=&%.]*$/)
           .max(300)
-          .default('/professores'),
+          .default('/equipe'),
       })
       .safeParse(req.body ?? {});
     await prisma.sessao.update({
       where: { id: u.sessaoId },
-      data: { comoProfId: t.id, comoAlunoId: null, comoVolta: volta.success ? volta.data.volta : '/professores' },
+      data: { comoProfId: t.id, comoAlunoId: null, comoVolta: volta.success ? volta.data.volta : '/equipe' },
     });
     await loga(u, t, 'Acesso como o professor', `por ${u.nome}`);
     return { ir: '/inicio' };

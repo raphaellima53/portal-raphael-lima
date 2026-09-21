@@ -60,8 +60,8 @@ export function FichaProfessor() {
           titulo={q.error.message.startsWith('Sem acesso') ? 'Sem acesso a esta tela' : 'Professor não encontrado'}
           acoes={
             <Button asChild>
-              <Link href="/professores">
-                <ChevronLeftIcon /> Professores
+              <Link href="/equipe">
+                <ChevronLeftIcon /> Equipe
               </Link>
             </Button>
           }
@@ -91,8 +91,8 @@ export function FichaProfessor() {
         acoes={
           <>
             <Button asChild>
-              <Link href="/professores">
-                <ChevronLeftIcon /> Professores
+              <Link href="/equipe">
+                <ChevronLeftIcon /> Equipe
               </Link>
             </Button>
             {f.pode.editar && (

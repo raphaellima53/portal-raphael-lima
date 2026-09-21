@@ -66,7 +66,8 @@ const DIRETAS: Record<string, string> = {
   cursos: '/cursos',
   pedAlunos: '/alunos',
   empresas: '/empresas',
-  professores: '/professores',
+  /* Equipe: professores e colaboradores numa lista só (21/09/2026); a ficha continua em /professores/:id */
+  professores: '/equipe',
   auditoria: '/auditoria',
   alunoInicio: '/minha-area',
   alunoAgenda: '/minha-agenda',

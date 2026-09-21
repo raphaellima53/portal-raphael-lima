@@ -1,18 +1,16 @@
 'use client';
 
 import { PlusIcon } from 'lucide-react';
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { usePaginacao } from '@/components/paginacao';
-import { ProfessorFormDialog } from '@/components/professores/professor-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
-import { type Catalogo, type Colaboradores, type Prestadores, useAcaoCfg, useCfg } from '@/lib/config';
+import { type Catalogo, type Colaboradores, useAcaoCfg, useCfg } from '@/lib/config';
 import { AvisoMsg, Barra, Busca, Campo, Chave, ErroQ, FormDialog, type Msg, normaliza, Vazio } from './comum';
 
 const SITUACOES = ['Ativos', 'Inativos', 'Todos'];
@@ -46,14 +44,22 @@ const Novo = ({ rotulo, aoClicar }: { rotulo: string; aoClicar: () => void }) =>
 
 export { Novo, passaSit, Situacao, StatusBadge };
 
-/* ================= Colaboradores ================= */
-export function TelaColaboradores({ abas }: { abas: React.ReactNode }) {
-  const q = useCfg<Colaboradores>('/colaboradores');
+/* ================= Colaboradores (a lista mora em Usuários › Equipe, junto dos professores) ================= */
+export type ColabLinha = Colaboradores['linhas'][number];
+
+/** Cadastro e edição de colaborador: abre com a linha (editar) ou com null (novo). */
+export function ColaboradorFormDialog({
+  abre,
+  cargos,
+  aoFechar,
+  aoSalvo,
+}: {
+  abre: { linha: ColabLinha | null } | null;
+  cargos: Colaboradores['cargos'];
+  aoFechar: () => void;
+  aoSalvo: (msg: string) => void;
+}) {
   const acao = useAcaoCfg();
-  const [msg, setMsg] = useState<Msg>(null);
-  const [busca, setBusca] = useState('');
-  const [cargo, setCargo] = useState('');
-  const [sit, setSit] = useState('Ativos');
   const [form, setForm] = useState<{
     id: number | null;
     nome: string;
@@ -62,17 +68,19 @@ export function TelaColaboradores({ abas }: { abas: React.ReactNode }) {
     ativo: boolean;
   } | null>(null);
   const [erro, setErro] = useState('');
-  const d = q.data;
-  const lista = useMemo(() => {
-    const n = normaliza(busca);
-    return (d?.linhas ?? []).filter(
-      (c) =>
-        passaSit(sit, c.ativo) &&
-        (!cargo || c.cargo === cargo) &&
-        (!n || normaliza(`${c.nome} ${c.email}`).includes(n)),
+  const [aberto, setAberto] = useState<typeof abre>(null);
+  if (abre !== aberto) {
+    setAberto(abre);
+    setErro('');
+    const c = abre?.linha;
+    setForm(
+      !abre
+        ? null
+        : c
+          ? { id: c.id, nome: c.nome, email: c.email, cargo: c.cargo === '—' ? '' : c.cargo, ativo: c.ativo }
+          : { id: null, nome: '', email: '', cargo: '', ativo: true },
     );
-  }, [d, busca, cargo, sit]);
-  const { fatia, rodape, setPag } = usePaginacao(lista);
+  }
   const salvar = () =>
     form &&
     acao.mutate(
@@ -83,248 +91,62 @@ export function TelaColaboradores({ abas }: { abas: React.ReactNode }) {
       },
       {
         onSuccess: (r) => {
-          setForm(null);
-          setMsg({ txt: r.msg });
+          aoFechar();
+          aoSalvo(r.msg);
         },
         onError: (e) => setErro(e.message),
       },
     );
-  const abre = (c?: Colaboradores['linhas'][number]) => {
-    setErro('');
-    setForm(
-      c
-        ? { id: c.id, nome: c.nome, email: c.email, cargo: c.cargo === '—' ? '' : c.cargo, ativo: c.ativo }
-        : { id: null, nome: '', email: '', cargo: '', ativo: true },
-    );
-  };
-  const dep = d?.cargos.find((c) => c.nome === form?.cargo)?.departamento;
+  const dep = cargos.find((c) => c.nome === form?.cargo)?.departamento;
 
   return (
-    <>
-      <PageHead titulo="Colaboradores" acoes={<Novo rotulo="Novo colaborador" aoClicar={() => abre()} />} />
-      {abas}
-      <AvisoMsg msg={msg} />
-      <ErroQ e={q.error} />
-      {d && (
+    <FormDialog
+      aberto={!!form}
+      aoFechar={aoFechar}
+      titulo={form?.id ? 'Editar colaborador' : 'Novo colaborador'}
+      erro={erro}
+      ocupado={acao.isPending}
+      rotuloOk={form?.id ? 'Salvar' : 'Cadastrar'}
+      aoSalvar={salvar}
+    >
+      {form && (
         <>
-          <Barra>
-            <Busca
-              rotulo="Buscar por nome ou e-mail"
-              valor={busca}
-              aoMudar={(v) => {
-                setBusca(v);
-                setPag(1);
-              }}
+          <Campo id="co-nome" rotulo="Nome completo" req className="sm:col-span-2">
+            <Input
+              id="co-nome"
+              autoFocus
+              value={form.nome}
+              onChange={(e) => setForm({ ...form, nome: e.target.value })}
             />
-            <span className="flex-1" />
+          </Campo>
+          <Campo id="co-email" rotulo="E-mail" req>
+            <Input
+              id="co-email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </Campo>
+          <Campo rotulo="Cargo" ajuda={dep ? `departamento: ${dep}` : 'o departamento vem do cargo escolhido'}>
             <Escolha
               rotulo="Cargo"
-              todos="Todos os cargos"
-              valor={cargo}
-              aoMudar={(v) => {
-                setCargo(v);
-                setPag(1);
-              }}
-              opcoes={[...new Set(d.linhas.map((c) => c.cargo))].map((c) => ({ v: c, l: c }))}
-              className="w-[230px]"
+              todos="Selecione…"
+              destacar={false}
+              valor={form.cargo}
+              aoMudar={(v) => setForm({ ...form, cargo: v })}
+              opcoes={cargos.map((c) => ({ v: c.nome, l: c.nome }))}
             />
-            <Situacao
-              valor={sit}
-              aoMudar={(v) => {
-                setSit(v);
-                setPag(1);
-              }}
-            />
-          </Barra>
-          <Card className="overflow-hidden">
-            <Table aria-label="Colaboradores">
-              <THead>
-                <Tr>
-                  <Th>Nome</Th>
-                  <Th>E-mail</Th>
-                  <Th>Departamento</Th>
-                  <Th>Cargo</Th>
-                  <Th>Status</Th>
-                  <Th className="text-right">Ações</Th>
-                </Tr>
-              </THead>
-              <TBody>
-                {fatia.length ? (
-                  fatia.map((c) => (
-                    <Tr key={c.id}>
-                      <Td className="font-medium text-texto">{c.nome}</Td>
-                      <Td>{c.email}</Td>
-                      <Td>{c.departamento}</Td>
-                      <Td>{c.cargo}</Td>
-                      <Td>
-                        <StatusBadge ativo={c.ativo} />
-                      </Td>
-                      <Td className="text-right">
-                        <Button size="sm" aria-label={`Editar ${c.nome}`} onClick={() => abre(c)}>
-                          Editar
-                        </Button>
-                      </Td>
-                    </Tr>
-                  ))
-                ) : (
-                  <Vazio cols={6} txt="nenhum colaborador com esses filtros" />
-                )}
-              </TBody>
-            </Table>
-            {rodape}
-          </Card>
+          </Campo>
+          <Chave
+            id="co-ativo"
+            className="sm:col-span-2"
+            on={form.ativo}
+            aoMudar={(v) => setForm({ ...form, ativo: v })}
+            rotulo="Colaborador ativo"
+          />
         </>
       )}
-      <FormDialog
-        aberto={!!form}
-        aoFechar={() => setForm(null)}
-        titulo={form?.id ? 'Editar colaborador' : 'Novo colaborador'}
-        erro={erro}
-        ocupado={acao.isPending}
-        rotuloOk={form?.id ? 'Salvar' : 'Cadastrar'}
-        aoSalvar={salvar}
-      >
-        {form && (
-          <>
-            <Campo id="co-nome" rotulo="Nome completo" req className="sm:col-span-2">
-              <Input
-                id="co-nome"
-                autoFocus
-                value={form.nome}
-                onChange={(e) => setForm({ ...form, nome: e.target.value })}
-              />
-            </Campo>
-            <Campo id="co-email" rotulo="E-mail" req>
-              <Input
-                id="co-email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </Campo>
-            <Campo rotulo="Cargo" ajuda={dep ? `departamento: ${dep}` : 'o departamento vem do cargo escolhido'}>
-              <Escolha
-                rotulo="Cargo"
-                todos="Selecione…"
-                destacar={false}
-                valor={form.cargo}
-                aoMudar={(v) => setForm({ ...form, cargo: v })}
-                opcoes={(d?.cargos ?? []).map((c) => ({ v: c.nome, l: c.nome }))}
-              />
-            </Campo>
-            <Chave
-              id="co-ativo"
-              className="sm:col-span-2"
-              on={form.ativo}
-              aoMudar={(v) => setForm({ ...form, ativo: v })}
-              rotulo="Colaborador ativo"
-            />
-          </>
-        )}
-      </FormDialog>
-    </>
-  );
-}
-
-/* ================= Prestadores ================= */
-export function TelaPrestadores({ abas }: { abas: React.ReactNode }) {
-  const q = useCfg<Prestadores>('/prestadores');
-  const [msg, setMsg] = useState<Msg>(null);
-  const [busca, setBusca] = useState('');
-  const [sit, setSit] = useState('Ativos');
-  const [form, setForm] = useState<{ id: string | null } | null>(null);
-  const d = q.data;
-  const lista = useMemo(() => {
-    const n = normaliza(busca);
-    return (d?.linhas ?? []).filter(
-      (t) => passaSit(sit, t.ativo) && (!n || normaliza(`${t.nome} ${t.email}`).includes(n)),
-    );
-  }, [d, busca, sit]);
-  const { fatia, rodape, setPag } = usePaginacao(lista);
-  return (
-    <>
-      <PageHead titulo="Prestadores" acoes={<Novo rotulo="Novo prestador" aoClicar={() => setForm({ id: null })} />} />
-      {abas}
-      <AvisoMsg msg={msg} />
-      <ErroQ e={q.error} />
-      {d && (
-        <>
-          <Barra>
-            <Busca
-              rotulo="Buscar por nome ou e-mail"
-              valor={busca}
-              aoMudar={(v) => {
-                setBusca(v);
-                setPag(1);
-              }}
-            />
-            <span className="flex-1" />
-            <Situacao
-              rotulo="Situação"
-              valor={sit}
-              aoMudar={(v) => {
-                setSit(v);
-                setPag(1);
-              }}
-            />
-          </Barra>
-          <Card className="overflow-hidden">
-            <Table aria-label="Prestadores">
-              <THead>
-                <Tr>
-                  <Th>Prestador</Th>
-                  <Th>E-mail</Th>
-                  <Th>Cursos habilitados</Th>
-                  <Th className="text-right">Aulas/sem na grade</Th>
-                  <Th className="text-right">Teto semanal</Th>
-                  <Th>Situação</Th>
-                </Tr>
-              </THead>
-              <TBody>
-                {fatia.length ? (
-                  fatia.map((t) => (
-                    <Tr key={t.id}>
-                      <Td className="font-medium whitespace-nowrap">
-                        <Link href={t.href} className="text-azul hover:underline">
-                          {t.nome}
-                        </Link>
-                      </Td>
-                      <Td>{t.email}</Td>
-                      <Td>
-                        <div className="flex flex-wrap gap-1">
-                          {t.cursos.length ? (
-                            t.cursos.map((c) => (
-                              <span
-                                key={c.nome}
-                                className="rounded-full px-2.5 py-0.5 font-medium"
-                                style={{ background: `${c.cor}1a`, color: c.cor }}
-                              >
-                                {c.nome}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-apagado-2">—</span>
-                          )}
-                        </div>
-                      </Td>
-                      <Td className="text-right tabular-nums">{t.aulas}</Td>
-                      <Td className="text-right tabular-nums">{t.teto}</Td>
-                      <Td>
-                        <StatusBadge ativo={t.ativo} />
-                      </Td>
-                    </Tr>
-                  ))
-                ) : (
-                  <Vazio cols={6} txt="nenhum prestador neste filtro" />
-                )}
-              </TBody>
-            </Table>
-            {rodape}
-          </Card>
-        </>
-      )}
-      <ProfessorFormDialog abre={form} aoFechar={() => setForm(null)} aoSalvo={(r) => setMsg({ txt: r.msg })} />
-    </>
+    </FormDialog>
   );
 }
 

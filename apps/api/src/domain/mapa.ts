@@ -368,6 +368,8 @@ export type ItemNav = {
   href: string;
   /** 'conta': o item mora no menu da conta (Configurações e Engenharia), não na lista lateral */
   lugar?: 'conta';
+  /** caminhos de fichas que acendem o item sem serem abas */
+  prefixos?: string[];
   secoes?: { etapa: string; telas: { id: string; tela: string; label: string; pai: string | null; href: string }[] }[];
 };
 
@@ -472,7 +474,15 @@ export function navPortal(p: Pessoa & { temAluno: boolean }): ItemNav[] {
  * Aluno e professor: Agenda, Histórico e Central de ajuda. As telas e as chaves de acesso continuam as do mapa acima.
  */
 type TelaNav = { tela: string; label?: string; pai?: string };
-type ItemDef = { id: string; nome: string; icon: string; lugar?: 'conta'; secoes: { t: string; telas: TelaNav[] }[] };
+type ItemDef = {
+  id: string;
+  nome: string;
+  icon: string;
+  lugar?: 'conta';
+  /** caminhos de fichas que moram debaixo do item sem serem abas (a ficha do professor) */
+  prefixos?: string[];
+  secoes: { t: string; telas: TelaNav[] }[];
+};
 
 /** telas que ainda não existem no mapa do portal */
 const TELAS_NOVAS: Record<string, { label: string; chave: string }> = {
@@ -490,11 +500,11 @@ export const NAV_EQUIPE: ItemDef[] = [
     id: 'usuarios',
     nome: 'Usuários',
     icon: 'users',
+    prefixos: ['/professores'],
     secoes: [
       sec('Alunos', 'pedAlunos'),
-      sec('Professores', 'professores'),
+      sec('Equipe', { tela: 'professores', label: 'Equipe' }, 'departamentos', 'cargos'),
       sec('Empresas', 'empresas'),
-      sec('Equipe', 'colaboradores', 'prestadores', 'departamentos', 'cargos'),
       sec('Acessos', { tela: 'usuarios', label: 'Contas de acesso' }, 'perfis', 'sessoes'),
     ],
   },
@@ -616,6 +626,7 @@ export function navDe(p: Pessoa & { temAluno: boolean }): ItemNav[] {
       folha: f.id,
       href: f.href,
       ...(m.lugar ? { lugar: m.lugar } : {}),
+      ...(m.prefixos ? { prefixos: m.prefixos } : {}),
       /* a Agenda é uma tela só: sem abas */
       ...(m.id === 'agenda' ? {} : { secoes }),
     });

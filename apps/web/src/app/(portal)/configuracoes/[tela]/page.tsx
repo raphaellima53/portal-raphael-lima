@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, usePathname, useSearchParams } from 'next/navigation';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 import { TelaPerfis, TelaSessoes } from '@/components/config/acessos';
 import { TelaAlertas, TelaExecucoes, TelaPainel } from '@/components/config/alertas';
 import { TelaDesign, TelaMapaTelas, TelaPersonas } from '@/components/config/documentacao';
-import { TelaCatalogo, TelaColaboradores, TelaPrestadores } from '@/components/config/pessoas';
+import { TelaCatalogo } from '@/components/config/pessoas';
 import { TelaCurriculos, TelaDias, TelaFeriados, TelaPoliticas, TelaSalas } from '@/components/config/regras';
 import { TelaUsuarios } from '@/components/config/usuarios';
 import { Aviso, PageHead } from '@/components/ds';
@@ -43,10 +43,14 @@ function Tela() {
   const me = useMe();
   const item = itemDoCaminho(me.data?.nav ?? [], caminho);
   const folha = item?.secoes?.flatMap((s) => s.telas).find((t) => t.tela === tela);
+  const router = useRouter();
+  /* colaboradores e prestadores viraram uma lista só, em Usuários › Equipe */
+  const equipe = tela === 'colaboradores' || tela === 'prestadores';
   useEffect(() => {
-    if (folha) document.title = `${folha.label} · Portal Raphael Lima`;
-  }, [folha]);
-  if (!me.data) return null;
+    if (equipe) router.replace('/equipe');
+    else if (folha) document.title = `${folha.label} · Portal Raphael Lima`;
+  }, [folha, equipe, router]);
+  if (!me.data || equipe) return null;
   if (!item || !folha) return <SemAcesso nome={me.data.usuario.nome} />;
 
   const abas = <SecaoAbas item={item} tela={tela} />;
@@ -54,8 +58,6 @@ function Tela() {
     return <TelaUsuarios key={sp.get('msg') ?? ''} abas={abas} msgInicial={sp.get('msg') ?? ''} />;
   if (tela === 'perfis') return <TelaPerfis abas={abas} />;
   if (tela === 'sessoes') return <TelaSessoes abas={abas} />;
-  if (tela === 'colaboradores') return <TelaColaboradores abas={abas} />;
-  if (tela === 'prestadores') return <TelaPrestadores abas={abas} />;
   if (CATALOGOS.includes(tela)) return <TelaCatalogo key={tela} k={tela} abas={abas} />;
   if (tela === 'politicas') return <TelaPoliticas abas={abas} />;
   if (tela === 'dias') return <TelaDias abas={abas} />;

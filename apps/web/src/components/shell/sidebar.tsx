@@ -15,7 +15,9 @@ import { Logo } from './logo';
 
 /** caminhos que o item cobre: o dele e o de cada tela das seções (as fichas moram debaixo deles) */
 const caminhosDo = (item: ItemNav) =>
-  [item.href, ...(item.secoes ?? []).flatMap((s) => s.telas.map((t) => t.href))].map((h) => h.split('?')[0]);
+  [item.href, ...(item.prefixos ?? []), ...(item.secoes ?? []).flatMap((s) => s.telas.map((t) => t.href))].map(
+    (h) => h.split('?')[0],
+  );
 
 /** item do menu dono do caminho: o de caminho mais longo que casa (/configuracoes/usuarios é de Usuários) */
 export function itemDoCaminho(nav: ItemNav[], caminho: string): ItemNav | undefined {

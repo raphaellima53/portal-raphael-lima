@@ -84,7 +84,7 @@ describe('menu e acesso', () => {
       ['Início', 'Agenda', 'Usuários', 'Produtos e serviços', 'Ações', 'conta:Configurações', 'conta:Engenharia'],
     );
     const secoes = (k: string) => me.nav.find((n: N) => n.label === k).secoes.map((x: { etapa: string }) => x.etapa);
-    assert.deepEqual(secoes('Usuários'), ['Alunos', 'Professores', 'Empresas', 'Equipe', 'Acessos']);
+    assert.deepEqual(secoes('Usuários'), ['Alunos', 'Equipe', 'Empresas', 'Acessos']);
     assert.deepEqual(secoes('Produtos e serviços'), ['Cursos', 'Serviços']);
     assert.deepEqual(secoes('Ações').slice(-2), ['Relatórios', 'Auditoria']);
   });

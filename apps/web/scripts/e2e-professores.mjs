@@ -34,16 +34,19 @@ async function entra(login, senha) {
 const dialogo = (pg) => pg.getByRole('dialog');
 const pg = await entra('admin@alumni.teste', 'alumni-admin');
 
-await passo('lista: 9 ativos, busca e filtro de curso', async () => {
+await passo('Equipe: 9 professores ativos, busca e filtro de curso', async () => {
   await pg.goto(`${BASE}/professores`);
-  await pg.getByText('9 professores').waitFor();
-  await pg.getByRole('searchbox', { name: 'Buscar professor' }).fill('lorenzi');
-  await pg.getByText('1 professor', { exact: true }).waitFor();
-  await pg.getByRole('searchbox', { name: 'Buscar professor' }).fill('');
+  await pg.waitForURL(/\/equipe$/);
+  await pg.getByRole('combobox', { name: 'Tipo' }).click();
+  await pg.getByRole('option', { name: 'Professores' }).click();
+  await pg.getByText('9 pessoas').waitFor();
+  await pg.getByRole('searchbox', { name: 'Buscar na equipe' }).fill('lorenzi');
+  await pg.getByText('1 pessoa', { exact: true }).waitFor();
+  await pg.getByRole('searchbox', { name: 'Buscar na equipe' }).fill('');
   await pg.getByRole('combobox', { name: 'Curso' }).click();
   await pg.getByRole('option', { name: 'FAAP' }).click();
   await pg.waitForTimeout(200);
-  const cursos = await pg.locator('main tbody tr td:nth-child(3)').allInnerTexts();
+  const cursos = await pg.locator('main tbody tr td:nth-child(4)').allInnerTexts();
   assert.ok(cursos.length > 0 && cursos.every((t) => t.includes('FAAP')));
 });
 
@@ -106,7 +109,8 @@ await passo('feedbacks: registrar avaliação de aluno', async () => {
 
 await passo('novo professor vai para Cursos; editar chega com os dados', async () => {
   await pg.goto(`${BASE}/professores`);
-  await pg.getByRole('button', { name: 'Novo professor' }).click();
+  await pg.getByRole('button', { name: 'Novo' }).click();
+  await pg.getByRole('menuitem', { name: 'Professor' }).click();
   const d = dialogo(pg);
   await d.getByRole('textbox', { name: /Nome completo/ }).fill('Professor e2e');
   await d.getByRole('button', { name: 'Alumni Black' }).click();
@@ -131,16 +135,19 @@ await passo('novo professor vai para Cursos; editar chega com os dados', async (
 
 await passo('menu da linha: desativar some da lista de ativos; Acessar como volta', async () => {
   await pg.goto(`${BASE}/professores`);
+  const busca = pg.getByRole('searchbox', { name: 'Buscar na equipe' });
+  await busca.fill('Professor e2e');
   await pg.getByRole('button', { name: 'Ações de Professor e2e' }).click();
   await pg.getByRole('menuitem', { name: 'Desativar' }).click();
   await pg.getByText(/Professor e2e desativado/).waitFor();
   await pg.getByRole('link', { name: 'Professor e2e' }).waitFor({ state: 'detached' });
+  await busca.fill('Contarini');
   await pg.getByRole('button', { name: 'Ações de Rafael Contarini' }).click();
   await pg.getByRole('menuitem', { name: 'Acessar como' }).click();
   await pg.waitForURL(/\/inicio/);
   await pg.getByText(/Você está vendo o portal como/).waitFor();
   await pg.getByRole('button', { name: 'Voltar ao portal' }).click();
-  await pg.waitForURL(/\/professores$/);
+  await pg.waitForURL(/\/equipe$/);
 });
 
 await passo('Colaborador pedagógico (G) vê só as abas liberadas da ficha', async () => {

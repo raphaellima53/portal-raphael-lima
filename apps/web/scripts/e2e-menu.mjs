@@ -42,14 +42,32 @@ await passo('Usuários abre Alunos com as abas das pessoas; a ficha mantém o me
   await adm.getByRole('link', { name: 'Usuários' }).click();
   await adm.waitForURL(/\/alunos$/);
   const abas = await adm.getByRole('tablist', { name: 'Seções' }).getByRole('tab').allInnerTexts();
-  assert.deepEqual(abas, ['Alunos', 'Professores', 'Empresas', 'Equipe', 'Acessos']);
+  assert.deepEqual(abas, ['Alunos', 'Equipe', 'Empresas', 'Acessos']);
   await adm.getByRole('tab', { name: 'Acessos' }).click();
   await adm.waitForURL(/\/configuracoes\/usuarios$/);
   await adm.getByRole('heading', { name: 'Contas de acesso' }).or(adm.getByRole('heading', { name: 'Usuários' })).first().waitFor();
   assert.equal(await ativo(adm), 'Usuários');
-  await adm.goto(`${BASE}/professores`);
-  await adm.getByRole('heading', { name: 'Professores' }).waitFor();
+  await adm.goto(`${BASE}/professores/p1/perfil`);
+  await adm.getByText('Cursos e avaliação').waitFor();
   assert.equal(await ativo(adm), 'Usuários');
+});
+
+await passo('Equipe: professores e colaboradores numa lista só, em ordem alfabética', async () => {
+  await adm.getByRole('link', { name: 'Usuários' }).click();
+  await adm.getByRole('tab', { name: 'Equipe' }).click();
+  await adm.waitForURL(/\/equipe$/);
+  await adm.getByRole('heading', { name: 'Equipe' }).waitFor();
+  await adm.getByRole('combobox', { name: 'Itens por página' }).click();
+  await adm.getByRole('option', { name: '50' }).click();
+  await adm.waitForTimeout(300);
+  const linhas = adm.locator('main table[aria-label="Equipe"] tbody tr');
+  const nomes = await linhas.locator('td:nth-child(1)').allInnerTexts();
+  const tipos = await linhas.locator('td:nth-child(3)').allInnerTexts();
+  assert.ok(tipos.includes('Professor') && tipos.includes('Colaborador'), tipos.join());
+  const ordem = [...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+  assert.deepEqual(nomes, ordem);
+  await adm.goto(`${BASE}/configuracoes/prestadores`);
+  await adm.waitForURL(/\/equipe$/);
 });
 
 await passo('Produtos e serviços: catálogo, currículos e serviços', async () => {

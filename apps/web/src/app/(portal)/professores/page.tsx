@@ -1,5 +1,6 @@
-import { ListaProfessores } from '@/components/professores/lista-professores';
+import { redirect } from 'next/navigation';
 
+/** a lista de professores virou a Equipe (professores e colaboradores juntos) */
 export default function ProfessoresPage() {
-  return <ListaProfessores />;
+  redirect('/equipe');
 }
