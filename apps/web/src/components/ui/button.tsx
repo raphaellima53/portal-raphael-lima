@@ -12,7 +12,7 @@ const buttonVariants = cva(
         default:
           'border-borda bg-card text-texto-2 shadow-el-1 hover:border-borda-forte hover:shadow-el-2 hover:text-texto',
         primary:
-          'border-azul bg-azul font-semibold text-white shadow-el-1 hover:border-azul-escuro hover:bg-azul-escuro hover:shadow-[0_6px_16px_-6px_rgba(26,79,214,.55)]',
+          'border-azul bg-azul font-semibold text-white shadow-el-1 hover:border-azul-escuro hover:bg-azul-escuro hover:shadow-[0_6px_16px_-6px_rgba(0,63,176,.55)]',
         ghost: 'border-transparent bg-transparent text-apagado shadow-none hover:bg-bg hover:text-texto',
         perigo: 'border-vermelho bg-vermelho text-white hover:bg-[#a81f2b]',
         link: 'border-transparent bg-transparent p-0 text-azul shadow-none hover:underline h-auto',

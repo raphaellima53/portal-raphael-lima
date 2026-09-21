@@ -32,7 +32,7 @@ export function Alertas({ mini, ativo }: { mini: boolean; ativo: boolean }) {
             n ? (
               <span
                 className={cn(
-                  'rounded-full bg-[#e02b3b] text-center text-sm font-bold text-white',
+                  'rounded-full bg-[#D70C0C] text-center text-sm font-bold text-white',
                   mini
                     ? 'absolute top-0.5 left-[calc(50%+3px)] h-5 min-w-5 px-1 leading-5'
                     : 'h-[22px] min-w-6 px-1.5 leading-[22px]',

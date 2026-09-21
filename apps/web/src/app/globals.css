@@ -16,16 +16,18 @@
   --text-2: #2f3b4e;
   --muted: #566174;
   --muted-2: #5f6b7e;
-  --blue: #1a4fd6;
-  --blue-dark: #143fb0;
-  --blue-soft: #eef3ff;
-  --blue-line: #cfdcfa;
+  /* paleta do Figma (Page 3, 21/09/2026): azul #003FB0 (Essential 2), hover #083688 (Essential 3) */
+  --blue: #003fb0;
+  --blue-dark: #083688;
+  --blue-soft: #eaf0fc;
+  --blue-line: #c7d6f4;
   --green: #0a7a55;
   --green-soft: #e5f6ee;
   --amber: #9a5f00;
   --amber-soft: #fdf2dc;
-  --red: #c42835;
-  --red-soft: #fdeaec;
+  /* vermelho da marca */
+  --red: #d70c0c;
+  --red-soft: #fdeaea;
   --purple: #5b34b0;
   --purple-soft: #f1eefd;
   --gray-soft: #eef0f4;
@@ -33,19 +35,19 @@
   --track: #eef1f5;
   --hover: #f4f6fa;
 
-  --sidebar-1: #0e1730;
-  --sidebar-2: #0a1023;
-  --sidebar-text: #c9d1e2;
-  --sidebar-muted: #8b96ae;
-  --sidebar-user: #141f3c;
-  --sidebar-user-hover: #1a2749;
-  --sidebar-avatar: #1f2d52;
+  --sidebar-1: #062967;
+  --sidebar-2: #041c4a;
+  --sidebar-text: #d4def2;
+  --sidebar-muted: #a4b3d3;
+  --sidebar-user: #0b347c;
+  --sidebar-user-hover: #0f3d8f;
+  --sidebar-avatar: #16479b;
 
   --el-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
   --el-2: 0 2px 4px rgba(15, 23, 42, 0.04), 0 6px 16px -4px rgba(15, 23, 42, 0.1);
   --el-3: 0 4px 8px rgba(15, 23, 42, 0.05), 0 16px 32px -8px rgba(15, 23, 42, 0.16);
   --el-4: 0 24px 60px -12px rgba(10, 16, 35, 0.32);
-  --anel: 0 0 0 3px rgba(26, 79, 214, 0.28);
+  --anel: 0 0 0 3px rgba(0, 63, 176, 0.28);
   --trans: 0.16s cubic-bezier(0.2, 0.7, 0.3, 1);
   --dash-caixa-h: 440px;
 

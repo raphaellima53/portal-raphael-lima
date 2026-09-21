@@ -32,7 +32,7 @@ const VAZIO: Form = {
   idioma: '',
   tipo: '',
   estrutura: 'modulos',
-  cor: '#1a4fd6',
+  cor: '#003FB0',
   itens: [],
   autoAgenda: false,
   ativo: true,
@@ -207,7 +207,7 @@ export function CursoFormDialog({
                 type="button"
                 variant="ghost"
                 className="w-fit border border-dashed border-borda-forte"
-                onClick={() => itens.append({ nome: '', cor: f.getValues('cor') || '#1a4fd6' })}
+                onClick={() => itens.append({ nome: '', cor: f.getValues('cor') || '#003FB0' })}
               >
                 <PlusIcon /> Adicionar módulo ou turma
               </Button>

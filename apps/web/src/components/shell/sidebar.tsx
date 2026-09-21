@@ -96,7 +96,7 @@ export function Sidebar({ me, mini }: { me: Me; mini: boolean }) {
                 className={cn(
                   'flex min-h-[42px] items-center gap-[11px] rounded-md text-sb-texto transition-colors hover:bg-white/6 hover:text-white',
                   mini ? 'justify-center px-0 py-2.5' : 'px-3 py-[9px]',
-                  on && 'bg-azul font-semibold text-white shadow-[0_6px_16px_-6px_rgba(26,79,214,.7)] hover:bg-azul',
+                  on && 'bg-azul font-semibold text-white shadow-[0_6px_16px_-6px_rgba(0,63,176,.7)] hover:bg-azul',
                 )}
               >
                 <Icone className="size-4 shrink-0" strokeWidth={1.8} aria-hidden />

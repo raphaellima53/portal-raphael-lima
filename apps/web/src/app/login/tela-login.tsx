@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
@@ -52,12 +53,19 @@ export function TelaLogin() {
   const { ref: rLogin, ...campoLogin } = f.register('login');
 
   return (
-    <div className="min-h-dvh bg-[#0a1023] px-4 py-8 sm:px-8">
+    <div className="min-h-dvh bg-[#041c4a] px-4 py-8 sm:px-8">
       <div className="mx-auto grid max-w-[1224px] items-start gap-6 lg:grid-cols-[380px_1fr]">
         <div className="rounded-[18px] bg-white p-7 text-[#0f172a] shadow-el-4">
-          <div className="text-[26px] leading-none font-extrabold tracking-[-1px]">
-            alumni<small className="ml-1 align-super text-sm font-bold tracking-[.5px]">BY BETTER</small>
-          </div>
+          {/* logo da marca (Figma, Page 3) */}
+          <Image
+            unoptimized
+            priority
+            src="/marca/alumni-azul.svg"
+            alt="alumni by Better"
+            width={137}
+            height={60}
+            className="block h-[60px] w-auto"
+          />
           <h1 className="mt-[18px] mb-1 text-[20px]">Entrar no portal</h1>
           <p className="text-[#566174]">
             Ambiente de teste. Clique em usar numa persona da lista para entrar direto, ou digite login e senha.
@@ -159,7 +167,7 @@ export function TelaLogin() {
                         type="button"
                         onClick={() => usar(p)}
                         aria-label={`Entrar como ${p.nome}`}
-                        className="h-8 cursor-pointer rounded-md border border-white/15 bg-white/5 px-3 font-semibold text-white hover:bg-[#1a4fd6]"
+                        className="h-8 cursor-pointer rounded-md border border-white/15 bg-white/5 px-3 font-semibold text-white hover:bg-[#003FB0]"
                       >
                         usar
                       </button>

@@ -67,6 +67,21 @@ export type MatriculaB = {
   desativadoEm: Date | null;
   aloc: { prof?: string; dias?: number[]; hora?: number; valor?: number } | null;
 };
+/** cores dos níveis na paleta da marca (Figma, Page 3) */
+export const COR_NIVEL: Record<string, string> = {
+  Confidence: '#2377FF',
+  'Essential 1': '#0E56D5',
+  'Essential 2': '#003FB0',
+  'Essential 3': '#083688',
+  'Essential 4': '#062967',
+  'Rise 1': '#A14F9C',
+  'Rise 2': '#83367E',
+  'Rise 3': '#6E0C6F',
+  'Apex 1': '#D13543',
+  'Apex 2': '#B41624',
+  'Apex 3': '#8E0F1A',
+};
+
 export type AlunoB = {
   id: number;
   name: string;
@@ -200,12 +215,17 @@ async function carrega(): Promise<Base> {
 
   const corModulo: Record<string, string> = {};
   const corCurso: Record<string, string> = {};
+  /* níveis da paleta do Figma (Page 3, 21/09/2026): Confidence, Essential 1–4, Rise 1–3 e Apex 1–3 */
+  const corNivel = (nome: string, cor: string) => {
+    const m = /^(Confidence|Essential [1-4]|Rise [1-3]|Apex [1-3])\b/.exec(nome);
+    return m ? COR_NIVEL[m[1]] : cor;
+  };
   const cs: CursoB[] = cursos.map((c) => {
     corCurso[c.nome] = c.cor;
     const cores: Record<string, string> = {};
     for (const m of c.modulos) {
-      cores[m.nome] = m.cor;
-      corModulo[m.nome] ??= m.cor;
+      cores[m.nome] = corNivel(m.nome, m.cor);
+      corModulo[m.nome] ??= corNivel(m.nome, m.cor);
     }
     return {
       id: c.id,
