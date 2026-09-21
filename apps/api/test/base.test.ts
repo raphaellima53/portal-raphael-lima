@@ -81,7 +81,7 @@ describe('menu e acesso', () => {
     type N = { label: string; lugar?: string; secoes?: { etapa: string }[] };
     assert.deepEqual(
       me.nav.map((n: N) => (n.lugar ? `${n.lugar}:${n.label}` : n.label)),
-      ['Agenda', 'Usuários', 'Produtos e serviços', 'Atividades', 'Auditoria', 'Configurações', 'conta:Engenharia'],
+      ['Início', 'Agenda', 'Usuários', 'Produtos e serviços', 'Atividades', 'Auditoria', 'Configurações', 'conta:Engenharia'],
     );
     const secoes = (k: string) => me.nav.find((n: N) => n.label === k).secoes.map((x: { etapa: string }) => x.etapa);
     assert.deepEqual(secoes('Usuários'), ['Alunos', 'Equipe', 'Empresas']);
@@ -91,7 +91,7 @@ describe('menu e acesso', () => {
     assert.equal(secoes('Atividades').at(-1), 'Relatórios');
   });
 
-  test('professor: Agenda, Histórico e Central de ajuda; o histórico é o das aulas dele', async () => {
+  test('professor: Agenda, Histórico de aulas e Meu perfil; o histórico é o das aulas dele', async () => {
     const h = await entra('persona.i@alumni.teste', 'alumni-i');
     const me = (await app.inject({ url: '/auth/me', headers: h })).json();
     assert.deepEqual(

@@ -33,9 +33,10 @@ const ativo = (pg) => pg.locator('nav[aria-label="Menu principal"] a[aria-curren
 
 const adm = await entra('admin@alumni.teste', 'alumni-admin');
 
-await passo('Admin: A Agenda · B Usuários · C Produtos e serviços · D Atividades · E Auditoria · F Configurações', async () => {
+await passo('Admin: Início · A Agenda · B Usuários · C Produtos e serviços · D Atividades · E Auditoria · F Configurações', async () => {
   await adm.getByRole('heading', { name: 'Dashboard' }).waitFor();
   assert.deepEqual(await menu(adm), [
+    'Início',
     'Agenda',
     'Usuários',
     'Produtos e serviços',

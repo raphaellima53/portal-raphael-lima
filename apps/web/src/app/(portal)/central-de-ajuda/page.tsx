@@ -58,7 +58,7 @@ const EQUIPE: Pergunta[] = [
   ],
   [
     'Onde está o Dashboard?',
-    'No logo, no alto do menu. Os blocos se escolhem em Personalizar e ficam salvos para você.',
+    'No Início, o primeiro item do menu (o logo também leva a ele). Os blocos se escolhem em Personalizar e ficam salvos para você.',
   ],
   [
     'Como dou acesso ao portal para alguém?',

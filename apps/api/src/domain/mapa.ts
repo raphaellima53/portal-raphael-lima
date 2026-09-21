@@ -504,7 +504,7 @@ const sec = (t: string, ...telas: (string | TelaNav)[]) => ({
 
 /*
  * Pirâmides de 21/09/2026: Operação (A Agenda · B Usuários · C Produtos e serviços · D Atividades · E Auditoria · F Configurações),
- * Professor e Aluno (A Agenda · B Histórico de aulas · C Meu perfil). O Início sai do menu (fica no logo);
+ * Professor e Aluno (A Agenda · B Histórico de aulas · C Meu perfil). O Início continua como primeiro item da equipe;
  * a Central de ajuda, o Meu perfil e o Trocar senha ficam no rodapé.
  */
 export const NAV_EQUIPE: ItemDef[] = [
@@ -626,7 +626,8 @@ export function navDe(p: Pessoa & { temAluno: boolean }): ItemNav[] {
       meuPerfil(),
       ...(p.temAluno ? visaoAluno() : []),
     ];
-  const out: ItemNav[] = [];
+  /* o Início (Dashboard) continua no alto do menu da equipe (pedido de 21/09/2026) */
+  const out: ItemNav[] = [{ ...direto('inicio', 'Início', 'home', 'dashboard'), folha: 'inicio' }];
   for (const m of NAV_EQUIPE) {
     const secoes = m.secoes
       .map((sec) => ({
