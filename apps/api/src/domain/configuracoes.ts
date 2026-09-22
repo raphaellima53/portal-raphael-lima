@@ -32,6 +32,34 @@ export const CAT = {
     novo: 'Novo responsável financeiro',
     tela: 'responsaveis',
   },
+  /* catálogos da adequação ao Portal Alumni (22/09/2026) */
+  categoriasservico: {
+    t: 'Categorias de serviço',
+    um: 'categoria de serviço',
+    novo: 'Nova categoria de serviço',
+    tela: 'categoriasservico',
+  },
+  tiposconteudo: {
+    t: 'Tipos de conteúdo',
+    um: 'tipo de conteúdo',
+    novo: 'Novo tipo de conteúdo',
+    tela: 'tiposconteudo',
+  },
+  fontes: { t: 'Fontes de conteúdo', um: 'fonte', novo: 'Nova fonte', tela: 'fontes' },
+  categoriascurriculo: {
+    t: 'Categorias de currículo',
+    um: 'categoria de currículo',
+    novo: 'Nova categoria de currículo',
+    tela: 'categoriascurriculo',
+  },
+  progressoes: { t: 'Progressões', um: 'progressão', novo: 'Nova progressão', tela: 'progressoes' },
+  tiposgeracao: { t: 'Tipos de geração', um: 'tipo de geração', novo: 'Novo tipo de geração', tela: 'tiposgeracao' },
+  visibilidades: {
+    t: 'Visibilidades de oferta',
+    um: 'visibilidade',
+    novo: 'Nova visibilidade',
+    tela: 'visibilidades',
+  },
 } as const;
 export type CatK = keyof typeof CAT;
 /** tipo do Catalogo no banco para cada catálogo simples */
@@ -42,6 +70,53 @@ export const CAT_TIPO: Record<Exclude<CatK, 'departamentos' | 'cargos'>, string>
   skills: 'skills',
   generos: 'genders',
   responsaveis: 'finResp',
+  categoriasservico: 'categoriasServico',
+  tiposconteudo: 'tiposConteudo',
+  fontes: 'fontes',
+  categoriascurriculo: 'categoriasCurriculo',
+  progressoes: 'progressoes',
+  tiposgeracao: 'tiposGeracao',
+  visibilidades: 'visibilidadesOferta',
+};
+/** telas dos catálogos simples, na ordem do menu */
+export const CAT_TELAS = Object.keys(CAT).filter((k) => k !== 'departamentos' && k !== 'cargos');
+
+/** campos a mais de um catálogo, guardados em Catalogo.dados (atributos do tipo de curso, categoria da skill) */
+export type CatExtra = {
+  k: string;
+  rotulo: string;
+  tipo: 'sim' | 'texto' | 'escolha';
+  opcoes?: string[];
+  ajuda?: string;
+};
+export const CAT_EXTRAS: Partial<Record<CatK, CatExtra[]>> = {
+  tiposcurso: [
+    { k: 'allowsModules', rotulo: 'Permite módulos', tipo: 'sim', ajuda: 'o curso se divide em módulos (níveis)' },
+    { k: 'ofereceVagas', rotulo: 'Oferece vagas na grade', tipo: 'sim', ajuda: 'aulas em grupo com vagas abertas' },
+    { k: 'exigeTurma', rotulo: 'Exige turma', tipo: 'sim', ajuda: 'a matrícula precisa de uma turma' },
+    { k: 'grupoComercial', rotulo: 'Grupo comercial', tipo: 'texto' },
+    {
+      k: 'abordagemMaterial',
+      rotulo: 'Abordagem de material',
+      tipo: 'escolha',
+      opcoes: ['Currículo próprio', 'Material do parceiro', 'Livre'],
+    },
+    {
+      k: 'abordagemEnsino',
+      rotulo: 'Abordagem de ensino',
+      tipo: 'escolha',
+      opcoes: ['Trilha fixa', 'Personalizada', 'Conversação'],
+    },
+    { k: 'natureza', rotulo: 'Natureza', tipo: 'escolha', opcoes: ['Curso', 'Serviço', 'Assinatura'] },
+  ],
+  skills: [
+    {
+      k: 'categoria',
+      rotulo: 'Categoria',
+      tipo: 'escolha',
+      opcoes: ['Idioma', 'Pedagógica', 'Técnica', 'Comportamental'],
+    },
+  ],
 };
 export const FORMATOS_CURSO = ['Grupo', 'Particular', 'Híbrido', 'Turma'];
 

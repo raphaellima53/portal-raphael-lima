@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
+import type { Endereco } from './cadastros';
 import type { Tom } from './tipos';
 
 export type EmpresaLinha = {
@@ -41,6 +42,12 @@ export type EmpresaForm = {
   rhNome: string;
   rhEmail: string;
   turmaCurso?: string | null;
+  /* adequação ao Portal Alumni */
+  representante: string;
+  funcionarios: number | null;
+  rhDepartamento: string;
+  rhTelefone: string;
+  endereco: Endereco;
 };
 export type AbaEmpresa = 'geral' | 'alunos' | 'historico';
 export type GeralEmp = {

@@ -3,6 +3,8 @@
 import { CheckIcon, PlusIcon, XIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { CampoData } from '@/components/campos-data';
+import { Chave } from '@/components/config/comum';
 import { Escolha } from '@/components/escolha';
 import { usePaginacao } from '@/components/paginacao';
 import { Badge } from '@/components/ui/badge';
@@ -16,10 +18,12 @@ import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import {
   type AlocCard,
   type Checagem,
+  type ContratoMat,
   type CursosAba,
   type FichaResp,
   previaAlocacao,
   useAcaoAluno,
+  useContratoMatricula,
   useOpcoesAluno,
 } from '@/lib/alunos';
 import { cn } from '@/lib/utils';
@@ -479,6 +483,14 @@ function MatriculaDialog({
   const [total, setTotal] = useState('');
   const [usadas, setUsadas] = useState('0');
   const [erro, setErro] = useState('');
+  /* adequação ao Portal Alumni: contrato da matrícula */
+  const ct = useContratoMatricula(f.id, e?.id ?? null, !!abre);
+  const [contrato, setContrato] = useState<ContratoMat | null>(null);
+  useEffect(() => {
+    if (abre && ct.data) setContrato(ct.data.contrato);
+  }, [abre, ct.data]);
+  const setC = <K extends keyof ContratoMat>(k: K, v: ContratoMat[K]) =>
+    contrato && setContrato({ ...contrato, [k]: v });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reinicia ao abrir
   useEffect(() => {
@@ -509,7 +521,14 @@ function MatriculaDialog({
       {
         caminho: e ? `/${f.id}/matriculas/${e.id}` : `/${f.id}/matriculas`,
         method: e ? 'PUT' : 'POST',
-        json: { curso, item: item || null, modalidade, total: Number(total), usadas: Number(usadas) || 0 },
+        json: {
+          curso,
+          item: item || null,
+          modalidade,
+          total: Number(total),
+          usadas: Number(usadas) || 0,
+          ...(contrato ? { contrato } : {}),
+        },
       },
       {
         onSuccess: (r) => {
@@ -582,6 +601,80 @@ function MatriculaDialog({
               <Label htmlFor="mat-usadas">Aulas usadas</Label>
               <Input id="mat-usadas" type="number" min={0} value={usadas} onChange={(x) => setUsadas(x.target.value)} />
             </div>
+          )}
+          {contrato && ct.data && (
+            <fieldset className="grid gap-4 border-t border-borda-suave pt-4 sm:col-span-2 sm:grid-cols-2">
+              <legend className="sr-only">Contrato</legend>
+              <h3 className="font-bold text-texto sm:col-span-2">Contrato</h3>
+              <div className="grid gap-1.5">
+                <Label htmlFor="mat-ini">Início</Label>
+                <CampoData
+                  id="mat-ini"
+                  rotulo="Início do contrato"
+                  valor={contrato.inicio}
+                  aoMudar={(v) => setC('inicio', v)}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="mat-fim">Fim</Label>
+                <CampoData id="mat-fim" rotulo="Fim do contrato" valor={contrato.fim} aoMudar={(v) => setC('fim', v)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Tipo</Label>
+                <Escolha
+                  rotulo="Tipo da matrícula"
+                  destacar={false}
+                  valor={contrato.statusTipo}
+                  aoMudar={(v) => setC('statusTipo', v)}
+                  opcoes={ct.data.opcoes.tipos.map((x) => ({ v: x, l: x }))}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Origem</Label>
+                <Escolha
+                  rotulo="Origem da matrícula"
+                  destacar={false}
+                  valor={contrato.origem}
+                  aoMudar={(v) => setC('origem', v)}
+                  opcoes={ct.data.opcoes.origens.map((x) => ({ v: x, l: x }))}
+                />
+              </div>
+              <div className="grid gap-1.5 sm:col-span-2">
+                <Label>Oferta (proposta)</Label>
+                <Escolha
+                  rotulo="Oferta"
+                  todos="sem oferta"
+                  destacar={false}
+                  valor={contrato.ofertaId}
+                  aoMudar={(v) => setC('ofertaId', v)}
+                  opcoes={ct.data.opcoes.ofertas}
+                />
+              </div>
+              <div className="grid gap-1.5 sm:col-span-2">
+                <Label>Matrícula ligada</Label>
+                <Escolha
+                  rotulo="Matrícula ligada"
+                  todos="nenhuma"
+                  destacar={false}
+                  valor={contrato.vinculadaId == null ? '' : String(contrato.vinculadaId)}
+                  aoMudar={(v) => setC('vinculadaId', v ? Number(v) : null)}
+                  opcoes={ct.data.opcoes.vinculadas}
+                />
+                <span className="text-apagado">ex.: o Black ligado ao curso principal</span>
+              </div>
+              <Chave
+                id="mat-congelada"
+                className="sm:col-span-2"
+                on={contrato.congelada}
+                aoMudar={(v) => setC('congelada', v)}
+                rotulo="Congelada"
+                ajuda={
+                  ct.data.congeladaDesde && contrato.congelada
+                    ? `congelada desde ${ct.data.congeladaDesde}`
+                    : 'a matrícula para de gerar aulas enquanto estiver congelada'
+                }
+              />
+            </fieldset>
           )}
         </DialogBody>
         <DialogFoot>

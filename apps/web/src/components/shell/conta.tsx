@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronDownIcon, KeyRoundIcon, LogOutIcon, ShieldCheckIcon, UserRoundIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -30,7 +30,8 @@ export function Conta({ me, mini }: { me: Me; mini: boolean }) {
   const u = me.usuario;
   const router = useRouter();
   const sair = useLogout();
-  const [senha, setSenha] = useState(false);
+  /* a conta marcada para trocar a senha abre direto no Trocar senha (adequação ao Portal Alumni) */
+  const [senha, setSenha] = useState(u.trocarSenha);
   const daConta = me.nav.filter((n) => n.lugar === 'conta');
 
   return (
@@ -49,7 +50,12 @@ export function Conta({ me, mini }: { me: Me; mini: boolean }) {
               className="grid size-8 shrink-0 place-items-center rounded-full bg-sb-avatar text-base font-extrabold text-[#8fb0ff]"
               aria-hidden
             >
-              {u.nome[0]?.toLowerCase()}
+              {u.foto ? (
+                // biome-ignore lint/performance/noImgElement: foto de perfil por endereço externo
+                <img src={u.foto} alt="" className="size-8 rounded-full object-cover" />
+              ) : (
+                u.nome[0]?.toLowerCase()
+              )}
             </span>
             {!mini && (
               <>
@@ -103,7 +109,7 @@ export function Conta({ me, mini }: { me: Me; mini: boolean }) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <TrocarSenha aberto={senha} setAberto={setSenha} />
+      <TrocarSenha aberto={senha} setAberto={setSenha} obrigatoria={u.trocarSenha} />
     </>
   );
 }
@@ -117,13 +123,24 @@ const SenhaForm = z
   .refine((d) => d.nova === d.confirma, { path: ['confirma'], message: 'A confirmação não bate com a senha nova.' });
 type SenhaForm = z.infer<typeof SenhaForm>;
 
-function TrocarSenha({ aberto, setAberto }: { aberto: boolean; setAberto: (v: boolean) => void }) {
+function TrocarSenha({
+  aberto,
+  setAberto,
+  obrigatoria,
+}: {
+  aberto: boolean;
+  setAberto: (v: boolean) => void;
+  obrigatoria?: boolean;
+}) {
+  const qc = useQueryClient();
   const f = useForm<SenhaForm>({
     resolver: zodResolver(SenhaForm),
     defaultValues: { atual: '', nova: '', confirma: '' },
   });
   const salvar = useMutation({
     mutationFn: (d: SenhaForm) => api('/auth/senha', { method: 'PUT', json: { atual: d.atual, nova: d.nova } }),
+    /* a conta sai do "trocar no próximo login" */
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
   });
   const fechar = (v: boolean) => {
     setAberto(v);
@@ -154,6 +171,11 @@ function TrocarSenha({ aberto, setAberto }: { aberto: boolean; setAberto: (v: bo
             {salvar.isSuccess ? (
               <Aviso tom="blue" icone="ok">
                 Senha trocada.
+              </Aviso>
+            ) : null}
+            {obrigatoria && !salvar.isSuccess ? (
+              <Aviso tom="amber" icone="alerta">
+                O administrador pediu que você troque a senha antes de continuar.
               </Aviso>
             ) : null}
             {salvar.isError ? (

@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AcessoPessoa } from '@/components/acesso-pessoa';
 import { api } from './api';
+import type { PessoaExtra } from './cadastros';
 import type { Tom } from './tipos';
 
 export type Item = { nome: string; cor: string } | null;
@@ -193,7 +194,9 @@ export type OpcoesAluno = {
   cursos: { nome: string; estrutura: string; itens: string[]; modalidades: string[]; pacote: number }[];
   fb: { tipos: [string, Tom][]; areas: string[]; canais: string[]; situacoes: [string, Tom][] };
 };
-export type AlunoForm = {
+export type AlunoForm = PessoaExtra & {
+  responsavelFinanceiro: string;
+  origemExterna: string;
   nome: string;
   cpf: string;
   status: string;
@@ -254,4 +257,32 @@ export const arquivoParaEnvio = (f: File) =>
       ok({ nome: f.name, tipo: f.type || 'application/octet-stream', base64: String(r.result).split(',')[1] ?? '' });
     r.onerror = () => erro(new Error(`Não foi possível ler ${f.name}.`));
     r.readAsDataURL(f);
+  });
+
+/** contrato da matrícula (adequação ao Portal Alumni): vigência, tipo, origem, oferta, ligada e congelamento */
+export type ContratoMat = {
+  inicio: string;
+  fim: string;
+  statusTipo: string;
+  origem: string;
+  ofertaId: string;
+  vinculadaId: number | null;
+  congelada: boolean;
+};
+export type ContratoResp = {
+  contrato: ContratoMat;
+  congeladaDesde: string | null;
+  opcoes: {
+    tipos: string[];
+    origens: string[];
+    ofertas: { v: string; l: string }[];
+    vinculadas: { v: string; l: string }[];
+  };
+};
+export const useContratoMatricula = (alunoId: number, mid: number | null, ativo: boolean) =>
+  useQuery({
+    queryKey: ['aluno-contrato', alunoId, mid],
+    queryFn: () => api<ContratoResp>(`/alunos/${alunoId}/matriculas-contrato${mid ? `?mid=${mid}` : ''}`),
+    enabled: ativo,
+    gcTime: 0,
   });

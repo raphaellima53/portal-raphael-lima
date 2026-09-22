@@ -179,6 +179,7 @@ export function agOfertas(b: Base): Oferta[] {
       const rg = crsRegras(c);
       if (c.estrutura === 'turmas') {
         for (const t of c.turmas) {
+          if (t.ativa === false) continue;
           const [d, h] = String(t.grade || '').split(' · ');
           if (!h) continue;
           out.push({

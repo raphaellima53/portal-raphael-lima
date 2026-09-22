@@ -74,7 +74,8 @@ describe('alunos · ficha', () => {
     assert.equal(r.aba, 'perfil', 'sem Log cai na primeira aba liberada');
     assert.deepEqual(
       r.grupos.map((x: { abas: { k: string }[] }) => x.abas.map((a) => a.k)),
-      [['perfil'], ['cursos', 'disponibilidade'], ['agendamentos']],
+      /* nivelamento, relatórios e datas bloqueadas herdam o acesso de Cursos e Disponibilidade */
+      [['perfil'], ['cursos', 'nivelamento', 'relatorios', 'disponibilidade', 'datas'], ['agendamentos']],
     );
     assert.match(r.sub, /^alice.ferraz@vetora.teste · B2B · Vetora Tecnologia · contrato até \d{2}\/\d{2}\/\d{4}$/);
     const h = await adm();

@@ -3,14 +3,17 @@
 import { PlusIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AcessoDaPessoa, type AcessoPessoa } from '@/components/acesso-pessoa';
+import { CampoData } from '@/components/campos-data';
 import { PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { usePaginacao } from '@/components/paginacao';
+import { CamposEndereco, CamposPessoa } from '@/components/pessoa-campos';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
+import { PESSOA_VAZIA, type PessoaExtra, useCatalogos } from '@/lib/cadastros';
 import { type Catalogo, type Colaboradores, useAcaoCfg, useCfg } from '@/lib/config';
 import { AvisoMsg, Barra, Busca, Campo, Chave, ErroQ, FormDialog, type Msg, normaliza, Vazio } from './comum';
 
@@ -37,6 +40,12 @@ const Situacao = ({
 const StatusBadge = ({ ativo, fem }: { ativo: boolean; fem?: boolean }) => (
   <Badge tom={ativo ? 'green' : 'gray'}>{ativo ? (fem ? 'Ativa' : 'Ativo') : fem ? 'Inativa' : 'Inativo'}</Badge>
 );
+const cpfMascara = (v: string) => {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  return (
+    [d.slice(0, 3), d.slice(3, 6), d.slice(6, 9)].filter(Boolean).join('.') + (d.length > 9 ? `-${d.slice(9)}` : '')
+  );
+};
 const Novo = ({ rotulo, aoClicar }: { rotulo: string; aoClicar: () => void }) => (
   <Button variant="primary" onClick={aoClicar}>
     <PlusIcon /> {rotulo}
@@ -61,13 +70,19 @@ export function ColaboradorFormDialog({
   aoSalvo: (msg: string) => void;
 }) {
   const acao = useAcaoCfg();
-  const [form, setForm] = useState<{
-    id: number | null;
-    nome: string;
-    email: string;
-    cargo: string;
-    ativo: boolean;
-  } | null>(null);
+  const [form, setForm] = useState<
+    | ({
+        id: number | null;
+        nome: string;
+        email: string;
+        cargo: string;
+        ativo: boolean;
+        cpf: string;
+        admissao: string;
+      } & PessoaExtra)
+    | null
+  >(null);
+  const cats = useCatalogos(['genders'], !!abre);
   const [erro, setErro] = useState('');
   const [aberto, setAberto] = useState<typeof abre>(null);
   if (abre !== aberto) {
@@ -78,8 +93,20 @@ export function ColaboradorFormDialog({
       !abre
         ? null
         : c
-          ? { id: c.id, nome: c.nome, email: c.email, cargo: c.cargo === '—' ? '' : c.cargo, ativo: c.ativo }
-          : { id: null, nome: '', email: '', cargo: '', ativo: true },
+          ? {
+              id: c.id,
+              nome: c.nome,
+              email: c.email,
+              cargo: c.cargo === '—' ? '' : c.cargo,
+              ativo: c.ativo,
+              cpf: c.cpf,
+              admissao: c.admissao,
+              telefone: c.telefone,
+              nascimento: c.nascimento,
+              genero: c.genero,
+              endereco: c.endereco,
+            }
+          : { id: null, nome: '', email: '', cargo: '', ativo: true, cpf: '', admissao: '', ...PESSOA_VAZIA },
     );
   }
   const salvar = () =>
@@ -138,6 +165,31 @@ export function ColaboradorFormDialog({
               opcoes={cargos.map((c) => ({ v: c.nome, l: c.nome }))}
             />
           </Campo>
+          <Campo id="co-cpf" rotulo="CPF">
+            <Input
+              id="co-cpf"
+              inputMode="numeric"
+              placeholder="000.000.000-00"
+              value={cpfMascara(form.cpf)}
+              onChange={(e) => setForm({ ...form, cpf: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+            />
+          </Campo>
+          <Campo id="co-adm" rotulo="Admissão">
+            <CampoData
+              id="co-adm"
+              rotulo="Admissão"
+              valor={form.admissao}
+              aoMudar={(v) => setForm({ ...form, admissao: v })}
+            />
+          </Campo>
+          <CamposPessoa
+            prefixo="co"
+            valor={form}
+            aoMudar={(p) => setForm({ ...form, ...p })}
+            generos={cats.data?.genders ?? []}
+          />
+          <h3 className="mt-2 font-bold text-texto sm:col-span-2">Endereço</h3>
+          <CamposEndereco prefixo="co-end" valor={form.endereco} aoMudar={(e) => setForm({ ...form, endereco: e })} />
           <Chave
             id="co-ativo"
             className="sm:col-span-2"
@@ -161,6 +213,7 @@ type ItemForm = {
   formato: string;
   ativo: boolean;
   uso: number;
+  dados: Record<string, string | boolean>;
 };
 export function TelaCatalogo({ k, abas }: { k: string; abas: React.ReactNode }) {
   const q = useCfg<Catalogo>(`/catalogo/${k}`);
@@ -202,8 +255,19 @@ export function TelaCatalogo({ k, abas }: { k: string; abas: React.ReactNode }) 
             formato: x.formato || 'Grupo',
             ativo: x.ativo,
             uso: x.uso,
+            dados: x.dados ?? {},
           }
-        : { id: null, nome: '', descricao: '', departamento: '', formato: 'Grupo', ativo: true, uso: 0 },
+        : {
+            id: null,
+            nome: '',
+            descricao: '',
+            departamento: '',
+            formato: 'Grupo',
+            ativo: true,
+            uso: 0,
+            /* tipo de curso novo nasce permitindo módulos, como antes */
+            dados: k === 'tiposcurso' ? { allowsModules: true } : {},
+          },
     );
   };
   const cols = k === 'departamentos' ? 5 : k === 'cargos' ? 6 : 4;
@@ -347,6 +411,38 @@ export function TelaCatalogo({ k, abas }: { k: string; abas: React.ReactNode }) 
                       opcoes={d.formatos.map((x) => ({ v: x, l: x }))}
                     />
                   </Campo>
+                )}
+                {d.extras.map((e) =>
+                  e.tipo === 'sim' ? (
+                    <Chave
+                      key={e.k}
+                      id={`cat-${e.k}`}
+                      className="sm:col-span-2"
+                      on={form.dados[e.k] === true}
+                      aoMudar={(v) => setForm({ ...form, dados: { ...form.dados, [e.k]: v } })}
+                      rotulo={e.rotulo}
+                      ajuda={e.ajuda}
+                    />
+                  ) : e.tipo === 'escolha' ? (
+                    <Campo key={e.k} rotulo={e.rotulo}>
+                      <Escolha
+                        rotulo={e.rotulo}
+                        todos="não informado"
+                        destacar={false}
+                        valor={String(form.dados[e.k] ?? '')}
+                        aoMudar={(v) => setForm({ ...form, dados: { ...form.dados, [e.k]: v } })}
+                        opcoes={(e.opcoes ?? []).map((o) => ({ v: o, l: o }))}
+                      />
+                    </Campo>
+                  ) : (
+                    <Campo key={e.k} id={`cat-${e.k}`} rotulo={e.rotulo}>
+                      <Input
+                        id={`cat-${e.k}`}
+                        value={String(form.dados[e.k] ?? '')}
+                        onChange={(x) => setForm({ ...form, dados: { ...form.dados, [e.k]: x.target.value } })}
+                      />
+                    </Campo>
+                  ),
                 )}
                 <Chave
                   id="cat-ativo"

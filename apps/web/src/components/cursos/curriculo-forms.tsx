@@ -37,12 +37,14 @@ export function CurriculoFormDialog({
   const [grupoNovo, setGrupoNovo] = useState('');
   const [idioma, setIdioma] = useState('Inglês');
   const [copia, setCopia] = useState('');
+  const [categoria, setCategoria] = useState('');
   const [erro, setErro] = useState('');
   const d = op.data;
   useEffect(() => {
     if (!d) return;
     setNome(d.atual?.nome ?? (d.curso ? `${d.curso.nome} · ` : ''));
     setAplicado(d.atual?.aplicado ?? []);
+    setCategoria(d.atual?.categoria ?? '');
     setGrupo('');
     setGrupoNovo('');
     setCopia('');
@@ -53,6 +55,7 @@ export function CurriculoFormDialog({
     if (!nome.trim() || /·\s*$/.test(nome)) return setErro('Dê um nome ao currículo.');
     const json = {
       nome: nome.trim(),
+      categoria,
       aplicado: d?.curso?.itens.length ? aplicado : undefined,
       ...(ed ? {} : { curso: d?.curso?.nome, grupo, grupoNovo, idioma, copia: copia || undefined }),
     };
@@ -92,6 +95,20 @@ export function CurriculoFormDialog({
               }}
             />
           </div>
+          {d && (
+            <div className="grid gap-1.5 sm:col-span-2">
+              <Label>Categoria</Label>
+              <Escolha
+                rotulo="Categoria"
+                todos="sem categoria"
+                destacar={false}
+                valor={categoria}
+                aoMudar={setCategoria}
+                opcoes={[...new Set([...d.categorias, ...(categoria ? [categoria] : [])])].map((x) => ({ v: x, l: x }))}
+              />
+              <span className="text-apagado">as categorias vêm de Configurações › Catálogos</span>
+            </div>
+          )}
           {!ed && d && !d.curso && (
             <>
               <div className="grid gap-1.5">

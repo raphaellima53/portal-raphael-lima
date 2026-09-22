@@ -48,7 +48,7 @@ export async function exigeCfg(req: FastifyRequest, rep: FastifyReply) {
     return rep.code(403).send({ erro: 'Só o tipo de perfil Admin abre Configurações.' });
 }
 /** registro na Auditoria com o nome da tela de Configurações (cfgLog) */
-export const cfgLog = (u: UsuarioSessao, tela: string, acao: string, detalhe: string) =>
+export const cfgLog = (u: UsuarioSessao, tela: string, acao: string, detalhe: string, motivo?: string) =>
   registra({
     tipo: 'config',
     id: tela,
@@ -56,6 +56,7 @@ export const cfgLog = (u: UsuarioSessao, tela: string, acao: string, detalhe: st
     acao,
     detalhe,
     autor: u.nome,
+    motivo,
   });
 export const erro400 = (rep: FastifyReply, e: z.ZodError) => rep.code(400).send({ erro: e.issues[0].message });
 
@@ -100,6 +101,9 @@ const UsuarioIn = z.object({
   observacoes: z.string().trim().max(2000).default(''),
   seguranca: z.record(z.string(), z.boolean()).default({}),
   convite: z.boolean().default(true),
+  /* adequação ao Portal Alumni: foto do perfil e troca de senha obrigatória no próximo login */
+  foto: z.union([z.literal(''), z.string().trim().url('Endereço da foto inválido.').max(500)]).default(''),
+  trocarSenha: z.boolean().default(false),
 });
 
 export default async function rotasConfigAcessos(app: FastifyInstance) {
@@ -273,6 +277,8 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
             responsavel: u.responsavel ?? '',
             justificativa: u.justificativa ?? '',
             observacoes: u.observacoes ?? '',
+            foto: u.foto ?? '',
+            trocarSenha: u.trocarSenha,
             seguranca: (u.seguranca as Record<string, boolean>) ?? {},
             eu: u.id === req.usuario!.id,
           }
@@ -337,6 +343,8 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
       validoAte,
       responsavel: v.responsavel || eu.nome,
       observacoes: v.observacoes || null,
+      foto: v.foto || null,
+      trocarSenha: v.trocarSenha,
       seguranca: Object.fromEntries(NU_SEG.map(([k, , padrao]) => [k, k in v.seguranca ? v.seguranca[k] : padrao])),
     };
     if (!atual) {

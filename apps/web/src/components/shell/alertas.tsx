@@ -1,10 +1,12 @@
 'use client';
 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BellIcon, XIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useAlertas } from '@/lib/consultas';
+import { api } from '@/lib/api';
+import { chaves, useAlertas } from '@/lib/consultas';
 import { cn } from '@/lib/utils';
 import { useUI } from '@/stores/ui';
 import { BotaoBarra } from './botao-barra';
@@ -19,17 +21,34 @@ export function Alertas({ mini, ativo }: { mini: boolean; ativo: boolean }) {
   // na gaveta (abaixo de 1024px) não cabe à direita: abre para cima, já que o sino fica no pé da barra
   const desktop = useDesktop();
   const n = alertas.length;
+  /* o número do sino conta só os não lidos; abrir o painel marca como lidos (adequação ao Portal Alumni) */
+  const naoLidos = alertas.filter((a) => !a.lida).length;
+  const qc = useQueryClient();
+  const marcar = useMutation({
+    mutationFn: () => api('/alertas/lidas', { method: 'POST', json: {} }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: chaves.alertas }),
+  });
 
   return (
-    <Popover open={aberto} onOpenChange={setAberto}>
+    <Popover
+      open={aberto}
+      onOpenChange={(v) => {
+        setAberto(v);
+        if (!v && naoLidos) marcar.mutate();
+      }}
+    >
       <PopoverTrigger asChild>
         <BotaoBarra
           icone={BellIcon}
           texto="Alertas"
           mini={mini}
-          aria-label={n ? `Alertas: ${n} ${n === 1 ? 'aviso' : 'avisos'}` : 'Alertas: nenhum aviso'}
+          aria-label={
+            n
+              ? `Alertas: ${n} ${n === 1 ? 'aviso' : 'avisos'}${naoLidos ? `, ${naoLidos} não ${naoLidos === 1 ? 'lido' : 'lidos'}` : ''}`
+              : 'Alertas: nenhum aviso'
+          }
           extra={
-            n ? (
+            naoLidos ? (
               <span
                 className={cn(
                   'rounded-full bg-[#D70C0C] text-center text-sm font-bold text-white',
@@ -38,7 +57,7 @@ export function Alertas({ mini, ativo }: { mini: boolean; ativo: boolean }) {
                     : 'h-[22px] min-w-6 px-1.5 leading-[22px]',
                 )}
               >
-                {n > 9 ? '9+' : n}
+                {naoLidos > 9 ? '9+' : naoLidos}
               </span>
             ) : null
           }
@@ -53,7 +72,11 @@ export function Alertas({ mini, ativo }: { mini: boolean; ativo: boolean }) {
       >
         <div className="mb-1 flex items-center gap-2.5 border-b border-borda-suave py-2 pr-2 pl-2.5">
           <b className="text-texto">Alertas</b>
-          <span className="flex-1 text-apagado">{n ? `${n} ${n === 1 ? 'aviso' : 'avisos'}` : 'tudo em dia'}</span>
+          <span className="flex-1 text-apagado">
+            {n
+              ? `${n} ${n === 1 ? 'aviso' : 'avisos'}${naoLidos ? ` · ${naoLidos} ${naoLidos === 1 ? 'novo' : 'novos'}` : ''}`
+              : 'tudo em dia'}
+          </span>
           <PopoverClose
             aria-label="Fechar alertas"
             className="grid size-7 cursor-pointer place-items-center rounded-[7px] text-apagado hover:bg-hover hover:text-texto"
@@ -74,7 +97,10 @@ export function Alertas({ mini, ativo }: { mini: boolean; ativo: boolean }) {
             >
               <i className={cn('size-2 shrink-0 rounded-full', a.nivel === 'red' ? 'bg-vermelho' : 'bg-ambar')} />
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <b className="font-semibold text-texto">{a.t}</b>
+                <b className={cn('text-texto', a.lida ? 'font-medium' : 'font-bold')}>
+                  {a.t}
+                  {!a.lida && <span className="sr-only"> (novo)</span>}
+                </b>
                 <small className="text-sm leading-[1.35] text-apagado">{a.d}</small>
               </span>
               <Badge tom={a.nivel}>{a.n}</Badge>

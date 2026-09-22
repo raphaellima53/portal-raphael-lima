@@ -12,6 +12,10 @@ import { invalidaBase } from '../src/domain/base.ts';
 
 let app: FastifyInstance;
 before(async () => {
+  /* os fluxos voltam à carga inicial e sai a professora que a Admissão de uma rodada anterior criou */
+  await prisma.fluxoCard.deleteMany({ where: { fluxo: { in: ['acAdmissao', 'acSubstituicao'] } } });
+  await prisma.fluxoSemeado.deleteMany({ where: { fluxo: { in: ['acAdmissao', 'acSubstituicao'] } } });
+  await prisma.professor.deleteMany({ where: { nome: 'Helena Duarte', turmas: { none: {} } } });
   app = await montaApp();
   invalidaBase();
 });

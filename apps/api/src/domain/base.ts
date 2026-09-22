@@ -12,6 +12,8 @@ export type Regras = {
   modalidades: string[];
   pacote: number;
   cancelamento: number;
+  /** horas de antecedência para marcar a aula (adequação ao Portal Alumni) */
+  antecedencia?: number;
   exigeDisp: boolean;
   valorAula?: number;
 };
@@ -27,6 +29,8 @@ export type TurmaB = {
   modalidade: string;
   periodo: string;
   curriculo: string;
+  /** turma inativa sai da grade e da agenda */
+  ativa: boolean;
 };
 export type CursoB = {
   id: number;
@@ -44,6 +48,14 @@ export type CursoB = {
   cores: Record<string, string>;
   turmas: TurmaB[];
   allowsModules: boolean;
+  /* adequação ao Portal Alumni */
+  sigla: string;
+  natureza: string;
+  visibilidadeOferta: string;
+  tipoSala: string;
+  configAgenda: Record<string, string | boolean> | null;
+  /** sigla, descrição e vagas de cada módulo, pelo nome */
+  modInfo: Record<string, { sigla: string; descricao: string; vagas: number | null }>;
 };
 export type ProfessorB = {
   id: string;
@@ -242,6 +254,14 @@ async function carrega(): Promise<Base> {
       modulos: c.modulos.map((m) => m.nome),
       cores,
       allowsModules: permiteModulos.get(c.tipo) ?? false,
+      sigla: c.sigla,
+      natureza: c.natureza,
+      visibilidadeOferta: c.visibilidadeOferta,
+      tipoSala: c.tipoSala,
+      configAgenda: (c.configAgenda as Record<string, string | boolean> | null) ?? null,
+      modInfo: Object.fromEntries(
+        c.modulos.map((m) => [m.nome, { sigla: m.sigla, descricao: m.descricao, vagas: m.vagas }]),
+      ),
       turmas: c.turmas.map((t) => ({
         id: t.id,
         name: t.nome,
@@ -254,6 +274,7 @@ async function carrega(): Promise<Base> {
         modalidade: t.modalidade,
         periodo: t.periodo,
         curriculo: t.curriculo,
+        ativa: t.ativa,
       })),
     };
   });

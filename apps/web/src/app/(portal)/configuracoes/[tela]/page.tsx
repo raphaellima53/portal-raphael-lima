@@ -15,7 +15,23 @@ import { itemDoCaminho } from '@/components/shell/sidebar';
 import { Button } from '@/components/ui/button';
 import { useMe } from '@/lib/consultas';
 
-const CATALOGOS = ['departamentos', 'cargos', 'tiposcurso', 'tiposala', 'idiomas', 'skills', 'generos', 'responsaveis'];
+const CATALOGOS = [
+  'departamentos',
+  'cargos',
+  'tiposcurso',
+  'tiposala',
+  'idiomas',
+  'skills',
+  'generos',
+  'responsaveis',
+  'categoriasservico',
+  'tiposconteudo',
+  'fontes',
+  'categoriascurriculo',
+  'progressoes',
+  'tiposgeracao',
+  'visibilidades',
+];
 
 /** Semacesso: Configurações é só do tipo de perfil Admin */
 export function SemAcesso({ nome }: { nome: string }) {

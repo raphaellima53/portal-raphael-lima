@@ -4,7 +4,16 @@ import { prisma } from '../db.ts';
 import { podeAcao } from '../domain/acesso.ts';
 import { crsItens, crsRegras } from '../domain/agenda.ts';
 import { base, invalidaBase } from '../domain/base.ts';
-import { catalogo, curSemMat, cursoCurriculo, cursoGeral, cursoGrade, cursoRegras } from '../domain/cursos.ts';
+import {
+  CONFIG_AGENDA,
+  CONFIG_PADRAO,
+  catalogo,
+  curSemMat,
+  cursoCurriculo,
+  cursoGeral,
+  cursoGrade,
+  cursoRegras,
+} from '../domain/cursos.ts';
 import { podeChave } from '../domain/mapa.ts';
 import { registra } from '../lib/log.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
@@ -43,9 +52,22 @@ const CursoForm = z.object({
   estrutura: z.enum(['modulos', 'turmas', 'nenhuma']).default('modulos'),
   cor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Cor inválida.'),
   itens: z
-    .array(z.object({ nome: z.string().trim(), cor: z.string().regex(/^#[0-9a-fA-F]{6}$/) }))
+    .array(
+      z.object({
+        nome: z.string().trim(),
+        cor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+        /* adequação ao Portal Alumni: sigla, descrição e vagas do módulo */
+        sigla: z.string().trim().max(20).default(''),
+        descricao: z.string().trim().max(300).default(''),
+        vagas: z.coerce.number().int().min(1).max(500).nullable().default(null),
+      }),
+    )
     .max(80)
     .default([]),
+  sigla: z.string().trim().max(20).default(''),
+  natureza: z.enum(['Curso', 'Serviço', 'Assinatura']).default('Curso'),
+  visibilidadeOferta: z.string().trim().max(80).default(''),
+  tipoSala: z.string().trim().max(80).default(''),
   autoAgenda: z.boolean().default(false),
   ativo: z.boolean().default(true),
 });
@@ -59,6 +81,9 @@ const RegrasForm = z.object({
   autoAgenda: z.boolean(),
   exigeDisp: z.boolean().optional(),
   valorAula: z.coerce.number().int(),
+  /* adequação ao Portal Alumni: antecedência para marcar (horas) e a configuração da agenda */
+  antecedencia: z.coerce.number().int().min(0).max(720).default(0),
+  config: z.record(z.string(), z.union([z.string().max(60), z.boolean()])).optional(),
 });
 
 const linkOk = (u: string) => {
@@ -114,7 +139,7 @@ export default async function rotasCursos(app: FastifyInstance) {
     const aba = (abas as readonly string[]).includes(pedida) ? (pedida as (typeof ABAS)[number]) : abas[0];
     const curs = await prisma.curriculo.findMany({ where: { grupo: c.name }, orderBy: { ordem: 'asc' } });
     const tipos = await prisma.catalogo.findMany({
-      where: { tipo: { in: ['courseTypes', 'languages'] } },
+      where: { tipo: { in: ['courseTypes', 'languages', 'visibilidadesOferta', 'roomTypes'] } },
       orderBy: { ordem: 'asc' },
     });
     const dados =
@@ -140,13 +165,25 @@ export default async function rotasCursos(app: FastifyInstance) {
         tipo: c.tipo,
         estrutura: c.estrutura,
         cor: c.color,
-        itens: crsItens(c).map((n) => ({ nome: n, cor: c.cores[n] || b.corModulo[n] || c.color })),
+        itens: crsItens(c).map((n) => ({
+          nome: n,
+          cor: c.cores[n] || b.corModulo[n] || c.color,
+          sigla: c.modInfo[n]?.sigla ?? '',
+          descricao: c.modInfo[n]?.descricao ?? '',
+          vagas: c.modInfo[n]?.vagas ?? null,
+        })),
         autoAgenda: c.autoAgenda,
         ativo: c.active,
+        sigla: c.sigla,
+        natureza: c.natureza,
+        visibilidadeOferta: c.visibilidadeOferta,
+        tipoSala: c.tipoSala,
       },
       opcoes: {
         idiomas: tipos.filter((t) => t.tipo === 'languages').map((t) => t.nome),
         tipos: tipos.filter((t) => t.tipo === 'courseTypes').map((t) => t.nome),
+        visibilidades: tipos.filter((t) => t.tipo === 'visibilidadesOferta').map((t) => t.nome),
+        tiposSala: tipos.filter((t) => t.tipo === 'roomTypes').map((t) => t.nome),
       },
       pode: {
         agenda: podeChave(u, 'agenda'),
@@ -159,12 +196,14 @@ export default async function rotasCursos(app: FastifyInstance) {
 
   app.get('/cursos-opcoes', { preHandler: exigeCatalogo }, async () => {
     const tipos = await prisma.catalogo.findMany({
-      where: { tipo: { in: ['courseTypes', 'languages'] } },
+      where: { tipo: { in: ['courseTypes', 'languages', 'visibilidadesOferta', 'roomTypes'] } },
       orderBy: { ordem: 'asc' },
     });
     return {
       idiomas: tipos.filter((t) => t.tipo === 'languages').map((t) => t.nome),
       tipos: tipos.filter((t) => t.tipo === 'courseTypes').map((t) => t.nome),
+      visibilidades: tipos.filter((t) => t.tipo === 'visibilidadesOferta').map((t) => t.nome),
+      tiposSala: tipos.filter((t) => t.tipo === 'roomTypes').map((t) => t.nome),
     };
   });
 
@@ -199,6 +238,10 @@ export default async function rotasCursos(app: FastifyInstance) {
       cor: v.cor,
       autoAgenda: v.autoAgenda,
       ativo: v.ativo,
+      sigla: v.sigla,
+      natureza: v.natureza,
+      visibilidadeOferta: v.visibilidadeOferta,
+      tipoSala: v.tipoSala,
     };
 
     const salvo = await prisma.$transaction(async (tx) => {
@@ -215,7 +258,15 @@ export default async function rotasCursos(app: FastifyInstance) {
       await tx.modulo.deleteMany({ where: { cursoId: curso.id } });
       if (estrutura === 'modulos')
         await tx.modulo.createMany({
-          data: itens.map((m, k) => ({ cursoId: curso.id, nome: m.nome, cor: m.cor, ordem: k })),
+          data: itens.map((m, k) => ({
+            cursoId: curso.id,
+            nome: m.nome,
+            cor: m.cor,
+            sigla: m.sigla,
+            descricao: m.descricao,
+            vagas: m.vagas,
+            ordem: k,
+          })),
         });
       /* turma que já existia mantém grade, professor e vagas; a nova entra em branco */
       const nomes = estrutura === 'turmas' ? itens.map((x) => x.nome) : [];
@@ -282,7 +333,20 @@ export default async function rotasCursos(app: FastifyInstance) {
     rg.modalidades = d.modalidades.length ? d.modalidades : ['Online'];
     if (c.estrutura !== 'turmas' && d.exigeDisp != null) rg.exigeDisp = d.exigeDisp;
     rg.valorAula = Math.max(1, d.valorAula || 1);
-    await prisma.curso.update({ where: { id: c.id }, data: { regras: rg as never, autoAgenda: d.autoAgenda } });
+    rg.antecedencia = d.antecedencia;
+    /* só as chaves conhecidas, e escolha só entre as opções */
+    const config = d.config
+      ? Object.fromEntries(
+          CONFIG_AGENDA.map((x) => {
+            const v = d.config![x.k];
+            return [x.k, x.opcoes ? (x.opcoes.includes(String(v)) ? String(v) : CONFIG_PADRAO[x.k]) : v === true];
+          }),
+        )
+      : undefined;
+    await prisma.curso.update({
+      where: { id: c.id },
+      data: { regras: rg as never, autoAgenda: d.autoAgenda, ...(config ? { configAgenda: config } : {}) },
+    });
     invalidaBase();
     return { msg: `Regras de ${c.nome} salvas. A agenda, a grade e as fichas já usam os valores novos.` };
   });
@@ -336,7 +400,7 @@ export default async function rotasCursos(app: FastifyInstance) {
     const b = await base();
     const todos = await prisma.curriculo.findMany({
       orderBy: { ordem: 'asc' },
-      select: { id: true, nome: true, grupo: true, tipo: true, aplicado: true },
+      select: { id: true, nome: true, grupo: true, tipo: true, aplicado: true, categoria: true },
     });
     const c = id ? todos.find((x) => x.id === id) : null;
     const g = c ? c.grupo : grupo;
@@ -350,7 +414,14 @@ export default async function rotasCursos(app: FastifyInstance) {
         .filter((x) => x.grupo === g || (!prod && x.tipo === 'acervo'))
         .map((x) => ({ id: x.id, nome: x.nome })),
       acervos: [...new Set(todos.filter((x) => x.tipo === 'acervo').map((x) => x.grupo))],
-      atual: c ? { nome: c.nome, aplicado: c.aplicado } : null,
+      atual: c ? { nome: c.nome, aplicado: c.aplicado, categoria: c.categoria } : null,
+      /* adequação ao Portal Alumni: catálogo Categorias de currículo */
+      categorias: (
+        await prisma.catalogo.findMany({
+          where: { tipo: 'categoriasCurriculo', ativo: true },
+          orderBy: [{ ordem: 'asc' }, { nome: 'asc' }],
+        })
+      ).map((x) => x.nome),
     };
   });
 
@@ -362,6 +433,7 @@ export default async function rotasCursos(app: FastifyInstance) {
     idioma: z.enum(['Inglês', 'Espanhol']).optional(),
     copia: z.string().optional(),
     curso: z.string().optional(),
+    categoria: z.string().trim().max(80).optional(),
   });
 
   const aplicaEm = async (alvo: { id: string; grupo: string }, ap: string[] | undefined) => {
@@ -417,6 +489,7 @@ export default async function rotasCursos(app: FastifyInstance) {
         tipo,
         idioma,
         ordem,
+        categoria: v.categoria ?? '',
         aplicado: curso?.estrutura === 'nenhuma' ? ['cada contrato particular'] : [],
         versoes: [['v1', 'Rascunho', '—', conteudosCopia]] as never,
         conteudos: [],
@@ -445,7 +518,10 @@ export default async function rotasCursos(app: FastifyInstance) {
       await prisma.curriculo.findFirst({ where: { nome: { equals: v.nome, mode: 'insensitive' }, NOT: { id: c.id } } })
     )
       return rep.code(400).send({ erro: 'Já existe um currículo com esse nome.' });
-    await prisma.curriculo.update({ where: { id: c.id }, data: { nome: v.nome } });
+    await prisma.curriculo.update({
+      where: { id: c.id },
+      data: { nome: v.nome, ...(v.categoria != null ? { categoria: v.categoria } : {}) },
+    });
     const movidos = await aplicaEm(c, v.aplicado);
     const ap = v.aplicado ?? c.aplicado;
     await log(

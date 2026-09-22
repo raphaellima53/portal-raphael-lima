@@ -8,6 +8,7 @@ import { Abas } from '@/components/abas';
 import { AcessoDaPessoa, type AcessoPessoa } from '@/components/acesso-pessoa';
 import { AbaLog, AbaPerfil } from '@/components/alunos/abas-aluno';
 import type { Msg } from '@/components/alunos/comum';
+import { AbaCadastro } from '@/components/cadastro/cadastro';
 import { Aviso, PageHead } from '@/components/ds';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -147,6 +148,7 @@ export function FichaProfessor() {
         {f.aba === 'agenda' && <AbaAgendaProf f={f} d={f.dados as AgendaProf} vai={vai} />}
         {f.aba === 'feedbacks' && <AbaFeedbacksProf f={f} d={f.dados as FeedbacksProf} vai={vai} setMsg={setMsg} />}
         {f.aba === 'acesso' && <AcessoDaPessoa d={f.dados as AcessoPessoa} />}
+        <AbaCadastro key={f.aba} dados={f.dados} />
       </div>
       <ProfessorFormDialog abre={editar} aoFechar={() => setEditar(null)} aoSalvo={(res) => setMsg({ txt: res.msg })} />
     </>

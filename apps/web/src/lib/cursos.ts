@@ -72,6 +72,10 @@ export type Regras = {
   exigeDisp: boolean;
   valorAula: number;
   horarios: number;
+  /* adequação ao Portal Alumni: antecedência para marcar e configuração da agenda */
+  antecedencia: number;
+  config: Record<string, string | boolean>;
+  configCampos: { k: string; rotulo: string; ajuda: string; opcoes?: string[] }[];
 };
 export type CurriculoAba = {
   stats: StatT[];
@@ -111,11 +115,17 @@ export type CursoForm = {
   tipo: string;
   estrutura: 'modulos' | 'turmas' | 'nenhuma';
   cor: string;
-  itens: { nome: string; cor: string }[];
+  itens: { nome: string; cor: string; sigla: string; descricao: string; vagas: number | null }[];
   autoAgenda: boolean;
   ativo: boolean;
+  /* adequação ao Portal Alumni */
+  sigla: string;
+  natureza: 'Curso' | 'Serviço' | 'Assinatura';
+  visibilidadeOferta: string;
+  tipoSala: string;
 };
 export type Aba = 'geral' | 'regras' | 'curriculo' | 'grade';
+export type OpcoesCurso = { idiomas: string[]; tipos: string[]; visibilidades: string[]; tiposSala: string[] };
 export type CursoResp = {
   id: number;
   nome: string;
@@ -125,7 +135,7 @@ export type CursoResp = {
   aba: Aba;
   dados: Geral | Regras | CurriculoAba | Grade;
   form: CursoForm;
-  opcoes: { idiomas: string[]; tipos: string[] };
+  opcoes: OpcoesCurso;
   pode: { agenda: boolean; editar: boolean; criar: boolean; curriculo: boolean };
 };
 
@@ -140,7 +150,7 @@ export const useCurso = (id: number, aba: string) =>
 export const useOpcoesCurso = (ativo: boolean) =>
   useQuery({
     queryKey: ['cursos-opcoes'],
-    queryFn: () => api<{ idiomas: string[]; tipos: string[] }>('/cursos-opcoes'),
+    queryFn: () => api<OpcoesCurso>('/cursos-opcoes'),
     enabled: ativo,
   });
 
@@ -164,7 +174,7 @@ export function useSalvarCurso() {
 export function useSalvarRegras(id: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (d: Omit<Regras, 'estrutura' | 'estruturaTxt' | 'tipoIdioma' | 'horarios'>) =>
+    mutationFn: (d: Omit<Regras, 'estrutura' | 'estruturaTxt' | 'tipoIdioma' | 'horarios' | 'configCampos'>) =>
       api<{ msg: string }>(`/cursos/${id}/regras`, { method: 'PUT', json: d }),
     onSuccess: () => invalidaCursos(qc),
   });
@@ -203,7 +213,8 @@ export type CurriculoFormOpcoes = {
   curso: { nome: string; estrutura: string; itens: string[] } | null;
   copiar: { id: string; nome: string }[];
   acervos: string[];
-  atual: { nome: string; aplicado: string[] } | null;
+  atual: { nome: string; aplicado: string[]; categoria: string } | null;
+  categorias: string[];
 };
 
 export const useCurriculo = (id: string) =>

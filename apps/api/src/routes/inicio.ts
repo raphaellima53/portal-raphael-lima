@@ -80,9 +80,36 @@ export default async function rotasInicio(app: FastifyInstance) {
     return { blocos: salvo.blocos, salvoEm: salvo.salvoEm };
   });
 
+  /*
+   * Alertas com "lido" (adequação ao Portal Alumni: notificações). Cada alerta do momento vira uma Notificacao
+   * da pessoa, pelo título; se o texto muda, volta a ser não lida. Alerta que sumiu sai da tabela.
+   */
   app.get('/alertas', { preHandler: app.exigeLogin }, async (req) => {
+    const u = req.usuario!;
     const b = await base();
-    return { alertas: alertasDe(b, req.usuario!, await extrasAlertas(b)) };
+    const alertas = alertasDe(b, u, await extrasAlertas(b));
+    const salvas = await prisma.notificacao.findMany({ where: { usuarioId: u.id } });
+    const lida = new Map<string, boolean>();
+    for (const a of alertas) {
+      const texto = `${a.n} · ${a.d}`;
+      const x = salvas.find((s) => s.titulo === a.t);
+      if (!x) await prisma.notificacao.create({ data: { usuarioId: u.id, titulo: a.t, texto, link: a.href } });
+      else if (x.texto !== texto)
+        await prisma.notificacao.update({ where: { id: x.id }, data: { texto, link: a.href, lidaEm: null } });
+      lida.set(a.k, !!x && x.texto === texto && !!x.lidaEm);
+    }
+    const vivos = new Set(alertas.map((a) => a.t));
+    const velhas = salvas.filter((s) => !vivos.has(s.titulo)).map((s) => s.id);
+    if (velhas.length) await prisma.notificacao.deleteMany({ where: { id: { in: velhas } } });
+    return { alertas: alertas.map((a) => ({ ...a, lida: lida.get(a.k) ?? false })) };
+  });
+  /* abrir o sino marca os alertas do momento como lidos */
+  app.post('/alertas/lidas', { preHandler: app.exigeLogin }, async (req) => {
+    const r = await prisma.notificacao.updateMany({
+      where: { usuarioId: req.usuario!.id, lidaEm: null },
+      data: { lidaEm: new Date() },
+    });
+    return { lidas: r.count };
   });
 
   /** Minha área: matrículas, saldo e próximas aulas de quem é aluno (ou colaborador que também estuda). */

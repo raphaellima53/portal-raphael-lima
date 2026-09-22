@@ -11,7 +11,7 @@
     "start": "node --env-file-if-exists=.env dist/server.js",
     "build": "prisma generate && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --env-file-if-exists=.env --test --test-concurrency=1 test/base.test.ts test/agenda.test.ts test/cursos.test.ts test/alunos.test.ts test/empresas.test.ts test/professores.test.ts test/acoes.test.ts test/auditoria.test.ts test/relatorios.test.ts test/configuracoes.test.ts test/engenharia.test.ts test/vinculos.test.ts test/perfis.test.ts",
+    "test": "tsx --env-file-if-exists=.env --test --test-concurrency=1 test/base.test.ts test/agenda.test.ts test/cursos.test.ts test/alunos.test.ts test/empresas.test.ts test/professores.test.ts test/acoes.test.ts test/auditoria.test.ts test/relatorios.test.ts test/configuracoes.test.ts test/engenharia.test.ts test/vinculos.test.ts test/perfis.test.ts test/cadastros.test.ts test/adequacao.test.ts",
     "db:local": "tsx --env-file-if-exists=.env scripts/db-local.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

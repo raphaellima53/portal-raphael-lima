@@ -1,16 +1,18 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { CampoData } from '@/components/campos-data';
 import { Escolha } from '@/components/escolha';
+import { CamposEndereco, CamposPessoa } from '@/components/pessoa-campos';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAcaoAluno, useFormAluno, useOpcoesAluno } from '@/lib/alunos';
+import { PESSOA_VAZIA, type PessoaExtra, useCatalogos } from '@/lib/cadastros';
 import { ItemBadge } from './comum';
 
 const cpfMascara = (v: string) => {
@@ -78,11 +80,30 @@ export function AlunoFormDialog({
   const acao = useAcaoAluno();
   const f = useForm<Form>({ resolver: zodResolver(Esquema), defaultValues: VAZIO });
   const d = atual.data;
+  /* adequação ao Portal Alumni: dados pessoais, endereço, responsável financeiro e origem */
+  const cats = useCatalogos(['genders', 'finResp'], !!abre);
+  const [extra, setExtra] = useState<PessoaExtra & { responsavelFinanceiro: string; origemExterna: string }>({
+    ...PESSOA_VAZIA,
+    responsavelFinanceiro: '',
+    origemExterna: '',
+  });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reinicia ao abrir e quando o cadastro chega
   useEffect(() => {
     if (!abre) return;
     acao.reset();
+    setExtra(
+      ed && d
+        ? {
+            telefone: d.telefone,
+            nascimento: d.nascimento,
+            genero: d.genero,
+            endereco: d.endereco,
+            responsavelFinanceiro: d.responsavelFinanceiro,
+            origemExterna: d.origemExterna,
+          }
+        : { ...PESSOA_VAZIA, responsavelFinanceiro: '', origemExterna: '' },
+    );
     f.reset(
       ed && d
         ? {
@@ -108,6 +129,7 @@ export function AlunoFormDialog({
         caminho: ed ? `/${id}` : '',
         method: ed ? 'PUT' : 'POST',
         json: {
+          ...extra,
           nome: v.nome,
           cpf: v.cpf,
           status: v.status,
@@ -175,6 +197,12 @@ export function AlunoFormDialog({
                     />
                     <Erro t={erros.cpf?.message} />
                   </div>
+                  <CamposPessoa
+                    prefixo="al"
+                    valor={extra}
+                    aoMudar={(p) => setExtra({ ...extra, ...p })}
+                    generos={cats.data?.genders ?? []}
+                  />
                   <div className="grid gap-1.5">
                     <Label>Situação</Label>
                     <Controller
@@ -346,6 +374,42 @@ export function AlunoFormDialog({
                       )}
                     />
                   </div>
+                </Secao>
+
+                <Secao titulo="Financeiro e origem">
+                  <div className="grid gap-1.5">
+                    <Label>Responsável financeiro</Label>
+                    <Escolha
+                      rotulo="Responsável financeiro"
+                      todos="não informado"
+                      destacar={false}
+                      valor={extra.responsavelFinanceiro}
+                      aoMudar={(v) => setExtra({ ...extra, responsavelFinanceiro: v })}
+                      opcoes={[
+                        ...new Set([
+                          ...(cats.data?.finResp ?? []),
+                          ...(extra.responsavelFinanceiro ? [extra.responsavelFinanceiro] : []),
+                        ]),
+                      ].map((x) => ({ v: x, l: x }))}
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="al-origem">Origem do cadastro</Label>
+                    <Input
+                      id="al-origem"
+                      placeholder="ex.: importação, site, indicação"
+                      value={extra.origemExterna}
+                      onChange={(e) => setExtra({ ...extra, origemExterna: e.target.value })}
+                    />
+                  </div>
+                </Secao>
+
+                <Secao titulo="Endereço">
+                  <CamposEndereco
+                    prefixo="al-end"
+                    valor={extra.endereco}
+                    aoMudar={(e) => setExtra({ ...extra, endereco: e })}
+                  />
                 </Secao>
 
                 <Secao titulo="Contato">

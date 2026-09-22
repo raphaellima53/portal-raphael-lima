@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Aviso, Stat } from '@/components/ds';
+import { Escolha } from '@/components/escolha';
 import { usePaginacao } from '@/components/paginacao';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -341,6 +342,8 @@ const RegrasEsquema = z.object({
   autoAgenda: z.boolean(),
   exigeDisp: z.boolean(),
   valorAula: z.coerce.number<string | number>().int().min(1, 'O valor da aula precisa ser pelo menos R$ 1.'),
+  antecedencia: z.coerce.number<string | number>().int().min(0, 'Use 0 ou mais horas.'),
+  config: z.record(z.string(), z.union([z.string(), z.boolean()])),
 });
 type RegrasEntrada = z.input<typeof RegrasEsquema>;
 type RegrasForm = z.output<typeof RegrasEsquema>;
@@ -371,13 +374,19 @@ export function AbaRegras({ c, r }: { c: CursoResp; r: Regras }) {
       autoAgenda: r.autoAgenda,
       exigeDisp: r.exigeDisp,
       valorAula: r.valorAula,
+      antecedencia: r.antecedencia,
+      config: r.config,
     },
   });
   const ro = !c.pode.editar;
   const erros = Object.values(f.formState.errors)
-    .map((e) => e?.message)
+    .map((e) => (typeof e?.message === 'string' ? e.message : ''))
     .filter(Boolean);
-  const num = (k: 'vagas' | 'duracao' | 'pacote' | 'cancelamento' | 'valorAula', suf: string, pre?: string) => (
+  const num = (
+    k: 'vagas' | 'duracao' | 'pacote' | 'cancelamento' | 'valorAula' | 'antecedencia',
+    suf: string,
+    pre?: string,
+  ) => (
     <div className="flex items-center gap-2">
       {pre && <span className="text-apagado">{pre}</span>}
       <Input
@@ -479,6 +488,45 @@ export function AbaRegras({ c, r }: { c: CursoResp; r: Regras }) {
         >
           {num('cancelamento', 'horas antes da aula')}
         </Campo>
+        <Campo
+          rot="Antecedência para marcar"
+          onde="Lido pelo agendamento: a aula só pode ser marcada até esta quantidade de horas antes."
+        >
+          {num('antecedencia', 'horas antes da aula')}
+        </Campo>
+        <Controller
+          control={f.control}
+          name="config"
+          render={({ field }) => (
+            <>
+              {r.configCampos.map((x) => (
+                <Campo key={x.k} rot={x.rotulo} onde={`Configuração da agenda: ${x.ajuda}.`}>
+                  {x.opcoes ? (
+                    <Escolha
+                      rotulo={x.rotulo}
+                      destacar={false}
+                      disabled={ro}
+                      valor={String(field.value[x.k] ?? '')}
+                      aoMudar={(v) => field.onChange({ ...field.value, [x.k]: v })}
+                      opcoes={x.opcoes.map((o) => ({ v: o, l: o }))}
+                      className="w-[240px]"
+                    />
+                  ) : (
+                    // biome-ignore lint/a11y/noLabelWithoutControl: o Switch (botão) dentro do label é o controle
+                    <label className="flex items-center gap-3">
+                      <Switch
+                        checked={field.value[x.k] === true}
+                        onCheckedChange={(v) => field.onChange({ ...field.value, [x.k]: v })}
+                        disabled={ro}
+                      />{' '}
+                      {x.rotulo.toLowerCase()}
+                    </label>
+                  )}
+                </Campo>
+              ))}
+            </>
+          )}
+        />
         <Campo
           rot="Auto-agendamento"
           onde="Ligado, o aluno marca a própria aula no app; desligado, só a secretaria agenda."
