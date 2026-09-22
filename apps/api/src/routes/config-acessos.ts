@@ -16,9 +16,11 @@ import {
   NIVEIS,
   nivelDe,
   PERFIS,
+  PERFIS_SISTEMA,
   perfilNome,
   RECORTES,
 } from '../domain/acesso.ts';
+import { restauraModelo, salvaModelo } from '../domain/acesso-modelo.ts';
 import { acessoDaPessoa } from '../domain/acesso-pessoa.ts';
 import { base } from '../domain/base.ts';
 import {
@@ -220,7 +222,7 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
         )
       : {};
     return {
-      perfis: PERFIS.map((p) => ({
+      perfis: PERFIS.filter((p) => p.ativo !== false || p.id === u?.perfilId).map((p) => ({
         id: p.id,
         nome: perfilNome(p),
         tipo: p.perfil,
@@ -426,6 +428,9 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
 
   /* ================= Perfis e hierarquias ================= */
   app.get('/config/perfis', { preHandler: exigeCfg }, async () => {
+    const uso = await prisma.usuario.groupBy({ by: ['perfilId'], _count: { _all: true } });
+    const usuariosDo = new Map(uso.map((x) => [x.perfilId, x._count._all]));
+    const salvo = await prisma.configuracao.findUnique({ where: { chave: 'acessoModelo' } });
     const nivelNome = (n?: number) => {
       const x = n ? nivelDe(n) : undefined;
       return x ? `${x.n} — ${x.nome}` : '—';
@@ -456,8 +461,47 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
         cargo: p.cargo || '—',
         area: p.area || '—',
         hierarquia: p.hierarquia || '—',
+        ativo: p.ativo !== false,
       })),
       niveis: NIVEIS.map((n) => ({ nome: `${n.n} — ${n.nome}`, acoes: n.acoes })),
+      edicao: {
+        personalizado: !!salvo,
+        salvoEm: salvo ? `${fmt.dataHora(salvo.salvoEm)} por ${salvo.por}` : null,
+        perfis: PERFIS.map((p) => ({
+          id: p.id,
+          tipo: p.perfil,
+          cargo: p.cargo,
+          idCargo: p.idCargo,
+          area: p.area,
+          nivel: MATRIZ[p.id]?.nivel ?? 5,
+          areas: Object.fromEntries(
+            Object.entries(MATRIZ[p.id]?.areas ?? {})
+              .filter(([, a]) => a && a.acesso !== 'proprio')
+              .map(([k, a]) => [
+                k,
+                {
+                  acesso: a!.acesso,
+                  rotulo: a!.acesso === 'restrito' && RECORTES[k as AreaId]?.[a!.rotulo] ? a!.rotulo : 'padrao',
+                },
+              ]),
+          ),
+          resumo: acessoResumo(MATRIZ[p.id] ?? { nivel: 5, areas: {} }, p),
+          ativo: p.ativo !== false,
+          sistema: PERFIS_SISTEMA[p.id] ?? null,
+          travado: p.id === 1 || p.id === 15,
+          usuarios: usuariosDo.get(p.id) ?? 0,
+        })),
+        niveis: NIVEIS.map((n) => ({ n: n.n, nome: n.nome, acoes: n.acoes, nota: n.nota ?? '' })),
+        setores: AREAS.map((a) => ({
+          id: a.id,
+          nome: a.nome,
+          recortes: Object.entries(RECORTES[a.id] ?? {}).map(([k, r]) => ({
+            v: k,
+            l: k === 'padrao' ? 'Restrito padrão' : k,
+            desc: r.desc,
+          })),
+        })),
+      },
       cargos: [...PERFIS]
         .sort((a, b) => (MATRIZ[a.id]?.nivel ?? 9) - (MATRIZ[b.id]?.nivel ?? 9) || a.id - b.id)
         .map((p) => ({
@@ -485,6 +529,165 @@ export default async function rotasConfigAcessos(app: FastifyInstance) {
         })),
       ),
     };
+  });
+
+  /* ================= Perfis e hierarquias: edição do modelo de acesso ================= */
+  const AcessoIn = z.object({ acesso: z.enum(['total', 'restrito']), rotulo: z.string().trim().max(80).default('') });
+  const PerfilIn = z.object({
+    tipo: z.enum(['Colaborador', 'Prestador']),
+    cargo: z.string().trim().min(2, 'Informe o cargo.').max(80),
+    area: z.string().trim().max(80).default(''),
+    nivel: z.number().int().min(1).max(5),
+    areas: z.record(z.string(), AcessoIn).default({}),
+    ativo: z.boolean().default(true),
+    /** leva a hierarquia e os setores novos a quem já tem o perfil */
+    aplicar: z.boolean().default(false),
+  });
+  const TRAVADOS: Record<number, string> = {
+    1: 'O perfil Admin tem sempre acesso total e não se edita.',
+    15: 'O perfil Aluno vê só os próprios dados e não se edita.',
+  };
+  /** os setores do formulário, com o rótulo do recorte no restrito (ou "Total") */
+  const areasValidas = (v: Record<string, z.infer<typeof AcessoIn>>): Areas | string => {
+    const out: Areas = {};
+    for (const [k, a] of Object.entries(v)) {
+      const ar = AREAS.find((x) => x.id === k);
+      if (!ar) return `Setor desconhecido: ${k}.`;
+      if (a.acesso === 'total') out[ar.id] = { acesso: 'total', rotulo: 'Total' };
+      else {
+        const rot = a.rotulo || 'padrao';
+        if (!RECORTES[ar.id]?.[rot]) return `Recorte restrito desconhecido em ${ar.nome}: ${rot}.`;
+        out[ar.id] = { acesso: 'restrito', rotulo: rot === 'padrao' ? 'Restrito' : rot };
+      }
+    }
+    return out;
+  };
+  const salvaPerfil = async (req: FastifyRequest, rep: FastifyReply, id: number | null) => {
+    const eu = req.usuario!;
+    const r = PerfilIn.safeParse(req.body);
+    if (!r.success) return erro400(rep, r.error);
+    const v = r.data;
+    const atual = id != null ? perfilDe(id) : null;
+    if (id != null && !atual) return rep.code(404).send({ erro: 'Perfil não encontrado.' });
+    if (id != null && TRAVADOS[id]) return rep.code(400).send({ erro: TRAVADOS[id] });
+    const uso = atual ? PERFIS_SISTEMA[atual.id] : undefined;
+    if (atual && uso && v.tipo !== atual.perfil)
+      return rep.code(400).send({ erro: `O tipo deste perfil não muda: ele é usado como ${uso}.` });
+    if (uso && !v.ativo) return rep.code(400).send({ erro: `Este perfil não se inativa: ele é usado como ${uso}.` });
+    if (PERFIS.some((p) => p.id !== id && p.cargo.toLowerCase() === v.cargo.toLowerCase()))
+      return rep.code(400).send({ erro: `Já existe um perfil com o cargo ${v.cargo}.` });
+    if (v.area && !AREAS.some((a) => a.nome === v.area))
+      return rep.code(400).send({ erro: 'Escolha o setor do cargo.' });
+    const areas = areasValidas(v.areas);
+    if (typeof areas === 'string') return rep.code(400).send({ erro: areas });
+    if (v.nivel !== 1 && !Object.keys(areas).length)
+      return rep.code(400).send({ erro: 'Libere pelo menos um setor, ou o perfil não abre tela nenhuma.' });
+    const nivelNome = nivelDe(v.nivel)?.nome ?? '';
+    let novoId = id ?? 0;
+    await salvaModelo((m) => {
+      if (id == null) {
+        novoId = Math.max(...m.perfis.map((p) => p.id)) + 1;
+        const idCargo = Math.max(0, ...m.perfis.map((p) => p.idCargo ?? 0)) + 1;
+        m.perfis.push({
+          id: novoId,
+          perfil: v.tipo,
+          cargo: v.cargo,
+          idCargo,
+          area: v.area,
+          hierarquia: nivelNome,
+          ativo: v.ativo,
+        });
+      } else {
+        const p = m.perfis.find((x) => x.id === id);
+        if (p)
+          Object.assign(p, { perfil: v.tipo, cargo: v.cargo, area: v.area, hierarquia: nivelNome, ativo: v.ativo });
+      }
+      m.matriz[novoId] = { nivel: v.nivel, areas };
+    }, eu.nome);
+    let aplicados = 0;
+    if (id != null && v.aplicar) {
+      /* ninguém altera o próprio acesso: o usuário da sessão fica de fora */
+      const r2 = await prisma.usuario.updateMany({
+        where: { perfilId: id, NOT: { id: eu.id } },
+        data: { nivel: v.nivel, areas: areas as object },
+      });
+      aplicados = r2.count;
+    }
+    const aplicadoTxt = v.aplicar ? ` · aplicado a ${aplicados} usuário(s)` : '';
+    await cfgLog(
+      eu,
+      'perfis',
+      id == null ? 'Perfil criado' : 'Perfil alterado',
+      `${v.tipo} · ${v.cargo} · ${acessoResumo({ nivel: v.nivel, areas })}${v.ativo ? '' : ' · inativo'}${aplicadoTxt}`,
+    );
+    return {
+      id: novoId,
+      msg:
+        id == null
+          ? `Perfil ${v.cargo} criado.`
+          : `Perfil ${v.cargo} salvo.${v.aplicar ? ` Acesso atualizado em ${aplicados} usuário(s).` : ''}`,
+    };
+  };
+  app.post('/config/perfis', { preHandler: exigeCfg }, (req, rep) => salvaPerfil(req, rep, null));
+  app.put('/config/perfis/:id', { preHandler: exigeCfg }, (req, rep) =>
+    salvaPerfil(req, rep, Number((req.params as { id: string }).id)),
+  );
+  app.delete('/config/perfis/:id', { preHandler: exigeCfg }, async (req, rep) => {
+    const id = Number((req.params as { id: string }).id);
+    const p = perfilDe(id);
+    if (!p) return rep.code(404).send({ erro: 'Perfil não encontrado.' });
+    if (PERFIS_SISTEMA[id])
+      return rep.code(400).send({ erro: `Este perfil não se exclui: ele é usado como ${PERFIS_SISTEMA[id]}.` });
+    const n = await prisma.usuario.count({ where: { perfilId: id } });
+    if (n)
+      return rep.code(400).send({ erro: `${n} usuário(s) usam este perfil. Troque o perfil deles ou inative este.` });
+    await salvaModelo((m) => {
+      m.perfis = m.perfis.filter((x) => x.id !== id);
+      delete m.matriz[id];
+    }, req.usuario!.nome);
+    await cfgLog(req.usuario!, 'perfis', 'Perfil excluído', perfilNome(p));
+    return { msg: `Perfil ${p.cargo || p.perfil} excluído.` };
+  });
+
+  const NivelIn = z.object({
+    nome: z.string().trim().min(2, 'Informe o nome da hierarquia.').max(40),
+    nota: z.string().trim().max(200).default(''),
+    acoes: z.array(z.union([z.literal(0), z.literal(1), z.null()])).length(ACOES.length),
+  });
+  app.put('/config/perfis/niveis/:n', { preHandler: exigeCfg }, async (req, rep) => {
+    const n = Number((req.params as { n: string }).n);
+    const atual = nivelDe(n);
+    if (!atual) return rep.code(404).send({ erro: 'Hierarquia não encontrada.' });
+    const r = NivelIn.safeParse(req.body);
+    if (!r.success) return erro400(rep, r.error);
+    const v = r.data;
+    if (NIVEIS.some((x) => x.n !== n && x.nome.toLowerCase() === v.nome.toLowerCase()))
+      return rep.code(400).send({ erro: `Já existe a hierarquia ${v.nome}.` });
+    /* o Administrador faz tudo, e Usuários e Configurações são só dele: essas colunas não mudam */
+    const acoes = n === 1 ? atual.acoes : v.acoes.map((x, i) => (i >= 6 ? 0 : x));
+    if (acoes[0] !== 1) return rep.code(400).send({ erro: 'Toda hierarquia precisa ao menos visualizar.' });
+    await salvaModelo((m) => {
+      const nv = m.niveis.find((x) => x.n === n);
+      if (!nv) return;
+      for (const p of m.perfis) if (p.hierarquia === nv.nome) p.hierarquia = v.nome;
+      Object.assign(nv, { nome: v.nome, acoes, nota: v.nota || undefined });
+    }, req.usuario!.nome);
+    const mudou = ACOES.flatMap((a, i) =>
+      atual.acoes[i] !== acoes[i] ? [`${a}: ${acoes[i] ? 'pode' : 'não pode'}`] : [],
+    );
+    const renomeada = atual.nome !== v.nome ? ` → ${v.nome}` : '';
+    await cfgLog(
+      req.usuario!,
+      'perfis',
+      'Hierarquia alterada',
+      `${atual.n} — ${atual.nome}${renomeada}${mudou.length ? ` · ${mudou.join(', ')}` : ''}`,
+    );
+    return { msg: `Hierarquia ${v.nome} salva.` };
+  });
+  app.post('/config/perfis/restaurar', { preHandler: exigeCfg }, async (req) => {
+    await restauraModelo();
+    await cfgLog(req.usuario!, 'perfis', 'Modelo restaurado', 'perfis e hierarquias de volta ao padrão do portal');
+    return { msg: 'Perfis e hierarquias voltaram ao padrão do portal.' };
   });
 
   /* ================= Sessões e acessos ================= */

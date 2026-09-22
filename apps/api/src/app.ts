@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
+import { carregaModelo } from './domain/acesso-modelo.ts';
 import { env } from './env.ts';
 import sessao from './plugins/sessao.ts';
 import rotasAcoes from './routes/acoes.ts';
@@ -33,6 +34,10 @@ export async function montaApp() {
   });
   await app.register(rateLimit, { max: 600, timeWindow: '1 minute' });
   await app.register(cookie, { secret: env.COOKIE_SECRET });
+  /* perfis e hierarquias editados em Configurações valem antes da sessão ler o acesso */
+  app.addHook('onRequest', async () => {
+    await carregaModelo();
+  });
   await app.register(sessao);
 
   app.setErrorHandler((err: Error & { statusCode?: number }, req, rep) => {

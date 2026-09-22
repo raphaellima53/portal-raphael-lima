@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db.ts';
+import { podeAcao } from '../domain/acesso.ts';
 import { agOfertas, alMat, alSit } from '../domain/agenda.ts';
 import { type AlunoB, base, invalidaBase } from '../domain/base.ts';
 import { SIT_TOM } from '../domain/cursos.ts';
@@ -29,7 +30,7 @@ const ABAS = ['geral', 'alunos', 'historico'] as const;
 /** gerente de conta que não é persona de teste (EMP_GERENTES do portal) */
 const GERENTE_BASE = 'Hozana Galvão Jannuzzi';
 /** gerir a conta vai até a hierarquia Editor; Colaborador e Visualizador só leem */
-const podeGerir = (u: UsuarioSessao) => !u.ehAluno && u.nivel <= 3;
+const podeGerir = (u: UsuarioSessao) => !u.ehAluno && podeAcao(u.nivel, 'editar');
 const erro400 = (rep: FastifyReply, e: z.ZodError) => rep.code(400).send({ erro: e.issues[0].message });
 
 async function exige(req: FastifyRequest, rep: FastifyReply) {

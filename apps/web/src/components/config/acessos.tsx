@@ -1,9 +1,8 @@
 'use client';
 
-import { PlusIcon } from 'lucide-react';
-import Link from 'next/link';
+import { PlusIcon, RotateCcwIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { PageHead } from '@/components/ds';
+import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { usePaginacao } from '@/components/paginacao';
 import { Badge } from '@/components/ui/badge';
@@ -11,9 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
-import { type Perfis, type Sessoes, useAcaoCfg, useCfg } from '@/lib/config';
+import { type NivelEd, type Perfis, type Sessoes, useAcaoCfg, useCfg } from '@/lib/config';
 import { baixaCsv } from '@/lib/relatorios';
 import { AvisoMsg, ErroQ, type Msg, Painel, Vazio } from './comum';
+import { ConfirmaDialog, NivelDialog, PerfilDialog, perfilDoCadastro, perfilVazio } from './perfis-edicao';
 import { Gate } from './usuarios';
 
 const Acao = ({ v }: { v: number | null }) =>
@@ -77,6 +77,16 @@ function TabelaPainel({
 export function TelaPerfis({ abas }: { abas: React.ReactNode }) {
   const q = useCfg<Perfis>('/perfis');
   const d = q.data;
+  const [msg, setMsg] = useState<Msg>(null);
+  const [form, setForm] = useState<ReturnType<typeof perfilVazio> | null>(null);
+  const [nivel, setNivel] = useState<NivelEd | null>(null);
+  const [confirma, setConfirma] = useState<{
+    titulo: string;
+    texto: string;
+    rotuloOk: string;
+    caminho: { caminho: string; method: 'POST' | 'DELETE' };
+  } | null>(null);
+  const ed = d?.edicao;
   const areaCel = (a: { acesso: string; rotulo: string } | null) =>
     !a ? (
       <span className="text-apagado-2">—</span>
@@ -88,16 +98,37 @@ export function TelaPerfis({ abas }: { abas: React.ReactNode }) {
       <PageHead
         titulo="Perfis e hierarquias"
         acoes={
-          <Button asChild variant="primary">
-            <Link href="/configuracoes/usuarios/novo">
-              <PlusIcon /> Novo usuário
-            </Link>
-          </Button>
+          <>
+            {ed?.personalizado && (
+              <Button
+                onClick={() =>
+                  setConfirma({
+                    titulo: 'Restaurar o padrão',
+                    texto:
+                      'Perfis e hierarquias voltam ao modelo original do portal: perfis criados aqui somem e as edições se perdem. O acesso já gravado em cada usuário não muda.',
+                    rotuloOk: 'Restaurar',
+                    caminho: { caminho: '/perfis/restaurar', method: 'POST' },
+                  })
+                }
+              >
+                <RotateCcwIcon /> Restaurar padrão
+              </Button>
+            )}
+            <Button variant="primary" onClick={() => setForm(perfilVazio())}>
+              <PlusIcon /> Novo perfil
+            </Button>
+          </>
         }
       />
       {abas}
+      <AvisoMsg msg={msg} />
       <ErroQ e={q.error} />
-      {d && (
+      {ed?.personalizado && ed.salvoEm && (
+        <Aviso tom="blue" icone="info">
+          Modelo de acesso personalizado · última alteração em {ed.salvoEm}. Tudo fica na Auditoria.
+        </Aviso>
+      )}
+      {d && ed && (
         <>
           <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {d.modelo.map(([k, t, p]) => (
@@ -110,20 +141,66 @@ export function TelaPerfis({ abas }: { abas: React.ReactNode }) {
           </div>
           <TabelaPainel
             titulo="Perfis cadastrados"
+            sub="a hierarquia e os setores de cada perfil são a sugestão para quem o recebe"
             cab={[
-              { t: 'ID_cargo' },
-              { t: 'Tipo de perfil' },
               { t: 'Cargo' },
+              { t: 'Tipo de perfil' },
               { t: 'Setor' },
-              { t: 'Hierarquia sugerida' },
+              { t: 'Acesso sugerido' },
+              { t: 'Usuários', centro: true },
+              { t: 'Status' },
+              { t: 'Ações' },
             ]}
-            linhas={d.perfis.map((p) => [p.idCargo ?? '—', p.perfil, p.cargo, p.area, p.hierarquia])}
+            linhas={ed.perfis.map((p) => [
+              p.cargo || p.tipo,
+              p.tipo,
+              p.area || '—',
+              p.resumo,
+              p.usuarios,
+              <Badge key="st" tom={p.ativo ? 'green' : 'gray'}>
+                {p.ativo ? 'Ativo' : 'Inativo'}
+              </Badge>,
+              p.travado ? (
+                <span key="ac" className="text-apagado">
+                  fixo
+                </span>
+              ) : (
+                <span key="ac" className="flex flex-wrap justify-end gap-2">
+                  <Button size="sm" aria-label={`Editar ${p.cargo}`} onClick={() => setForm(perfilDoCadastro(p))}>
+                    Editar
+                  </Button>
+                  {!p.sistema && p.usuarios === 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`Excluir ${p.cargo}`}
+                      onClick={() =>
+                        setConfirma({
+                          titulo: 'Excluir perfil',
+                          texto: `O perfil ${p.cargo} sai do cadastro. Nenhum usuário usa este perfil.`,
+                          rotuloOk: 'Excluir',
+                          caminho: { caminho: `/perfis/${p.id}`, method: 'DELETE' },
+                        })
+                      }
+                    >
+                      Excluir
+                    </Button>
+                  )}
+                </span>
+              ),
+            ])}
           />
           <TabelaPainel
             titulo="Hierarquias"
-            sub="o que cada hierarquia pode fazer · Visualizador vê só o próprio escopo; Usuários e Configurações são só do tipo de perfil Admin"
-            cab={[{ t: 'Nível' }, ...d.acoes.map((t) => ({ t, centro: true }))]}
-            linhas={d.niveis.map((n) => [n.nome, ...n.acoes.map((v, i) => <Acao key={d.acoes[i]} v={v} />)])}
+            sub="o que cada hierarquia pode fazer · os botões das telas seguem esta tabela; Usuários e Configurações são só do Administrador"
+            cab={[{ t: 'Nível' }, ...d.acoes.map((t) => ({ t, centro: true })), { t: 'Ações' }]}
+            linhas={ed.niveis.map((n) => [
+              `${n.n} — ${n.nome}`,
+              ...n.acoes.map((v, i) => <Acao key={d.acoes[i]} v={v} />),
+              <Button key="ed" size="sm" aria-label={`Editar hierarquia ${n.nome}`} onClick={() => setNivel({ ...n })}>
+                Editar
+              </Button>,
+            ])}
           />
           <TabelaPainel
             titulo="Matriz de permissões por perfil"
@@ -173,6 +250,10 @@ export function TelaPerfis({ abas }: { abas: React.ReactNode }) {
                   O sistema recusa rebaixar o último usuário com nível Administrador — a base não fica sem quem conceda
                   acesso.
                 </Gate>
+                <Gate tom="mid" k="Perfis do sistema">
+                  Admin e Aluno não se editam. Professor, Consultor de Vendas e os gerentes são usados pelo sistema:
+                  editam-se o cargo, a hierarquia e os setores, mas não o tipo, e não se inativam nem se excluem.
+                </Gate>
                 <Gate tom="ok" k="Revisão periódica">
                   A cada 90 dias os acessos entram em revisão: quem não acessou no período e quem tem nível
                   Administrador ou Gestor aparecem primeiro.
@@ -180,6 +261,17 @@ export function TelaPerfis({ abas }: { abas: React.ReactNode }) {
               </div>
             </Painel>
           </div>
+          <PerfilDialog form={form} setForm={setForm} ed={ed} aoSalvo={setMsg} />
+          <NivelDialog nivel={nivel} setNivel={setNivel} acoes={d.acoes} aoSalvo={setMsg} />
+          <ConfirmaDialog
+            aberto={!!confirma}
+            titulo={confirma?.titulo ?? ''}
+            texto={confirma?.texto ?? ''}
+            rotuloOk={confirma?.rotuloOk ?? ''}
+            caminho={confirma?.caminho ?? null}
+            aoFechar={() => setConfirma(null)}
+            aoSalvo={setMsg}
+          />
         </>
       )}
     </>

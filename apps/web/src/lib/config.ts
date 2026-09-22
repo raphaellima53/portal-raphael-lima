@@ -86,12 +86,36 @@ export type Perfis = {
   modelo: [string, string, string][];
   acoes: string[];
   areas: string[];
-  perfis: { idCargo: number | null; perfil: string; cargo: string; area: string; hierarquia: string }[];
+  perfis: { idCargo: number | null; perfil: string; cargo: string; area: string; hierarquia: string; ativo: boolean }[];
   niveis: { nome: string; acoes: (number | null)[] }[];
+  edicao: PerfisEdicao;
   cargos: { cargo: string; nivel: string; acoes: (number | null)[] }[];
   setores: { cargo: string; nivel: string; areas: ({ acesso: string; rotulo: string } | null)[] }[];
   telas: { label: string; menu: string; areas: boolean[] }[];
   recortes: { titulo: string; padrao: boolean; texto: string }[];
+};
+export type AcessoSetor = { acesso: 'total' | 'restrito'; rotulo: string };
+export type PerfilEd = {
+  id: number;
+  tipo: string;
+  cargo: string;
+  idCargo: number | null;
+  area: string;
+  nivel: number;
+  areas: Record<string, AcessoSetor>;
+  resumo: string;
+  ativo: boolean;
+  sistema: string | null;
+  travado: boolean;
+  usuarios: number;
+};
+export type NivelEd = { n: number; nome: string; acoes: (number | null)[]; nota: string };
+export type PerfisEdicao = {
+  personalizado: boolean;
+  salvoEm: string | null;
+  perfis: PerfilEd[];
+  niveis: NivelEd[];
+  setores: { id: string; nome: string; recortes: { v: string; l: string; desc: string }[] }[];
 };
 export type Sessoes = {
   ativas: { id: string; nome: string; estaSessao: boolean; dispositivo: string; origem: string; ultima: string }[];

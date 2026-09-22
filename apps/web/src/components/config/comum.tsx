@@ -131,8 +131,10 @@ export function Chave({
   rotulo,
   ajuda,
   className,
+  disabled,
 }: {
   id: string;
+  disabled?: boolean;
   on: boolean;
   aoMudar: (v: boolean) => void;
   rotulo: string;
@@ -141,7 +143,7 @@ export function Chave({
 }) {
   return (
     <div className={cn('flex items-start gap-3', className)}>
-      <Switch id={id} checked={on} onCheckedChange={aoMudar} />
+      <Switch id={id} checked={on} onCheckedChange={aoMudar} disabled={disabled} />
       <Label htmlFor={id} className="grid gap-0.5 font-normal">
         <span className="font-semibold text-texto-2">{rotulo}</span>
         {ajuda && <span className="text-apagado">{ajuda}</span>}

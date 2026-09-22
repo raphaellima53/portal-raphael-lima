@@ -14,6 +14,8 @@ export type Perfil = {
   idCargo: number | null;
   area: string;
   hierarquia: string;
+  /** perfil inativo não aparece para novos usuários; quem já tem continua com ele */
+  ativo?: boolean;
 };
 
 export const PERFIS: Perfil[] = [
@@ -125,7 +127,8 @@ export const ACOES = [
   'Usuários',
   'Configurações',
 ];
-export const NIVEIS = [
+export type Nivel = { n: number; nome: string; acoes: (number | null)[]; nota?: string };
+export const NIVEIS: Nivel[] = [
   { n: 1, nome: 'Administrador', acoes: [1, 1, 1, null, 1, 1, 1, 1] },
   { n: 2, nome: 'Gestor', acoes: [1, 1, 1, null, 1, 0, 0, 0] },
   { n: 3, nome: 'Editor', acoes: [1, 1, 1, null, 0, 0, 0, 0] },
@@ -483,11 +486,40 @@ export function acessoResumo(u: UsuarioAcesso, p?: Perfil | null): string {
   return `${nivelDe(u.nivel)?.nome || '—'} · ${ar.join(', ') || 'sem setores'}`;
 }
 
-/** O que cada hierarquia esconde nos botões: Gestor não exclui; Editor não inativa; Colaborador só edita o que é dele. */
-export function podeAcao(nivel: number, acao: 'criar' | 'editar' | 'inativar' | 'excluir'): boolean {
-  if (nivel === 5) return false;
-  if (acao === 'criar') return nivel <= 4;
-  if (acao === 'editar') return nivel <= 3;
-  if (acao === 'inativar') return nivel <= 2;
-  return nivel === 1;
+/** coluna de ACOES que decide cada botão */
+const COL_ACAO = { criar: 1, editar: 2, inativar: 4, excluir: 5 } as const;
+/** O que cada hierarquia pode nos botões, pela tabela de hierarquias (editável em Configurações › Perfis). */
+export function podeAcao(nivel: number, acao: keyof typeof COL_ACAO): boolean {
+  if (nivel === 1) return true;
+  return nivelDe(nivel)?.acoes[COL_ACAO[acao]] === 1;
 }
+
+/* ---------------- modelo editável ----------------
+ * PERFIS, MATRIZ e NIVEIS acima são o padrão do portal. O Admin edita o modelo em Configurações › Perfis;
+ * a versão salva (Configuracao "acessoModelo") substitui o conteúdo destas estruturas no lugar,
+ * então quem já as importa passa a ler o modelo salvo sem mudar nada.
+ */
+export type ModeloAcesso = {
+  perfis: Perfil[];
+  matriz: Record<number, { nivel: number; areas: Areas }>;
+  niveis: Nivel[];
+};
+const clona = <T>(x: T): T => JSON.parse(JSON.stringify(x));
+export const MODELO_PADRAO: ModeloAcesso = clona({ perfis: PERFIS, matriz: MATRIZ, niveis: NIVEIS });
+/** perfis que o código usa pelo ID (Admin, Aluno, Professor, gerentes de conta e consultores): não se excluem */
+export const PERFIS_SISTEMA: Record<number, string> = {
+  1: 'administrador do sistema',
+  15: 'acesso do aluno',
+  13: 'agenda presa do professor',
+  5: 'consultor no funil de vendas',
+  6: 'gerente de conta e consultor',
+  16: 'gerente de conta das empresas',
+};
+export function aplicaModelo(m: ModeloAcesso) {
+  const x = clona(m);
+  PERFIS.splice(0, PERFIS.length, ...x.perfis);
+  NIVEIS.splice(0, NIVEIS.length, ...x.niveis);
+  for (const k of Object.keys(MATRIZ)) delete MATRIZ[Number(k)];
+  Object.assign(MATRIZ, x.matriz);
+}
+export const modeloAtual = (): ModeloAcesso => clona({ perfis: PERFIS, matriz: MATRIZ, niveis: NIVEIS });
