@@ -20,6 +20,7 @@ import {
   presencaDe,
 } from '../domain/empresas.ts';
 import { podeChave } from '../domain/mapa.ts';
+import { comExemplos } from '../lib/exemplos.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
@@ -66,10 +67,10 @@ export async function carregaEmpresas(): Promise<EmpresaB[]> {
     relEm: e.relEm,
   }));
 }
-/** gerentes de conta: Gerente B2B, depois Gerente comercial, e a gerente da base */
+/** gerentes de conta: Gerente B2B, depois Gerente comercial, e a gerente da base (só com dados de exemplo) */
 export async function gerentes() {
   const ps = await prisma.usuario.findMany({
-    where: { personaLetra: { not: null }, perfilId: { in: [16, 6] } },
+    where: { status: { not: 'Bloqueado' }, perfilId: { in: [16, 6] } },
     orderBy: { ordem: 'asc' },
     select: { nome: true, perfilId: true },
   });
@@ -77,7 +78,7 @@ export async function gerentes() {
     ...new Set([
       ...ps.filter((x) => x.perfilId === 16).map((x) => x.nome),
       ...ps.filter((x) => x.perfilId === 6).map((x) => x.nome),
-      GERENTE_BASE,
+      ...((await comExemplos()) ? [GERENTE_BASE] : []),
     ]),
   ];
 }

@@ -6,8 +6,10 @@ coverage/
 *.tsbuildinfo
 .env
 .env.local
+.env.producao
 apps/api/src/generated/
 apps/api/.pgdata/
+apps/api/backups/
 apps/api/.repos/
 .DS_Store
 tools/extrai-portal/sonda.html

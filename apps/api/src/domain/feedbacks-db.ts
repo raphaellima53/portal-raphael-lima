@@ -3,12 +3,14 @@
  */
 import { z } from 'zod';
 import { prisma } from '../db.ts';
+import { comExemplos } from '../lib/exemplos.ts';
 import { registra } from '../lib/log.ts';
 import { agOfertas, type Oferta } from './agenda.ts';
 import { FB_AREAS, FB_MAX, FB_TIPOS, fbGera } from './alunos.ts';
 import type { AlunoB, Base } from './base.ts';
 
 export async function garantirFeedbacks(b: Base, alunos: AlunoB[], ofs: Oferta[] = agOfertas(b)) {
+  if (!(await comExemplos())) return;
   const ids = alunos.map((a) => a.id);
   const falta = await prisma.aluno.findMany({ where: { id: { in: ids }, fbGerado: false }, select: { id: true } });
   if (!falta.length) return;

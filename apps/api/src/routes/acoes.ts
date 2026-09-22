@@ -31,6 +31,7 @@ import { avancaFeedback, criaFeedback, FeedbackIn, garantirFeedbacks } from '../
 import { finR } from '../domain/financeiro.ts';
 import { type Ctx, campoOps, FLUXOS, flAnt, flDia, flEtapa, flProx, type Valores, vazio } from '../domain/fluxos.ts';
 import { podeChave } from '../domain/mapa.ts';
+import { comExemplos } from '../lib/exemplos.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
@@ -240,11 +241,11 @@ export default async function rotasAcoes(app: FastifyInstance) {
   /* ================= Comercial › Funil de vendas ================= */
   const consultores = async () => {
     const ps = await prisma.usuario.findMany({
-      where: { personaLetra: { not: null }, perfilId: { in: [5, 6] } },
+      where: { status: { not: 'Bloqueado' }, perfilId: { in: [5, 6] } },
       orderBy: { ordem: 'asc' },
       select: { nome: true },
     });
-    return [...new Set([...ps.map((x) => x.nome), ...CONSULTORES_BASE])];
+    return [...new Set([...ps.map((x) => x.nome), ...((await comExemplos()) ? CONSULTORES_BASE : [])])];
   };
   const logLead = (u: UsuarioSessao, l: { id: string; nome: string }, acao: string, detalhe: string) =>
     registra({ tipo: 'lead', id: l.id, nome: l.nome, acao, detalhe, autor: u.nome });
@@ -479,7 +480,7 @@ export default async function rotasAcoes(app: FastifyInstance) {
     } catch {
       return;
     }
-    const cards = FLUXOS[key].seed?.(ctx) ?? [];
+    const cards = (await comExemplos()) ? (FLUXOS[key].seed?.(ctx) ?? []) : [];
     if (cards.length)
       await prisma.fluxoCard.createMany({
         data: cards.map((c, i) => ({
