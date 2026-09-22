@@ -17,6 +17,7 @@ import {
   alertaConta,
   alertasPadrao,
   CAT,
+  CAT_EXTRAS,
   CAT_TIPO,
   type CatK,
   catUso,
@@ -32,6 +33,7 @@ import docInfo from '../domain/dados/doc-info.json' with { type: 'json' };
 import { TELAS_MAPA } from '../domain/mapa.ts';
 import { hrefProf, hrefTela } from '../domain/rotas.ts';
 import { fmt } from '../lib/fmt.ts';
+import { diaUTC as diaOuNulo, isoUTC, PessoaIn, pessoaDoBanco, pessoaParaBanco } from '../lib/pessoa.ts';
 import { cfgLog, erro400, exigeCfg } from './config-acessos.ts';
 
 const diaUTC = (iso: string) => new Date(`${iso}T00:00:00Z`);
@@ -56,6 +58,18 @@ const ColabIn = z.object({
   email: z.string().trim().toLowerCase().max(200).default(''),
   cargo: z.string().max(160).default(''),
   ativo: z.boolean().default(true),
+  /* adequação ao Portal Alumni: CPF, admissão, telefone, nascimento, gênero e endereço */
+  cpf: z
+    .string()
+    .trim()
+    .transform((x) => x.replace(/\D/g, ''))
+    .refine((x) => !x || x.length === 11, 'O CPF precisa de 11 dígitos.')
+    .default(''),
+  admissao: z
+    .string()
+    .regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Data de admissão inválida.')
+    .default(''),
+  ...PessoaIn.shape,
 });
 const CatIn = z.object({
   nome: Nome,
@@ -63,6 +77,8 @@ const CatIn = z.object({
   departamento: z.string().max(160).default(''),
   formato: z.string().max(40).default('Grupo'),
   ativo: z.boolean().default(true),
+  /** campos a mais do catálogo (CAT_EXTRAS), gravados em Catalogo.dados */
+  dados: z.record(z.string(), z.union([z.string().max(160), z.boolean()])).default({}),
 });
 const SalaIn = z.object({
   nome: Nome,
@@ -70,6 +86,14 @@ const SalaIn = z.object({
   atende: z.string().max(160).default(''),
   zoom: z.boolean().default(false),
   ativo: z.boolean().default(true),
+  /* adequação ao Portal Alumni: conta do Zoom da sala e até quando a licença vale */
+  zoomEmail: z
+    .union([z.literal(''), z.string().trim().toLowerCase().email('E-mail do Zoom inválido.').max(200)])
+    .default(''),
+  zoomLicencaAte: z
+    .string()
+    .regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Data da licença inválida.')
+    .default(''),
 });
 const Just = z.string().trim().min(5, 'Escreva a justificativa (pelo menos 5 letras).').max(500);
 
@@ -88,6 +112,9 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
         departamento: c.departamento,
         cargo: c.cargo,
         ativo: c.ativo,
+        cpf: c.cpf,
+        admissao: isoUTC(c.admissao),
+        ...pessoaDoBanco(c),
       })),
       cargos: cargos.filter((c) => c.ativo).map((c) => ({ nome: c.nome, departamento: c.departamento })),
     };
@@ -107,6 +134,9 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
       cargo: cargo?.nome ?? '—',
       departamento: cargo?.departamento ?? '—',
       ativo: v.ativo,
+      cpf: v.cpf,
+      admissao: diaOuNulo(v.admissao),
+      ...pessoaParaBanco(v),
     };
     if (id) {
       if (!(await prisma.colaborador.findUnique({ where: { id } })))
@@ -182,6 +212,7 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
       departamento: '',
       formato: String((x.dados as { format?: string } | null)?.format ?? ''),
       ativo: x.ativo,
+      dados: (x.dados as Record<string, string | boolean> | null) ?? {},
     }));
   };
   const usoCtx = async () => ({
@@ -208,6 +239,7 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
       })),
       departamentos: deps.map((d) => d.nome),
       formatos: FORMATOS_CURSO,
+      extras: CAT_EXTRAS[k] ?? [],
     };
   });
 
@@ -253,10 +285,19 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
       if (x && antes !== v.nome)
         await prisma.colaborador.updateMany({ where: { cargo: antes }, data: { cargo: v.nome } });
     } else {
+      /* só os campos a mais que o catálogo tem (CAT_EXTRAS); o formato do tipo de curso continua em format */
+      const extras = Object.fromEntries(
+        (CAT_EXTRAS[k] ?? [])
+          /* campo que a tela não mandou fica como está (o tipo de curso novo continua nascendo com módulos) */
+          .filter((e) => e.k in v.dados)
+          .map((e) => [e.k, e.tipo === 'sim' ? v.dados[e.k] === true : String(v.dados[e.k] ?? '')]),
+      );
       const dados =
         k === 'tiposcurso'
-          ? { format: FORMATOS_CURSO.includes(v.formato) ? v.formato : 'Grupo', allowsModules: true }
-          : undefined;
+          ? { allowsModules: true, ...extras, format: FORMATOS_CURSO.includes(v.formato) ? v.formato : 'Grupo' }
+          : Object.keys(extras).length
+            ? extras
+            : undefined;
       if (x) {
         const atual = await prisma.catalogo.findUniqueOrThrow({ where: { id: x.id } });
         await prisma.catalogo.update({
@@ -264,7 +305,7 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
           data: {
             nome: v.nome,
             ativo: v.ativo,
-            dados: dados ? { ...((atual.dados as object) ?? {}), format: dados.format } : undefined,
+            dados: dados ? { ...((atual.dados as object) ?? {}), ...dados } : undefined,
           },
         });
       } else
@@ -275,6 +316,35 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
       if (x && antes !== v.nome) {
         if (k === 'tiposala') await prisma.sala.updateMany({ where: { tipo: antes }, data: { tipo: v.nome } });
         if (k === 'idiomas') await prisma.curso.updateMany({ where: { idioma: antes }, data: { idioma: v.nome } });
+        /* campos da adequação ao Portal Alumni que guardam o nome do item */
+        if (k === 'skills')
+          await prisma.$executeRaw`UPDATE "Professor" SET skills = array_replace(skills, ${antes}, ${v.nome})`;
+        if (k === 'generos') {
+          const troca = { where: { genero: antes }, data: { genero: v.nome } };
+          await prisma.aluno.updateMany(troca);
+          await prisma.professor.updateMany(troca);
+          await prisma.colaborador.updateMany(troca);
+        }
+        if (k === 'responsaveis')
+          await prisma.aluno.updateMany({
+            where: { responsavelFinanceiro: antes },
+            data: { responsavelFinanceiro: v.nome },
+          });
+        if (k === 'categoriasservico')
+          await prisma.servico.updateMany({ where: { categoria: antes }, data: { categoria: v.nome } });
+        if (k === 'tiposconteudo') await prisma.conteudo.updateMany({ where: { tipo: antes }, data: { tipo: v.nome } });
+        if (k === 'fontes') await prisma.conteudo.updateMany({ where: { fonte: antes }, data: { fonte: v.nome } });
+        if (k === 'categoriascurriculo')
+          await prisma.curriculo.updateMany({ where: { categoria: antes }, data: { categoria: v.nome } });
+        if (k === 'progressoes')
+          await prisma.cicloAprendizagem.updateMany({ where: { progressao: antes }, data: { progressao: v.nome } });
+        if (k === 'tiposgeracao')
+          await prisma.cicloAprendizagem.updateMany({ where: { tipoGeracao: antes }, data: { tipoGeracao: v.nome } });
+        if (k === 'visibilidades')
+          await prisma.curso.updateMany({
+            where: { visibilidadeOferta: antes },
+            data: { visibilidadeOferta: v.nome },
+          });
       }
     }
     invalidaBase();
@@ -319,6 +389,8 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
         tipo: s.tipo,
         zoom: s.zoom,
         ativo: s.ativo,
+        zoomEmail: s.zoomEmail,
+        zoomLicencaAte: isoUTC(s.zoomLicencaAte),
       })),
       tipos: tipos.filter((t) => t.tipo === 'roomTypes' && t.ativo).map((t) => t.nome),
       alvos: [
@@ -334,7 +406,15 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
     if (!v.nome) return { erro: 'Dê um nome à sala.' };
     const outra = await prisma.sala.findUnique({ where: { nome: v.nome } });
     if (outra && outra.id !== id) return { erro: 'Já existe sala com esse nome.' };
-    const data = { nome: v.nome, tipo: v.tipo || '—', atende: v.atende || '—', zoom: v.zoom, ativo: v.ativo };
+    const data = {
+      nome: v.nome,
+      tipo: v.tipo || '—',
+      atende: v.atende || '—',
+      zoom: v.zoom,
+      ativo: v.ativo,
+      zoomEmail: v.zoomEmail,
+      zoomLicencaAte: diaOuNulo(v.zoomLicencaAte),
+    };
     if (id) {
       const atual = await prisma.sala.findUnique({ where: { id } });
       if (!atual) return { erro: 'Sala não encontrada.', cod: 404 };
@@ -468,7 +548,7 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
         where: { dia: l.dia },
         data: { aberto: l.aberto, inicio: l.inicio, fim: l.fim },
       });
-    await cfgLog(req.usuario!, 'dias', 'Alterações salvas', `${muda} campos · ${j.data}`);
+    await cfgLog(req.usuario!, 'dias', 'Alterações salvas', `${muda} campos · ${j.data}`, j.data);
     return { msg: `Salvo: ${muda} ${muda === 1 ? 'campo' : 'campos'} · justificativa na Auditoria.`, muda };
   });
 
@@ -506,7 +586,7 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
     const j = Just.safeParse(r.data.just);
     if (!j.success) return erro400(rep, j.error);
     await gravaConfig('politicas', novo, req.usuario!.nome);
-    await cfgLog(req.usuario!, 'politicas', 'Alterações salvas', `${muda} campos · ${j.data}`);
+    await cfgLog(req.usuario!, 'politicas', 'Alterações salvas', `${muda} campos · ${j.data}`, j.data);
     return { msg: `Salvo: ${muda} ${muda === 1 ? 'campo' : 'campos'} · justificativa na Auditoria.`, muda };
   });
 

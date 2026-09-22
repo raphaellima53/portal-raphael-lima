@@ -12,6 +12,9 @@ export type Auditoria = {
     reg: string;
     href: string | null;
     det: string;
+    /** o que mudou campo a campo e o motivo (adequação ao Portal Alumni) */
+    mud: string[];
+    motivo: string;
     vivo: boolean;
   }[];
   total: number;

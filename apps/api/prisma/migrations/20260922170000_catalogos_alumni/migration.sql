@@ -1,0 +1,26 @@
+-- Valores iniciais dos catálogos da adequação ao Portal Alumni (22/09/2026). Não repete o que já existe.
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('categoriasServico', 'Atendimento', true, 0) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('categoriasServico', 'Acompanhamento', true, 1) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('categoriasServico', 'Consultoria', true, 2) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('tiposConteudo', 'Vídeo', true, 0) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('tiposConteudo', 'Áudio', true, 1) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('tiposConteudo', 'PDF', true, 2) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('tiposConteudo', 'Link', true, 3) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('tiposConteudo', 'Exercício', true, 4) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('tiposConteudo', 'SCORM', true, 5) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('fontes', 'Própria', true, 0) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('fontes', 'Parceiro', true, 1) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('fontes', 'Livro didático', true, 2) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('fontes', 'Internet', true, 3) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('categoriasCurriculo', 'Geral', true, 0) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('categoriasCurriculo', 'Business', true, 1) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('categoriasCurriculo', 'Conversação', true, 2) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('categoriasCurriculo', 'Preparatório', true, 3) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('progressoes', 'Linear', true, 0) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('progressoes', 'Por módulo', true, 1) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('progressoes', 'Livre', true, 2) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('tiposGeracao', 'Automática', true, 0) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('tiposGeracao', 'Manual', true, 1) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('visibilidadesOferta', 'Pública', true, 0) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('visibilidadesOferta', 'Só convidados', true, 1) ON CONFLICT ("tipo", "nome") DO NOTHING;
+INSERT INTO "Catalogo" ("tipo", "nome", "ativo", "ordem") VALUES ('visibilidadesOferta', 'Interna', true, 2) ON CONFLICT ("tipo", "nome") DO NOTHING;

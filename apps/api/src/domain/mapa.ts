@@ -248,6 +248,13 @@ export const MENUS: Menu[] = [
               { t: 'Skills dos professores', tela: 'skills' },
               { t: 'Gêneros', tela: 'generos' },
               { t: 'Responsáveis financeiros', tela: 'responsaveis' },
+              { t: 'Categorias de serviço', tela: 'categoriasservico' },
+              { t: 'Tipos de conteúdo', tela: 'tiposconteudo' },
+              { t: 'Fontes de conteúdo', tela: 'fontes' },
+              { t: 'Categorias de currículo', tela: 'categoriascurriculo' },
+              { t: 'Progressões', tela: 'progressoes' },
+              { t: 'Tipos de geração', tela: 'tiposgeracao' },
+              { t: 'Visibilidades de oferta', tela: 'visibilidades' },
             ],
           },
         ],
@@ -495,6 +502,15 @@ type ItemDef = {
 /** telas que ainda não existem no mapa do portal */
 const TELAS_NOVAS: Record<string, { label: string; chave: string }> = {
   servicos: { label: 'Serviços', chave: 'catalogo' },
+  /* adequação ao Portal Alumni (22/09/2026): cadastros simples (domain/cadastros.ts) com o acesso da tela vizinha */
+  turmas: { label: 'Turmas', chave: 'catalogo' },
+  conteudos: { label: 'Conteúdos', chave: 'curso.curriculo' },
+  ciclos: { label: 'Ciclos de aprendizagem', chave: 'curso.curriculo' },
+  calendarios: { label: 'Calendários', chave: 'curso.curriculo' },
+  ofertas: { label: 'Ofertas', chave: 'acFunil' },
+  extratos: { label: 'Extratos dos professores', chave: 'acFechamento' },
+  lancamentos: { label: 'Acertos do extrato', chave: 'acFechamento' },
+  relatoriosMatricula: { label: 'Relatórios de matrícula', chave: 'acAlocacao' },
 };
 
 const sec = (t: string, ...telas: (string | TelaNav)[]) => ({
@@ -525,8 +541,8 @@ export const NAV_EQUIPE: ItemDef[] = [
     nome: 'Produtos e serviços',
     icon: 'bookOpen',
     secoes: [
-      sec('Cursos', { tela: 'cursos', label: 'Catálogo' }),
-      sec('Materiais', { tela: 'curriculo', label: 'Currículos e acervos' }),
+      sec('Cursos', { tela: 'cursos', label: 'Catálogo' }, 'turmas'),
+      sec('Materiais', { tela: 'curriculo', label: 'Currículos e acervos' }, 'conteudos', 'ciclos', 'calendarios'),
       sec('Serviços', 'servicos'),
     ],
   },
@@ -537,11 +553,11 @@ export const NAV_EQUIPE: ItemDef[] = [
     icon: 'zap',
     secoes: [
       sec('Setores', 'atividades'),
-      sec('Pedagógico', 'acAlocacao', 'acSubstituicao'),
+      sec('Pedagógico', 'acAlocacao', 'acSubstituicao', 'relatoriosMatricula'),
       sec('Acadêmico', 'acNivel', 'acReposicao'),
       sec('Administrativo', 'acAdmissao'),
-      sec('Financeiro/Fiscal', 'acFechamento', 'acCobranca', 'rpFinanceiro'),
-      sec('Comercial', 'acFunil', 'acRenovacao'),
+      sec('Financeiro/Fiscal', 'acFechamento', 'acCobranca', 'extratos', 'lancamentos', 'rpFinanceiro'),
+      sec('Comercial', 'acFunil', 'ofertas', 'acRenovacao'),
       sec('Marketing', 'acCampanhas'),
       sec('CX', 'acAtendimentos', 'acRetencao'),
       sec(
@@ -577,7 +593,21 @@ export const NAV_EQUIPE: ItemDef[] = [
         { tela: 'dias', pai: 'Calendário' },
         { tela: 'feriados', pai: 'Calendário' },
         'salas',
-        ...['tiposcurso', 'tiposala', 'idiomas', 'skills', 'generos', 'responsaveis'].map((tela) => ({
+        ...[
+          'tiposcurso',
+          'tiposala',
+          'idiomas',
+          'skills',
+          'generos',
+          'responsaveis',
+          'categoriasservico',
+          'tiposconteudo',
+          'fontes',
+          'categoriascurriculo',
+          'progressoes',
+          'tiposgeracao',
+          'visibilidades',
+        ].map((tela) => ({
           tela,
           pai: 'Catálogos',
         })),

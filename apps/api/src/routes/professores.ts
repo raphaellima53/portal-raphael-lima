@@ -27,24 +27,42 @@ import {
 import { vinculosDe } from '../domain/vinculos.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
+import { PessoaIn, pessoaDoBanco, pessoaParaBanco } from '../lib/pessoa.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
 
-/** abas da ficha: [chave, rótulo, grupo] (PR_ABAS do portal) */
+/** abas da ficha: [chave, rótulo, grupo, chave de acesso quando não é prof.<aba>] (PR_ABAS do portal) */
 const PR_ABAS = [
   ['perfil', 'Perfil', 'dados'],
   ['log', 'Log', 'dados'],
   ['cursos', 'Cursos', 'acessos'],
   ['disponibilidade', 'Disponibilidade', 'acessos'],
+  /* adequação ao Portal Alumni (22/09/2026): cadastros simples com o acesso da aba ou tela vizinha */
+  ['ausencias', 'Ausências', 'acessos', 'prof.disponibilidade'],
+  ['pedidos', 'Pedidos de cancelamento', 'acessos', 'prof.disponibilidade'],
   ['agenda', 'Agenda', 'historico'],
   ['feedbacks', 'Feedbacks', 'historico'],
+  ['sessoes', 'Sessões pedagógicas', 'historico', 'prof.feedbacks'],
+  ['extrato', 'Extrato', 'pagamentos', 'acFechamento'],
+  ['acertos', 'Acertos', 'pagamentos', 'acFechamento'],
   ['acesso', 'Conta de acesso', 'conta'],
 ] as const;
 type Aba = (typeof PR_ABAS)[number][0];
+/** chave de acesso da aba */
+const chaveAba = (a: (typeof PR_ABAS)[number]) => (a.length > 3 ? (a as readonly string[])[3] : `prof.${a[0]}`);
+/** abas que são um cadastro simples (domain/cadastros.ts): a tela busca em /cadastros/<id>?pai=<professor> */
+const ABA_CADASTRO: Partial<Record<Aba, string>> = {
+  ausencias: 'ausencias',
+  pedidos: 'pedidos-cancelamento',
+  sessoes: 'sessoes-pedagogicas',
+  extrato: 'extratos',
+  acertos: 'lancamentos',
+};
 /* 'acessos' = cursos habilitados e disponibilidade (Habilitação); 'conta' = a conta de acesso ao portal (Acesso) */
 const GRUPOS: Record<string, string> = {
   dados: 'Dados',
   acessos: 'Habilitação',
   historico: 'Histórico',
+  pagamentos: 'Pagamentos',
   conta: 'Acesso',
 };
 const ALIAS: Record<string, [Aba, string?]> = { habilitacao: ['cursos'], historico: ['agenda', 'passadas'] };
@@ -60,12 +78,7 @@ async function exige(req: FastifyRequest, rep: FastifyReply, chaves: string[]) {
   if (u.ehAluno || !chaves.some((c) => podeChave(u, c))) return rep.code(403).send({ erro: 'Sem acesso a esta tela.' });
 }
 const exigeLista = (req: FastifyRequest, rep: FastifyReply) => exige(req, rep, ['professores']);
-const exigeFicha = (req: FastifyRequest, rep: FastifyReply) =>
-  exige(
-    req,
-    rep,
-    PR_ABAS.map(([k]) => `prof.${k}`),
-  );
+const exigeFicha = (req: FastifyRequest, rep: FastifyReply) => exige(req, rep, PR_ABAS.map(chaveAba));
 const exigeOperar = (chave: string) => async (req: FastifyRequest, rep: FastifyReply) => {
   const r = await exige(req, rep, [chave]);
   if (r) return r;
@@ -104,6 +117,15 @@ const ProfIn = z.object({
   teto: z.coerce.number().int().min(1, 'O teto precisa ser de pelo menos 1 aula.').max(80).default(24),
   cursos: z.array(z.string()).max(40).default([]),
   ativo: z.boolean().default(true),
+  /* adequação ao Portal Alumni: CPF, dados pessoais, endereço e skills */
+  cpf: z
+    .string()
+    .trim()
+    .transform((x) => x.replace(/\D/g, ''))
+    .refine((x) => !x || x.length === 11, 'O CPF precisa de 11 dígitos.')
+    .default(''),
+  ...PessoaIn.shape,
+  skills: z.array(z.string().max(80)).max(40).default([]),
 });
 
 export default async function rotasProfessores(app: FastifyInstance) {
@@ -124,7 +146,7 @@ export default async function rotasProfessores(app: FastifyInstance) {
         editar: pode(u, 'editar'),
         desativar: pode(u, 'desativar'),
         como: pode(u, 'como') && !u.como,
-        ficha: PR_ABAS.some(([k]) => podeChave(u, `prof.${k}`)),
+        ficha: PR_ABAS.some((a) => podeChave(u, chaveAba(a))),
       },
     };
   });
@@ -137,7 +159,7 @@ export default async function rotasProfessores(app: FastifyInstance) {
     const b = await base();
     const t = profOu404(b, id, rep);
     if (!t) return;
-    const ok = PR_ABAS.filter(([k]) => podeChave(u, `prof.${k}`));
+    const ok = PR_ABAS.filter((a) => podeChave(u, chaveAba(a)));
     let pedida = String(q.aba ?? '');
     let quando = q.quando === 'passadas' ? 'passadas' : 'proximas';
     if (ALIAS[pedida]) {
@@ -175,6 +197,8 @@ export default async function rotasProfessores(app: FastifyInstance) {
         ),
         vinculos: await vinculosDe(b, { profId: t.id }),
       };
+    } else if (ABA_CADASTRO[aba]) {
+      dados = { cadastro: ABA_CADASTRO[aba], pai: t.id };
     } else if (aba === 'acesso') {
       dados = await acessoDaPessoa(b, { profId: t.id }, u);
     } else if (aba === 'log') {
@@ -246,7 +270,17 @@ export default async function rotasProfessores(app: FastifyInstance) {
     const b = await base();
     const t = profOu404(b, (req.params as { id: string }).id, rep);
     if (!t) return;
-    return { nome: t.name, email: t.email === '—' ? '' : t.email, teto: t.teto, cursos: t.cursos, ativo: t.active };
+    const db = await prisma.professor.findUniqueOrThrow({ where: { id: t.id } });
+    return {
+      nome: t.name,
+      email: t.email === '—' ? '' : t.email,
+      teto: t.teto,
+      cursos: t.cursos,
+      ativo: t.active,
+      cpf: db.cpf,
+      skills: db.skills,
+      ...pessoaDoBanco(db),
+    };
   });
   const salva = async (req: FastifyRequest, rep: FastifyReply, id: string | null) => {
     const u = req.usuario!;
@@ -270,6 +304,7 @@ export default async function rotasProfessores(app: FastifyInstance) {
             erro: `${antes.name} é titular de ${tit.join(', ')} em ${c.name}. Troque o professor da turma antes de tirar a habilitação.`,
           });
       }
+      const dbAntes = await prisma.professor.findUniqueOrThrow({ where: { id: antes.id } });
       const habil = antes.habil
         ? Object.fromEntries(Object.entries(antes.habil).filter(([c]) => cursos.includes(c)))
         : null;
@@ -282,6 +317,9 @@ export default async function rotasProfessores(app: FastifyInstance) {
           ativo: v.ativo,
           cursos,
           habilitacao: habil && Object.keys(habil).length ? habil : undefined,
+          cpf: v.cpf,
+          skills: v.skills,
+          ...pessoaParaBanco(v),
         },
       });
       if (!habil || !Object.keys(habil).length)
@@ -308,7 +346,20 @@ export default async function rotasProfessores(app: FastifyInstance) {
       });
       const f1 = foto({ nome: v.nome, email: v.email || '—', cursos, teto: v.teto, ativo: v.ativo });
       const CAMPOS = ['nome', 'e-mail', 'cursos', 'teto semanal', 'situação'];
-      const mud = CAMPOS.filter((_, j) => JSON.stringify(f0[j]) !== JSON.stringify(f1[j]));
+      const extra = (x: typeof dbAntes) => ({
+        CPF: x.cpf,
+        telefone: x.telefone,
+        nascimento: x.nascimento?.toISOString() ?? null,
+        gênero: x.genero,
+        endereço: x.endereco ?? null,
+        skills: [...x.skills].sort(),
+      });
+      const e0 = extra(dbAntes);
+      const e1 = extra(await prisma.professor.findUniqueOrThrow({ where: { id: antes.id } }));
+      const mud = [
+        ...CAMPOS.filter((_, j) => JSON.stringify(f0[j]) !== JSON.stringify(f1[j])),
+        ...(Object.keys(e1) as (keyof typeof e1)[]).filter((k) => JSON.stringify(e0[k]) !== JSON.stringify(e1[k])),
+      ];
       if (mud.length) await loga(u, { id: antes.id, name: v.nome }, 'Dados editados', mud.join(', '));
       invalidaBase();
       return { id: antes.id, msg: mud.length ? `Dados de ${v.nome} salvos.` : 'Nada mudou no cadastro.' };
@@ -325,6 +376,9 @@ export default async function rotasProfessores(app: FastifyInstance) {
         cursos,
         disponibilidade: [],
         ordem: Math.max(0, ...todos.map((x) => x.ordem)) + 1,
+        cpf: v.cpf,
+        skills: v.skills,
+        ...pessoaParaBanco(v),
       },
     });
     await loga(u, { id: novoId, name: v.nome }, 'Cadastro criado', v.nome);

@@ -18,6 +18,10 @@ const MENU_DAS_TELAS: Record<string, string[]> = {
     'acCampanhas',
     'acAtendimentos',
     'acRetencao',
+    'ofertas',
+    'extratos',
+    'lancamentos',
+    'relatoriosMatricula',
   ],
   relatorios: [
     'relatorio',
@@ -48,6 +52,13 @@ const MENU_DAS_TELAS: Record<string, string[]> = {
     'skills',
     'generos',
     'responsaveis',
+    'categoriasservico',
+    'tiposconteudo',
+    'fontes',
+    'categoriascurriculo',
+    'progressoes',
+    'tiposgeracao',
+    'visibilidades',
     'alertas',
     'admPainel',
     'execucoes',
@@ -57,7 +68,7 @@ const MENU_DAS_TELAS: Record<string, string[]> = {
   ],
   engenharia: ['engRepos', 'engIA'],
   /* Produtos e serviços (menu de 21/09/2026): serviços ainda sem cadastro */
-  produtos: ['servicos'],
+  produtos: ['turmas', 'servicos', 'conteudos', 'ciclos', 'calendarios'],
 };
 for (const [menu, telas] of Object.entries(MENU_DAS_TELAS)) for (const t of telas) SECAO[t] = menu;
 

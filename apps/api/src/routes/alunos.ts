@@ -54,20 +54,35 @@ import { podeChave } from '../domain/mapa.ts';
 import { vinculosDe } from '../domain/vinculos.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
+import { diaUTC, isoUTC, PessoaIn, pessoaDoBanco, pessoaParaBanco } from '../lib/pessoa.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
 
-/** abas da ficha: [chave, rótulo, grupo] (AL_ABAS do portal) */
+/** abas da ficha: [chave, rótulo, grupo, chave de acesso quando não é aluno.<aba>] (AL_ABAS do portal) */
 const AL_ABAS = [
   ['perfil', 'Perfil', 'dados'],
   ['log', 'Log', 'dados'],
   ['cursos', 'Cursos', 'matriculas'],
+  /* adequação ao Portal Alumni (22/09/2026): cadastros simples com o acesso da aba vizinha */
+  ['nivelamento', 'Nivelamento', 'matriculas', 'aluno.cursos'],
+  ['relatorios', 'Relatórios', 'matriculas', 'aluno.cursos'],
   ['disponibilidade', 'Disponibilidade', 'matriculas'],
+  ['datas', 'Datas bloqueadas', 'matriculas', 'aluno.disponibilidade'],
   ['financeiro', 'Parcelas', 'financeiro'],
   ['agendamentos', 'Agendamentos', 'historico'],
   ['feedbacks', 'Feedbacks', 'historico'],
+  ['fbaulas', 'Feedbacks das aulas', 'historico', 'aluno.feedbacks'],
   ['acesso', 'Conta de acesso', 'acesso'],
 ] as const;
 type Aba = (typeof AL_ABAS)[number][0];
+/** chave de acesso da aba */
+const chaveAba = (a: (typeof AL_ABAS)[number]) => (a.length > 3 ? (a as readonly string[])[3] : `aluno.${a[0]}`);
+/** abas que são um cadastro simples (domain/cadastros.ts): a tela busca em /cadastros/<id>?pai=<aluno> */
+const ABA_CADASTRO: Partial<Record<Aba, string>> = {
+  nivelamento: 'nivelamentos',
+  relatorios: 'relatorios-matricula',
+  datas: 'datas-bloqueadas',
+  fbaulas: 'feedbacks-aula',
+};
 const GRUPOS: Record<string, string> = {
   dados: 'Dados',
   matriculas: 'Matrícula',
@@ -106,12 +121,7 @@ async function exige(req: FastifyRequest, rep: FastifyReply, chaves: string[]) {
   if (u.ehAluno || !chaves.some((c) => podeChave(u, c))) return rep.code(403).send({ erro: 'Sem acesso a esta tela.' });
 }
 const exigeLista = (req: FastifyRequest, rep: FastifyReply) => exige(req, rep, ['alunos']);
-const exigeFicha = (req: FastifyRequest, rep: FastifyReply) =>
-  exige(
-    req,
-    rep,
-    AL_ABAS.map(([k]) => `aluno.${k}`),
-  );
+const exigeFicha = (req: FastifyRequest, rep: FastifyReply) => exige(req, rep, AL_ABAS.map(chaveAba));
 const exigeOperar = (chave: string) => async (req: FastifyRequest, rep: FastifyReply) => {
   const r = await exige(req, rep, [chave]);
   if (r) return r;
@@ -138,6 +148,23 @@ const personasIds = async () =>
 const loga = (u: UsuarioSessao, a: { id: number; name: string }, acao: string, detalhe?: string) =>
   registra({ tipo: 'aluno', id: String(a.id), nome: a.name, acao, detalhe, autor: u.nome });
 
+/** campos da adequação ao Portal Alumni que entram no log de Dados editados, pelo nome que aparece no log */
+const extrasAluno = (a: {
+  telefone: string;
+  nascimento: Date | null;
+  genero: string | null;
+  endereco: unknown;
+  responsavelFinanceiro: string | null;
+  origemExterna: string | null;
+}): Record<string, unknown> => ({
+  telefone: a.telefone,
+  nascimento: a.nascimento?.toISOString() ?? null,
+  gênero: a.genero,
+  endereço: a.endereco ?? null,
+  'responsável financeiro': a.responsavelFinanceiro,
+  origem: a.origemExterna,
+});
+
 /** turma: a ocupação acompanha quem entra e sai */
 async function turmaOcupa(b: Base, curso: string, nome: string | null, d: number) {
   const c = b.cursos.find((x) => x.name === curso);
@@ -157,6 +184,9 @@ async function feedbacksDe(b: Base, a: AlunoB) {
   });
 }
 
+const MAT_TIPOS = ['Regular', 'Bolsa', 'Cortesia', 'Reposição', 'Teste'] as const;
+const MAT_ORIGENS = ['Venda', 'Renovação', 'Importação', 'Empresa'] as const;
+
 const MatriculaIn = z.object({
   curso: z.string().optional(),
   item: z.string().nullable().optional(),
@@ -167,6 +197,24 @@ const MatriculaIn = z.object({
     .min(1, 'Informe o pacote de aulas.')
     .max(9999),
   usadas: z.coerce.number().int().min(0).max(9999).optional(),
+  /** adequação ao Portal Alumni: vigência, tipo, origem, oferta, matrícula ligada e congelamento */
+  contrato: z
+    .object({
+      inicio: z
+        .string()
+        .regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Início do contrato inválido.')
+        .default(''),
+      fim: z
+        .string()
+        .regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Fim do contrato inválido.')
+        .default(''),
+      statusTipo: z.enum(MAT_TIPOS).default('Regular'),
+      origem: z.enum(MAT_ORIGENS).default('Venda'),
+      ofertaId: z.string().max(40).default(''),
+      vinculadaId: z.coerce.number().int().nullable().default(null),
+      congelada: z.boolean().default(false),
+    })
+    .optional(),
 });
 
 const AlunoIn = z.object({
@@ -184,6 +232,10 @@ const AlunoIn = z.object({
     .string()
     .regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Data de contrato inválida.')
     .default(''),
+  /* adequação ao Portal Alumni: dados pessoais, endereço, responsável financeiro e origem */
+  ...PessoaIn.shape,
+  responsavelFinanceiro: z.string().trim().max(120).default(''),
+  origemExterna: z.string().trim().max(120).default(''),
   /** modalidade trocada em cada matrícula ativa, pelo id */
   modalidades: z.record(z.string(), z.enum(['Online', 'Presencial'])).default({}),
   nova: z
@@ -196,6 +248,54 @@ const AlunoIn = z.object({
     .nullable()
     .optional(),
 });
+
+type ContratoIn = NonNullable<z.infer<typeof MatriculaIn>['contrato']>;
+/** o contrato da matrícula como a tela mostra */
+const contratoDoBanco = (m: {
+  inicio: Date | null;
+  fim: Date | null;
+  statusTipo: string;
+  origem: string;
+  ofertaId: string | null;
+  vinculadaId: number | null;
+  congeladaEm: Date | null;
+}): ContratoIn => ({
+  inicio: isoUTC(m.inicio),
+  fim: isoUTC(m.fim),
+  statusTipo: m.statusTipo as ContratoIn['statusTipo'],
+  origem: m.origem as ContratoIn['origem'],
+  ofertaId: m.ofertaId ?? '',
+  vinculadaId: m.vinculadaId,
+  congelada: !!m.congeladaEm,
+});
+/** confere o contrato (oferta existe, a matrícula ligada é do mesmo aluno, fim depois do início) e monta as colunas */
+async function contratoParaBanco(
+  c: ContratoIn | undefined,
+  alunoId: number,
+  mid: number | null,
+  congeladaEm: Date | null,
+) {
+  if (!c) return { dados: {} };
+  if (c.inicio && c.fim && c.fim < c.inicio) return { erro: 'O fim do contrato não pode vir antes do início.' };
+  if (c.ofertaId && !(await prisma.oferta.findUnique({ where: { id: c.ofertaId } })))
+    return { erro: 'Oferta não encontrada.' };
+  if (c.vinculadaId != null) {
+    if (c.vinculadaId === mid) return { erro: 'A matrícula não pode ser ligada a ela mesma.' };
+    if (!(await prisma.matricula.findFirst({ where: { id: c.vinculadaId, alunoId } })))
+      return { erro: 'A matrícula ligada precisa ser do mesmo aluno.' };
+  }
+  return {
+    dados: {
+      inicio: diaUTC(c.inicio),
+      fim: diaUTC(c.fim),
+      statusTipo: c.statusTipo,
+      origem: c.origem,
+      ofertaId: c.ofertaId || null,
+      vinculadaId: c.vinculadaId,
+      congeladaEm: c.congelada ? (congeladaEm ?? new Date()) : null,
+    },
+  };
+}
 
 /** valida a nova matrícula contra o curso: módulo ou turma, pacote e modalidade das regras */
 function confereMatricula(b: Base, curso: string, item: string | null | undefined, modalidade: string, total: number) {
@@ -248,7 +348,7 @@ export default async function rotasAlunos(app: FastifyInstance) {
         desativar: alPode(u, 'desativar'),
         excluir: alPode(u, 'excluir'),
         como: alPode(u, 'como'),
-        ficha: AL_ABAS.some(([k]) => podeChave(u, `aluno.${k}`)),
+        ficha: AL_ABAS.some((a) => podeChave(u, chaveAba(a))),
       },
     };
   });
@@ -261,7 +361,7 @@ export default async function rotasAlunos(app: FastifyInstance) {
     const b = await base();
     const a = await alunoOu404(b, id, rep);
     if (!a) return;
-    const ok = AL_ABAS.filter(([k]) => podeChave(u, `aluno.${k}`));
+    const ok = AL_ABAS.filter((a) => podeChave(u, chaveAba(a)));
     let pedida = String(q.aba ?? '');
     let quando = q.quando === 'passadas' ? 'passadas' : 'proximas';
     if (ALIAS[pedida]) {
@@ -322,6 +422,8 @@ export default async function rotasAlunos(app: FastifyInstance) {
         const dias = [7, 14, 30].includes(Number(q.dias)) ? Number(q.dias) : 14;
         dados = { quando, ...alAgenda(b, a, dias, ofs, agora) };
       }
+    } else if (ABA_CADASTRO[aba]) {
+      dados = { cadastro: ABA_CADASTRO[aba], pai: a.id };
     } else if (aba === 'acesso') {
       dados = await acessoDaPessoa(b, { alunoId: a.id }, u);
     } else if (aba === 'financeiro') {
@@ -422,7 +524,11 @@ export default async function rotasAlunos(app: FastifyInstance) {
     const b = await base();
     const a = await alunoOu404(b, id, rep);
     if (!a) return;
+    const db = await prisma.aluno.findUniqueOrThrow({ where: { id } });
     return {
+      ...pessoaDoBanco(db),
+      responsavelFinanceiro: db.responsavelFinanceiro ?? '',
+      origemExterna: db.origemExterna ?? '',
       nome: a.name,
       cpf: a.cpf ?? '',
       status: alSit(a),
@@ -450,6 +556,7 @@ export default async function rotasAlunos(app: FastifyInstance) {
     const b = await base();
     const antes = id == null ? null : await alunoOu404(b, id, rep);
     if (id != null && !antes) return;
+    const extraAntes = id == null ? null : extrasAluno(await prisma.aluno.findUniqueOrThrow({ where: { id } }));
     let nova: ReturnType<typeof confereMatricula> | null = null;
     if (v.nova?.curso) {
       if (!(v.nova.total > 0)) return rep.code(400).send({ erro: 'Informe o pacote de aulas da nova matrícula.' });
@@ -467,6 +574,9 @@ export default async function rotasAlunos(app: FastifyInstance) {
       desativadoEm: v.status === 'Cancelado' || v.status === 'Inativo' ? (antes?.desativadoEm ?? new Date()) : null,
       empresaId: emp?.id ?? null,
       contratoFim: v.contrato ? new Date(`${v.contrato}T00:00:00Z`) : null,
+      ...pessoaParaBanco(v),
+      responsavelFinanceiro: v.responsavelFinanceiro || null,
+      origemExterna: v.origemExterna || null,
     };
     let alunoId = id;
     if (id == null) {
@@ -517,7 +627,11 @@ export default async function rotasAlunos(app: FastifyInstance) {
     const CAMPOS = ['nome', 'e-mail', 'CPF', 'situação', 'empresa', 'contrato', 'matrículas'];
     const f0 = foto(antes!);
     const f1 = foto(depois);
-    const mud = CAMPOS.filter((_, j) => JSON.stringify(f0[j]) !== JSON.stringify(f1[j]));
+    const extraDepois = extrasAluno(await prisma.aluno.findUniqueOrThrow({ where: { id } }));
+    const mud = [
+      ...CAMPOS.filter((_, j) => JSON.stringify(f0[j]) !== JSON.stringify(f1[j])),
+      ...Object.keys(extraDepois).filter((k) => JSON.stringify(extraAntes?.[k]) !== JSON.stringify(extraDepois[k])),
+    ];
     if (mud.length) await loga(u, depois, 'Dados editados', mud.join(', '));
     return { id: alunoId, msg: mud.length ? `Dados de ${depois.name} salvos.` : 'Nada mudou no cadastro.' };
   };
@@ -610,6 +724,8 @@ export default async function rotasAlunos(app: FastifyInstance) {
     if (!a) return;
     const r = confereMatricula(b, p.data.curso ?? '', p.data.item, p.data.modalidade, p.data.total);
     if ('erro' in r) return rep.code(400).send({ erro: r.erro });
+    const contrato = await contratoParaBanco(p.data.contrato, id, null, null);
+    if ('erro' in contrato) return rep.code(400).send({ erro: contrato.erro });
     await prisma.matricula.create({
       data: {
         alunoId: id,
@@ -619,6 +735,7 @@ export default async function rotasAlunos(app: FastifyInstance) {
         total: p.data.total,
         modalidade: p.data.modalidade,
         ordem: a.matriculas.length,
+        ...contrato.dados,
       },
     });
     await turmaOcupa(b, r.c.name, r.item, 1);
@@ -627,6 +744,46 @@ export default async function rotasAlunos(app: FastifyInstance) {
     invalidaBase();
     return {
       msg: `${a.name} matriculado em ${r.c.name}${r.item ? ` · ${r.item}` : ''}. Veja o horário e a alocação logo abaixo, em Cursos.`,
+    };
+  });
+  /* contrato da matrícula (vigência, tipo, origem, oferta, ligada, congelada) e as opções do formulário;
+     sem ?mid= devolve o contrato em branco de uma matrícula nova */
+  app.get('/alunos/:id/matriculas-contrato', { preHandler: exigeFicha }, async (req, rep) => {
+    const { id } = ID.parse(req.params);
+    const mid = Number((req.query as { mid?: string }).mid) || null;
+    const mats = await prisma.matricula.findMany({
+      where: { alunoId: id },
+      include: { curso: { select: { nome: true } } },
+      orderBy: { ordem: 'asc' },
+    });
+    const m = mid ? mats.find((x) => x.id === mid) : null;
+    if (mid && !m) return rep.code(404).send({ erro: 'Matrícula não encontrada.' });
+    const ofertas = await prisma.oferta.findMany({
+      where: { situacao: { not: 'Descartada' } },
+      orderBy: { criadoEm: 'desc' },
+      select: { id: true, codigo: true, nome: true, beneficiario: true },
+    });
+    return {
+      contrato: m
+        ? contratoDoBanco(m)
+        : {
+            inicio: '',
+            fim: '',
+            statusTipo: 'Regular',
+            origem: 'Venda',
+            ofertaId: '',
+            vinculadaId: null,
+            congelada: false,
+          },
+      congeladaDesde: m?.congeladaEm ? fmt.dataHora(m.congeladaEm) : null,
+      opcoes: {
+        tipos: MAT_TIPOS,
+        origens: MAT_ORIGENS,
+        ofertas: ofertas.map((o) => ({ v: o.id, l: `${o.codigo} · ${o.nome} · ${o.beneficiario}` })),
+        vinculadas: mats
+          .filter((x) => x.id !== mid)
+          .map((x) => ({ v: String(x.id), l: `${x.curso.nome}${x.modulo ? ` · ${x.modulo}` : ''}` })),
+      },
     };
   });
   app.put('/alunos/:id/matriculas/:mid', { preHandler: exigeOperar('aluno.cursos') }, async (req, rep) => {
@@ -648,6 +805,12 @@ export default async function rotasAlunos(app: FastifyInstance) {
     if (c && !crsRegras(c).modalidades.includes(p.data.modalidade))
       return rep.code(400).send({ erro: 'Modalidade não aceita nas regras do curso.' });
     const item = itens.length ? p.data.item! : null;
+    const antesDb = await prisma.matricula.findUniqueOrThrow({ where: { id: mid } });
+    const contrato = await contratoParaBanco(p.data.contrato, id, mid, antesDb.congeladaEm);
+    if ('erro' in contrato) return rep.code(400).send({ erro: contrato.erro });
+    const contratoMudou =
+      !!p.data.contrato &&
+      JSON.stringify(contratoDoBanco(antesDb)) !== JSON.stringify(contratoDoBanco({ ...antesDb, ...contrato.dados }));
     const mesmo = (e.modulo ?? null) === item;
     if (!mesmo) {
       await turmaOcupa(b, e.curso, e.modulo, -1);
@@ -661,11 +824,16 @@ export default async function rotasAlunos(app: FastifyInstance) {
         total: p.data.total,
         modalidade: p.data.modalidade,
         ...(mesmo ? {} : { alocacao: undefined }),
+        ...contrato.dados,
       },
     });
     if (!mesmo) await prisma.$executeRaw`UPDATE "Matricula" SET alocacao = NULL WHERE id = ${mid}`;
     const mudou =
-      !mesmo || usadas !== e.usadas || p.data.total !== e.total || p.data.modalidade !== (e.modalidade || 'Online');
+      !mesmo ||
+      contratoMudou ||
+      usadas !== e.usadas ||
+      p.data.total !== e.total ||
+      p.data.modalidade !== (e.modalidade || 'Online');
     if (mudou)
       await loga(
         u,

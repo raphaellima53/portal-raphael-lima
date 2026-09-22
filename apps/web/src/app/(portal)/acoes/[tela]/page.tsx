@@ -9,6 +9,7 @@ import { TelaFechamento } from '@/components/acoes/fechamento';
 import { TelaFluxo } from '@/components/acoes/fluxo';
 import { TelaFunil } from '@/components/acoes/funil';
 import { TelaSetores } from '@/components/acoes/setores';
+import { TELA_CADASTRO, TelaCadastro } from '@/components/cadastro/cadastro';
 import { Aviso, PageHead } from '@/components/ds';
 import { SecaoAbas } from '@/components/secao-abas';
 import { itemDoCaminho } from '@/components/shell/sidebar';
@@ -65,6 +66,7 @@ export default function AcoesPage() {
       {tela === 'acFunil' && <TelaFunil abas={abas} />}
       {tela === 'acAtendimentos' && <TelaAtendimentos abas={abas} />}
       {FLUXOS.includes(tela) && <TelaFluxo key={tela} chave={tela} abas={abas} />}
+      {TELA_CADASTRO[tela] && <TelaCadastro key={tela} tela={tela} titulo={folha.label} abas={abas} />}
     </Suspense>
   );
 }

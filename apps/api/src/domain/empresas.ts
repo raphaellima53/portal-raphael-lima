@@ -26,6 +26,12 @@ export type EmpresaB = {
   turmaCurso: string | null;
   cursos: string[];
   relEm: Date | null;
+  /* adequação ao Portal Alumni */
+  representante: string;
+  funcionarios: number | null;
+  rhDepartamento: string;
+  rhTelefone: string;
+  endereco: unknown;
 };
 
 /** coluna @db.Date chega como meia-noite UTC: ancora na meia-noite local */

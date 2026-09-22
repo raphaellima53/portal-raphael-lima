@@ -6,11 +6,13 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { CampoData } from '@/components/campos-data';
 import { Escolha } from '@/components/escolha';
+import { CamposEndereco, mascaraTelefone } from '@/components/pessoa-campos';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { ENDERECO_VAZIO, type Endereco } from '@/lib/cadastros';
 import { type EmpresaForm, type FichaEmpresa, useAcaoEmpresa, useOpcoesEmpresa } from '@/lib/empresas';
 import { cn } from '@/lib/utils';
 
@@ -86,6 +88,14 @@ export function EmpresaFormDialog({
   const acao = useAcaoEmpresa();
   const ed = !!abre?.form;
   const turma = !!abre?.form?.turmaCurso;
+  /* adequação ao Portal Alumni: representante, funcionários, endereço e o resto do contato no RH */
+  const [extra, setExtra] = useState<{
+    representante: string;
+    funcionarios: string;
+    rhDepartamento: string;
+    rhTelefone: string;
+    endereco: Endereco;
+  }>({ representante: '', funcionarios: '', rhDepartamento: '', rhTelefone: '', endereco: ENDERECO_VAZIO });
   const f = useForm<Form>({
     resolver: zodResolver(Esquema),
     defaultValues: {
@@ -113,6 +123,13 @@ export function EmpresaFormDialog({
     if (!abre) return;
     acao.reset();
     const x = abre.form;
+    setExtra({
+      representante: x?.representante ?? '',
+      funcionarios: x?.funcionarios == null ? '' : String(x.funcionarios),
+      rhDepartamento: x?.rhDepartamento ?? '',
+      rhTelefone: x?.rhTelefone ?? '',
+      endereco: x?.endereco ?? ENDERECO_VAZIO,
+    });
     f.reset({
       nome: x?.nome ?? '',
       cnpj: x?.cnpj ?? '',
@@ -142,6 +159,8 @@ export function EmpresaFormDialog({
         method: ed ? 'PUT' : 'POST',
         json: {
           ...v,
+          ...extra,
+          funcionarios: extra.funcionarios === '' ? null : Number(extra.funcionarios),
           licencas: Number(v.licencas || 0),
           aulas: Number(v.aulas || 0),
           valor: Number(v.valor || 0),
@@ -227,6 +246,31 @@ export function EmpresaFormDialog({
                   ))}
                 </datalist>
               </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="emp-rep">Representante legal</Label>
+                <Input
+                  id="emp-rep"
+                  value={extra.representante}
+                  onChange={(e) => setExtra({ ...extra, representante: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="emp-func">Nº de funcionários</Label>
+                <Input
+                  id="emp-func"
+                  inputMode="numeric"
+                  value={extra.funcionarios}
+                  onChange={(e) => setExtra({ ...extra, funcionarios: e.target.value.replace(/\D/g, '').slice(0, 7) })}
+                />
+              </div>
+            </Secao>
+
+            <Secao titulo="Endereço">
+              <CamposEndereco
+                prefixo="emp-end"
+                valor={extra.endereco}
+                aoMudar={(e) => setExtra({ ...extra, endereco: e })}
+              />
             </Secao>
 
             <Secao titulo="Contrato">
@@ -374,6 +418,25 @@ export function EmpresaFormDialog({
                   {...f.register('rhEmail')}
                 />
                 <Erro t={erros.rhEmail?.message} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="emp-rh-dep">Departamento</Label>
+                <Input
+                  id="emp-rh-dep"
+                  placeholder="Ex.: Recursos Humanos"
+                  value={extra.rhDepartamento}
+                  onChange={(e) => setExtra({ ...extra, rhDepartamento: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="emp-rh-tel">Telefone do RH</Label>
+                <Input
+                  id="emp-rh-tel"
+                  inputMode="tel"
+                  placeholder="(00) 00000-0000"
+                  value={extra.rhTelefone}
+                  onChange={(e) => setExtra({ ...extra, rhTelefone: mascaraTelefone(e.target.value) })}
+                />
               </div>
             </Secao>
           </DialogBody>

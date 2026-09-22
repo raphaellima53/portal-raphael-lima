@@ -34,6 +34,9 @@ export type Me = {
     agendaPresa: Record<string, string> | null;
     /** Acessar como: quem abriu a sessão e a tela de volta */
     como: { quem: string; volta: string } | null;
+    /** foto do perfil e troca de senha obrigatória (adequação ao Portal Alumni) */
+    foto: string | null;
+    trocarSenha: boolean;
   };
   nav: ItemNav[];
   chaves: string[];
@@ -85,7 +88,16 @@ export type Dashboard = {
   blocos: (BlocoDef & { corpo: CorpoBloco })[];
 };
 
-export type Alerta = { k: string; nivel: 'red' | 'amber'; n: number; t: string; d: string; href: string };
+export type Alerta = {
+  k: string;
+  nivel: 'red' | 'amber';
+  n: number;
+  t: string;
+  d: string;
+  href: string;
+  /** já visto no sino (adequação ao Portal Alumni: notificações) */
+  lida?: boolean;
+};
 
 export type MinhaArea = {
   nome: string;

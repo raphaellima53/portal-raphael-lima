@@ -75,7 +75,11 @@ export default async function rotasAuth(app: FastifyInstance) {
         return rep.code(400).send({ erro: 'A senha atual não confere.' });
       await prisma.usuario.update({
         where: { id: u.id },
-        data: { senhaHash: await hashSenha(r.data.nova), senhaTeste: u.personaLetra ? r.data.nova : null },
+        data: {
+          senhaHash: await hashSenha(r.data.nova),
+          senhaTeste: u.personaLetra ? r.data.nova : null,
+          trocarSenha: false,
+        },
       });
       return { ok: true };
     },
@@ -98,9 +102,16 @@ export default async function rotasAuth(app: FastifyInstance) {
     const u = req.usuario;
     if (!u) return { usuario: null, nav: [], chaves: [] };
     const perfil = PERFIS.find((p) => p.id === u.perfilId) ?? null;
+    const conta = await prisma.usuario.findUnique({
+      where: { id: u.id },
+      select: { foto: true, trocarSenha: true },
+    });
     return {
       usuario: {
         id: u.id,
+        /* adequação ao Portal Alumni */
+        foto: conta?.foto ?? null,
+        trocarSenha: !!conta?.trocarSenha && !u.como,
         nome: u.nome,
         email: u.email,
         papel: perfil ? perfil.cargo || perfil.perfil : '—',

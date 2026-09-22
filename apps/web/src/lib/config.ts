@@ -2,6 +2,7 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
+import type { PessoaExtra } from './cadastros';
 import type { Tom } from './tipos';
 
 export type Stat = { v: number | string; t: string; tom?: Tom };
@@ -64,6 +65,8 @@ export type UsuarioForm = {
     responsavel: string;
     justificativa: string;
     observacoes: string;
+    foto: string;
+    trocarSenha: boolean;
     seguranca: Record<string, boolean>;
     eu: boolean;
   } | null;
@@ -146,7 +149,16 @@ export type Personas = {
   }[];
 };
 export type Colaboradores = {
-  linhas: { id: number; nome: string; email: string; departamento: string; cargo: string; ativo: boolean }[];
+  linhas: ({
+    id: number;
+    nome: string;
+    email: string;
+    departamento: string;
+    cargo: string;
+    ativo: boolean;
+    cpf: string;
+    admissao: string;
+  } & PessoaExtra)[];
   cargos: { nome: string; departamento: string }[];
 };
 export type Prestadores = {
@@ -175,9 +187,12 @@ export type Catalogo = {
     ativo: boolean;
     uso: number;
     pessoas: number;
+    dados?: Record<string, string | boolean>;
   }[];
   departamentos: string[];
   formatos: string[];
+  /** campos a mais do catálogo (atributos do tipo de curso, categoria da skill) */
+  extras: { k: string; rotulo: string; tipo: 'sim' | 'texto' | 'escolha'; opcoes?: string[]; ajuda?: string }[];
 };
 export type Salas = {
   linhas: {
@@ -188,6 +203,8 @@ export type Salas = {
     tipo: string;
     zoom: boolean;
     ativo: boolean;
+    zoomEmail: string;
+    zoomLicencaAte: string;
   }[];
   tipos: string[];
   alvos: Opcao[];

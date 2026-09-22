@@ -128,7 +128,22 @@ export default function AuditoriaPage() {
                       x.reg
                     )}
                   </Td>
-                  <Td className="min-w-[200px]">{x.det || <span className="text-apagado">—</span>}</Td>
+                  <Td className="min-w-[200px]">
+                    {x.det || <span className="text-apagado">—</span>}
+                    {x.motivo && <span className="block text-apagado">motivo: {x.motivo}</span>}
+                    {x.mud.length > 0 && (
+                      <details className="mt-1">
+                        <summary className="cursor-pointer text-azul">
+                          {x.mud.length} {x.mud.length === 1 ? 'campo' : 'campos'}
+                        </summary>
+                        <ul className="mt-1 grid gap-0.5 text-texto-2">
+                          {x.mud.map((m) => (
+                            <li key={m}>{m}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </Td>
                 </Tr>
               ))
             ) : (

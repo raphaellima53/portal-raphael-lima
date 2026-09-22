@@ -399,7 +399,16 @@ export function TelaFeriados({ abas }: { abas: React.ReactNode }) {
 }
 
 /* ================= Salas ================= */
-type SalaForm = { id: number | null; nome: string; tipo: string; atende: string; zoom: boolean; ativo: boolean };
+type SalaForm = {
+  id: number | null;
+  nome: string;
+  tipo: string;
+  atende: string;
+  zoom: boolean;
+  ativo: boolean;
+  zoomEmail: string;
+  zoomLicencaAte: string;
+};
 export function TelaSalas({ abas }: { abas: React.ReactNode }) {
   const q = useCfg<Salas>('/salas');
   const acao = useAcaoCfg();
@@ -422,7 +431,11 @@ export function TelaSalas({ abas }: { abas: React.ReactNode }) {
   const { fatia, rodape, setPag } = usePaginacao(lista);
   const abre = (s?: Salas['linhas'][number]) => {
     setErro('');
-    setForm(s ? { ...s } : { id: null, nome: '', tipo: '', atende: '', zoom: false, ativo: true });
+    setForm(
+      s
+        ? { ...s }
+        : { id: null, nome: '', tipo: '', atende: '', zoom: false, ativo: true, zoomEmail: '', zoomLicencaAte: '' },
+    );
   };
   return (
     <>
@@ -585,6 +598,27 @@ export function TelaSalas({ abas }: { abas: React.ReactNode }) {
                   rotulo="Tem link do Zoom"
                   ajuda="Sem link, a aula online entra como pendência na agenda."
                 />
+                {form.zoom && (
+                  <>
+                    <Campo id="sa-zemail" rotulo="Conta do Zoom">
+                      <Input
+                        id="sa-zemail"
+                        type="email"
+                        placeholder="sala05@empresa.com"
+                        value={form.zoomEmail}
+                        onChange={(e) => setForm({ ...form, zoomEmail: e.target.value })}
+                      />
+                    </Campo>
+                    <Campo id="sa-zlic" rotulo="Licença válida até">
+                      <CampoData
+                        id="sa-zlic"
+                        rotulo="Licença do Zoom válida até"
+                        valor={form.zoomLicencaAte}
+                        aoMudar={(v) => setForm({ ...form, zoomLicencaAte: v })}
+                      />
+                    </Campo>
+                  </>
+                )}
                 <Chave
                   id="sa-ativo"
                   className="sm:col-span-2"

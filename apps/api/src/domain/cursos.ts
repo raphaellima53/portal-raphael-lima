@@ -156,6 +156,55 @@ export function cursoGeral(b: Base, c: CursoB, curriculos: { id: string; nome: s
   };
 }
 
+/**
+ * Configuração da agenda do curso (adequação ao Portal Alumni): como a matrícula entra na agenda, quem agenda,
+ * se consome crédito, se congela, quem gere a matrícula, se marca presença e o onboarding.
+ */
+export const CONFIG_AGENDA: { k: string; rotulo: string; ajuda: string; opcoes?: string[] }[] = [
+  {
+    k: 'entradaAgenda',
+    rotulo: 'Entrada na agenda',
+    ajuda: 'como a matrícula nova vira aulas',
+    opcoes: ['Automática', 'Manual'],
+  },
+  {
+    k: 'professor',
+    rotulo: 'Professor',
+    ajuda: 'o mesmo professor sempre ou quem estiver livre',
+    opcoes: ['Fixo', 'Rotativo'],
+  },
+  {
+    k: 'agendaPor',
+    rotulo: 'Quem agenda',
+    ajuda: 'quem marca as aulas depois da entrada',
+    opcoes: ['Secretaria', 'Aluno', 'Professor'],
+  },
+  {
+    k: 'onboarding',
+    rotulo: 'Onboarding',
+    ajuda: 'o primeiro contato do aluno novo',
+    opcoes: ['Nenhum', 'Aula experimental', 'Reunião de boas-vindas'],
+  },
+  { k: 'credito', rotulo: 'Consome crédito', ajuda: 'cada aula dada desconta do pacote' },
+  { k: 'congela', rotulo: 'Permite congelar', ajuda: 'a matrícula pode ser congelada sem perder aulas' },
+  {
+    k: 'gereMatricula',
+    rotulo: 'Gera matrícula sozinho',
+    ajuda: 'a venda cria a matrícula sem passar pela secretaria',
+  },
+  { k: 'presenca', rotulo: 'Marca presença', ajuda: 'o professor registra presença e falta em cada aula' },
+];
+export const CONFIG_PADRAO: Record<string, string | boolean> = {
+  entradaAgenda: 'Automática',
+  professor: 'Fixo',
+  agendaPor: 'Secretaria',
+  onboarding: 'Nenhum',
+  credito: true,
+  congela: true,
+  gereMatricula: false,
+  presenca: true,
+};
+
 export function cursoRegras(b: Base, c: CursoB) {
   const rg = crsRegras(c);
   return {
@@ -172,6 +221,9 @@ export function cursoRegras(b: Base, c: CursoB) {
     modalidades: rg.modalidades,
     pacote: rg.pacote,
     cancelamento: rg.cancelamento,
+    antecedencia: rg.antecedencia ?? 0,
+    config: { ...CONFIG_PADRAO, ...(c.configAgenda ?? {}) },
+    configCampos: CONFIG_AGENDA,
     autoAgenda: c.autoAgenda,
     exigeDisp: !!rg.exigeDisp,
     valorAula: finValorAula(c),

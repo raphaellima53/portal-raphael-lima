@@ -24,6 +24,7 @@ import { podeChave } from '../domain/mapa.ts';
 import { comExemplos } from '../lib/exemplos.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
+import { EnderecoIn, enderecoTxt } from '../lib/pessoa.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
 
 const ABAS = ['geral', 'alunos', 'historico'] as const;
@@ -55,6 +56,11 @@ export async function carregaEmpresas(): Promise<EmpresaB[]> {
     gerente: e.gerente,
     rhNome: e.rhNome,
     rhEmail: e.rhEmail,
+    representante: e.representante ?? '',
+    funcionarios: e.funcionarios,
+    rhDepartamento: e.rhDepartamento,
+    rhTelefone: e.rhTelefone,
+    endereco: e.endereco,
     inicio: diaLocal(e.inicio),
     fim: diaLocal(e.fim),
     licencas: e.licencas,
@@ -105,6 +111,12 @@ const EmpresaIn = z.object({
   renovaAuto: z.boolean().default(true),
   rhNome: z.string().trim().max(120).default(''),
   rhEmail: z.string().trim().max(160).default(''),
+  /* adequação ao Portal Alumni: representante legal, funcionários, endereço e o resto do contato no RH */
+  representante: z.string().trim().max(160).default(''),
+  funcionarios: z.coerce.number().int().min(0).max(1e7).nullable().default(null),
+  rhDepartamento: z.string().trim().max(120).default(''),
+  rhTelefone: z.string().trim().max(30).default(''),
+  endereco: EnderecoIn,
 });
 
 export default async function rotasEmpresas(app: FastifyInstance) {
@@ -223,10 +235,16 @@ export default async function rotasEmpresas(app: FastifyInstance) {
               ]),
           ['Cursos liberados', e.cursos.join(', ') || '—'],
           ['CNPJ', e.cnpj || '—'],
+          ['Representante legal', e.representante || '—'],
+          ['Funcionários', e.funcionarios == null ? '—' : e.funcionarios.toLocaleString('pt-BR')],
+          ['Endereço', enderecoTxt(e.endereco) || '—'],
         ],
         gestao: [
           ['Gerente da conta', e.gerente],
-          ['Contato no RH', `${e.rhNome} · ${e.rhEmail}`],
+          [
+            'Contato no RH',
+            [e.rhNome, e.rhDepartamento, e.rhEmail, e.rhTelefone].filter((x) => x && x !== '—').join(' · ') || '—',
+          ],
           ['Segmento', e.segmento],
           ['Último relatório', e.relEm ? `${dataTxt(e.relEm)} para ${e.rhEmail}` : 'nenhum enviado'],
         ],
@@ -325,6 +343,11 @@ export default async function rotasEmpresas(app: FastifyInstance) {
         rhNome: e.rhNome === '—' ? '' : e.rhNome,
         rhEmail: e.rhEmail === '—' ? '' : e.rhEmail,
         turmaCurso: e.turmaCurso,
+        representante: e.representante,
+        funcionarios: e.funcionarios,
+        rhDepartamento: e.rhDepartamento,
+        rhTelefone: e.rhTelefone,
+        endereco: EnderecoIn.parse(e.endereco ?? {}),
       },
       renovar: {
         fim: (() => {
@@ -375,6 +398,11 @@ export default async function rotasEmpresas(app: FastifyInstance) {
       renovaAuto: v.renovaAuto,
       rhNome: v.rhNome || '—',
       rhEmail: v.rhEmail || '—',
+      representante: v.representante || null,
+      funcionarios: v.funcionarios,
+      rhDepartamento: v.rhDepartamento,
+      rhTelefone: v.rhTelefone,
+      endereco: Object.values(v.endereco).some(Boolean) ? v.endereco : undefined,
       ...(turma
         ? {}
         : {

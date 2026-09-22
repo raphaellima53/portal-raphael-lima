@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AcessoPessoa } from '@/components/acesso-pessoa';
 import type { DispAba, LogAba, Perfil, StatA } from './alunos';
 import { api } from './api';
+import type { PessoaExtra } from './cadastros';
 import type { Tom } from './tipos';
 
 export type ProfLinha = {
@@ -74,7 +75,15 @@ export type FichaProf = {
   dados: Perfil | LogAba | { cursos: HabCurso[] } | DispAba | AgendaProf | FeedbacksProf | AcessoPessoa;
   pode: { editar: boolean; desativar: boolean; como: boolean; operar: boolean; agenda: boolean; alunos: boolean };
 };
-export type ProfForm = { nome: string; email: string; teto: number; cursos: string[]; ativo: boolean };
+export type ProfForm = PessoaExtra & {
+  cpf: string;
+  skills: string[];
+  nome: string;
+  email: string;
+  teto: number;
+  cursos: string[];
+  ativo: boolean;
+};
 
 export const useProfessores = () =>
   useQuery({ queryKey: ['professores'], queryFn: () => api<ListaProf>('/professores') });

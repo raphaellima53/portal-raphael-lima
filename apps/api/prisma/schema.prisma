@@ -54,12 +54,73 @@ model Usuario {
   observacoes    String?
   /// { convite, mfa, mfaExcluir, ip, expira }
   seguranca      Json?
+  /// foto do perfil (endereço da imagem)
+  foto           String?
+  /// obriga a trocar a senha no próximo login
+  trocarSenha    Boolean   @default(false)
   criadoEm       DateTime  @default(now())
   atualizadoEm   DateTime  @updatedAt
 
-  sessoes     Sessao[]
-  dashboard   DashboardConfig?
-  preferencias Preferencia[]
+  sessoes       Sessao[]
+  dashboard     DashboardConfig?
+  preferencias  Preferencia[]
+  emails        UsuarioEmail[]
+  telefones     UsuarioTelefone[]
+  enderecos     UsuarioEndereco[]
+  notificacoes  Notificacao[]
+}
+
+/// E-mails da conta: vários, um principal (o principal espelha Usuario.email)
+model UsuarioEmail {
+  id        Int     @id @default(autoincrement())
+  usuarioId Int
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  email     String
+  principal Boolean @default(false)
+
+  @@unique([usuarioId, email])
+}
+
+/// Telefones da conta: vários, um principal (o principal espelha Usuario.telefone)
+model UsuarioTelefone {
+  id        Int     @id @default(autoincrement())
+  usuarioId Int
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  telefone  String
+  principal Boolean @default(false)
+
+  @@index([usuarioId])
+}
+
+/// Endereços da conta: vários, um principal
+model UsuarioEndereco {
+  id          Int     @id @default(autoincrement())
+  usuarioId   Int
+  usuario     Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  cep         String  @default("")
+  rua         String  @default("")
+  numero      String  @default("")
+  complemento String  @default("")
+  bairro      String  @default("")
+  cidade      String  @default("")
+  uf          String  @default("")
+  principal   Boolean @default(false)
+
+  @@index([usuarioId])
+}
+
+/// Alertas guardados por usuário (1. Alertas do rodapé): o que já foi lido some do contador
+model Notificacao {
+  id        Int       @id @default(autoincrement())
+  usuarioId Int
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  titulo    String
+  texto     String    @default("")
+  link      String?
+  criadaEm  DateTime  @default(now())
+  lidaEm    DateTime?
+
+  @@index([usuarioId, lidaEm])
 }
 
 model Sessao {
@@ -143,6 +204,13 @@ model Colaborador {
   email        String  @unique
   departamento String
   cargo        String
+  cpf          String    @default("")
+  telefone     String    @default("")
+  nascimento   DateTime? @db.Date
+  admissao     DateTime? @db.Date
+  genero       String?
+  /// { cep, rua, numero, complemento, bairro, cidade, uf }
+  endereco     Json?
   ativo        Boolean @default(true)
   ordem        Int     @default(0)
 }
@@ -161,8 +229,13 @@ model Empresa {
   modelo        String
   gerente       String
   representante String?
+  funcionarios  Int?
+  /// { cep, rua, numero, complemento, bairro, cidade, uf }
+  endereco      Json?
   rhNome        String
   rhEmail       String
+  rhDepartamento String   @default("")
+  rhTelefone    String   @default("")
   inicio        DateTime @db.Date
   fim           DateTime @db.Date
   licencas      Int
@@ -179,6 +252,7 @@ model Empresa {
   relEm         DateTime?
 
   alunos Aluno[]
+  turmas Turma[]
 }
 
 // ---------------------------------------------------------------- cursos, professores e salas
@@ -195,13 +269,26 @@ model Curso {
   ativo      Boolean  @default(true)
   autoAgenda Boolean  @default(false)
   descricao  String   @default("")
-  /// { vagas, duracao, modalidades, pacote, cancelamento, exigeDisp, valorAula? }
+  /// { vagas, duracao, modalidades, pacote, cancelamento, antecedencia?, exigeDisp, valorAula? } (cancelamento e antecedencia em horas)
   regras     Json
+  /// sigla curta (ex.: ESS1)
+  sigla              String  @default("")
+  /// natureza do produto (Curso · Serviço · Assinatura)
+  natureza           String  @default("Curso")
+  /// catálogo Visibilidades de oferta
+  visibilidadeOferta String  @default("")
+  /// catálogo Tipos de sala
+  tipoSala           String  @default("")
+  /// { entradaAgenda, professor, agendaPor, credito, congela, gereMatricula, presenca, onboarding }
+  configAgenda       Json?
   ordem      Int      @default(0)
 
   modulos    Modulo[]
   turmas     Turma[]
   matriculas Matricula[]
+  ofertas    Oferta[]
+  servicos   Servico[]
+  ciclos     CicloAprendizagem[]
 }
 
 model Modulo {
@@ -210,6 +297,10 @@ model Modulo {
   curso   Curso  @relation(fields: [cursoId], references: [id], onDelete: Cascade)
   nome    String
   cor     String
+  sigla     String @default("")
+  descricao String @default("")
+  /// vagas por aula em grupo; nulo = as do curso
+  vagas     Int?
   ordem   Int    @default(0)
 
   @@unique([cursoId, nome])
@@ -232,6 +323,13 @@ model Turma {
   modalidade  String
   periodo     String
   curriculo   String
+  /// início e fim da turma; nulo = em aberto
+  inicio      DateTime?  @db.Date
+  fim         DateTime?  @db.Date
+  ativa       Boolean    @default(true)
+  /// turma dedicada de uma empresa (organização)
+  empresaId   String?
+  empresa     Empresa?   @relation(fields: [empresaId], references: [id])
   ordem       Int        @default(0)
 
   @@unique([cursoId, nome])
@@ -252,10 +350,103 @@ model Professor {
   /// "dia-hora" marcados; nulo = nasce da grade
   disponibilidade String[]
   dispDefinida    Boolean  @default(false)
+  cpf             String    @default("")
+  telefone        String    @default("")
+  nascimento      DateTime? @db.Date
+  genero          String?
+  /// { cep, rua, numero, complemento, bairro, cidade, uf }
+  endereco        Json?
+  /// catálogo Skills dos professores
+  skills          String[]
   ordem           Int      @default(0)
 
   turmas     Turma[]
   avaliacoes AvaliacaoProfessor[]
+  ausencias  AusenciaProfessor[]
+  pedidos    PedidoCancelamentoAlocacao[]
+  sessoes    SessaoPedagogica[]
+  extratos   ExtratoProfessor[]
+}
+
+/// Férias, licenças e faltas planejadas (Professores › ficha › Ausências)
+model AusenciaProfessor {
+  id          Int       @id @default(autoincrement())
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  inicio      DateTime  @db.Date
+  fim         DateTime  @db.Date
+  motivo      String    @default("")
+  criadoPor   String    @default("")
+  criadoEm    DateTime  @default(now())
+
+  @@index([professorId])
+}
+
+/// O professor pede para largar uma alocação fixa; a coordenação decide
+model PedidoCancelamentoAlocacao {
+  id          Int       @id @default(autoincrement())
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  /// aluno e curso da alocação (matrícula) ou turma
+  alvo        String
+  motivo      String    @default("")
+  /// Pendente · Aprovado · Recusado
+  status      String    @default("Pendente")
+  decididoPor String?
+  decididoEm  DateTime?
+  criadoEm    DateTime  @default(now())
+
+  @@index([professorId])
+}
+
+/// Sessão pedagógica: observação de aula e devolutiva ao professor
+model SessaoPedagogica {
+  id          Int       @id @default(autoincrement())
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  data        DateTime  @db.Date
+  avaliador   String
+  /// 1 a 5
+  nota        Int?
+  observacoes String    @default("")
+  criadoEm    DateTime  @default(now())
+
+  @@index([professorId])
+}
+
+/// Extrato mensal do professor: aulas do mês viram valor; fecha, recebe nota fiscal e é pago
+model ExtratoProfessor {
+  id          Int       @id @default(autoincrement())
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  /// AAAA-MM
+  mes         String
+  /// Aberto · Fechado · Pago
+  estado      String    @default("Aberto")
+  notaFiscal  String    @default("")
+  fechadoEm   DateTime?
+  pagoEm      DateTime? @db.Date
+  observacoes String    @default("")
+
+  lancamentos LancamentoExtrato[]
+
+  @@unique([professorId, mes])
+}
+
+/// Acertos manuais do extrato (bônus, desconto, reembolso)
+model LancamentoExtrato {
+  id         Int              @id @default(autoincrement())
+  extratoId  Int
+  extrato    ExtratoProfessor @relation(fields: [extratoId], references: [id], onDelete: Cascade)
+  descricao  String
+  valor      Decimal          @db.Decimal(10, 2)
+  /// Crédito · Débito
+  tipo       String           @default("Crédito")
+  cancelado  Boolean          @default(false)
+  criadoPor  String           @default("")
+  criadoEm   DateTime         @default(now())
+
+  @@index([extratoId])
 }
 
 /// Avaliações registradas no portal (Professores › ficha › Feedbacks); as dos alunos presentes são lidas da agenda
@@ -280,6 +471,9 @@ model Sala {
   atende String
   tipo   String
   zoom   Boolean @default(false)
+  /// conta do Zoom da sala e até quando a licença vale
+  zoomEmail      String    @default("")
+  zoomLicencaAte DateTime? @db.Date
   ativo  Boolean @default(true)
   ordem  Int     @default(0)
 }
@@ -322,11 +516,54 @@ model Aluno {
   ordem            Int         @default(0)
   /// os feedbacks de exemplo nascem na primeira leitura da ficha (fbAluno do portal)
   fbGerado         Boolean     @default(false)
+  telefone         String      @default("")
+  nascimento       DateTime?   @db.Date
+  /// catálogo Gêneros
+  genero           String?
+  /// { cep, rua, numero, complemento, bairro, cidade, uf }
+  endereco         Json?
+  /// catálogo Responsáveis financeiros
+  responsavelFinanceiro String?
+  /// sistema de onde o cadastro veio (importação)
+  origemExterna    String?
   criadoEm         DateTime    @default(now())
 
-  matriculas Matricula[]
-  usuario    Usuario?
-  feedbacks  FeedbackAluno[]
+  matriculas     Matricula[]
+  usuario        Usuario?
+  feedbacks      FeedbackAluno[]
+  datasBloqueadas DataBloqueada[]
+  feedbacksAula  FeedbackAula[]
+}
+
+/// Dias em que o aluno não pode ter aula (viagem, prova): a alocação e o agendamento pulam essas datas
+model DataBloqueada {
+  id       Int      @id @default(autoincrement())
+  alunoId  Int
+  aluno    Aluno    @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  data     DateTime @db.Date
+  motivo   String   @default("")
+  criadoEm DateTime @default(now())
+
+  @@unique([alunoId, data])
+}
+
+/// Feedback que o aluno dá sobre uma aula (notas de 1 a 5)
+model FeedbackAula {
+  id              Int      @id @default(autoincrement())
+  alunoId         Int
+  aluno           Aluno    @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  /// chave da aula (curso|módulo|quem|AAAA-MM-DD|hora), a mesma de AulaAjuste
+  aulaChave       String
+  curso           String
+  professor       String   @default("")
+  estadoEmocional Int
+  clareza         Int
+  participacao    Int
+  aprendizado     Int
+  observacoes     String   @default("")
+  criadoEm        DateTime @default(now())
+
+  @@unique([alunoId, aulaChave])
 }
 
 /// Feedbacks e ocorrências de qualidade do aluno (Alunos › ficha › Feedbacks)
@@ -377,9 +614,83 @@ model Matricula {
   desativadoEm DateTime?
   /// alocação da aula individual: { prof, dias, hora, valor }
   alocacao     Json?
+  /// vigência do contrato da matrícula
+  inicio       DateTime? @db.Date
+  fim          DateTime? @db.Date
+  /// Regular · Bolsa · Cortesia · Reposição · Teste
+  statusTipo   String    @default("Regular")
+  /// congelada desde (nulo = não congelada)
+  congeladaEm  DateTime?
+  /// Venda · Renovação · Importação · Empresa
+  origem       String    @default("Venda")
+  /// proposta comercial que gerou a matrícula
+  ofertaId     String?
+  oferta       Oferta?   @relation(fields: [ofertaId], references: [id])
+  /// matrícula ligada (ex.: o Black ligado ao curso principal)
+  vinculadaId  Int?
   ordem        Int       @default(0)
 
+  nivelamento Nivelamento?
+  relatorios  RelatorioMatricula[]
+
   @@index([alunoId])
+}
+
+/// Resultado do nivelamento (leveling) que abre a matrícula
+model Nivelamento {
+  id          Int       @id @default(autoincrement())
+  matriculaId Int       @unique
+  matricula   Matricula @relation(fields: [matriculaId], references: [id], onDelete: Cascade)
+  /// A0 · A1 · A1+ · A2 · A2+ · B1 · B1+ · B2 · B2+ · C1
+  cefr        String
+  nota        Int?
+  concluidoEm DateTime? @db.Date
+  codigo      String    @default("")
+}
+
+/// Proposta comercial (oferta): o que foi vendido, por quanto e para quem
+model Oferta {
+  id            String    @id
+  nome          String
+  codigo        String    @unique
+  cursoId       Int
+  curso         Curso     @relation(fields: [cursoId], references: [id])
+  /// pacote de aulas
+  pacote        Int
+  preco         Decimal   @db.Decimal(12, 2)
+  parcelas      Int       @default(1)
+  /// duração em meses e carga horária total
+  duracao       Int?
+  cargaHoraria  Int?
+  /// negócio no CRM
+  negocioId     String    @default("")
+  /// Aberto · Ganho · Perdido
+  negocioStatus String    @default("Aberto")
+  negocioData   DateTime?
+  beneficiario  String
+  pessoaFisica  Boolean   @default(true)
+  /// Aberta · Vinculada · Descartada
+  situacao      String    @default("Aberta")
+  criadoEm      DateTime  @default(now())
+
+  matriculas Matricula[]
+}
+
+/// Relatório de acompanhamento da matrícula (para o aluno ou o RH)
+model RelatorioMatricula {
+  id          Int       @id @default(autoincrement())
+  matriculaId Int
+  matricula   Matricula @relation(fields: [matriculaId], references: [id], onDelete: Cascade)
+  /// período coberto (AAAA-MM)
+  periodo     String
+  texto       String
+  /// Rascunho · Enviado · Silenciado
+  status      String    @default("Rascunho")
+  enviadoEm   DateTime?
+  por         String
+  criadoEm    DateTime  @default(now())
+
+  @@index([matriculaId])
 }
 
 // ---------------------------------------------------------------- currículo e agenda
@@ -392,11 +703,77 @@ model Curriculo {
   tipo      String
   idioma    String
   aplicado  String[]
+  /// catálogo Categorias de currículo
+  categoria String   @default("")
   /// [[versão, situação, data, conteúdos]]
   versoes   Json
   /// conteúdos da versão publicada
   conteudos Json
   ordem     Int      @default(0)
+}
+
+/// Acervo de conteúdos (links, arquivos e pacotes SCORM) usados nas aulas dos currículos
+model Conteudo {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  url       String   @default("")
+  /// catálogos Tipos de conteúdo e Fontes
+  tipo      String
+  fonte     String   @default("")
+  idioma    String   @default("")
+  /// momento da aula: Pré-aula · Aula · Pós-aula
+  momento   String   @default("Aula")
+  /// pacote SCORM (identificador do pacote)
+  scorm     String   @default("")
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+}
+
+/// Serviços (atendimento, acompanhamento, consultoria): ficam ao lado dos cursos
+model Servico {
+  id        Int     @id @default(autoincrement())
+  nome      String  @unique
+  sigla     String  @default("")
+  cor       String  @default("#003FB0")
+  descricao String  @default("")
+  /// catálogo Categorias de serviço
+  categoria String  @default("")
+  vagas     Int     @default(1)
+  /// curso ao qual o serviço se liga (opcional)
+  cursoId   Int?
+  curso     Curso?  @relation(fields: [cursoId], references: [id])
+  ativo     Boolean @default(true)
+  ordem     Int     @default(0)
+}
+
+/// Calendário letivo: período em que os ciclos geram aulas
+model Calendario {
+  id     Int      @id @default(autoincrement())
+  nome   String   @unique
+  inicio DateTime @db.Date
+  fim    DateTime @db.Date
+  ativo  Boolean  @default(true)
+
+  ciclos CicloAprendizagem[]
+}
+
+/// Ciclo de aprendizagem: como o currículo de um curso vira aulas num calendário
+model CicloAprendizagem {
+  id           Int         @id @default(autoincrement())
+  nome         String
+  cursoId      Int
+  curso        Curso       @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  calendarioId Int?
+  calendario   Calendario? @relation(fields: [calendarioId], references: [id])
+  /// catálogos Progressões e Tipos de geração
+  progressao   String      @default("")
+  tipoGeracao  String      @default("")
+  /// ciclo em que o aluno novo entra
+  nascimento   Boolean     @default(false)
+  ativo        Boolean     @default(true)
+  criadoEm     DateTime    @default(now())
+
+  @@unique([cursoId, nome])
 }
 
 /// O que se muda numa aula específica (AG_OV): professor, cancelamento, presença, conclusão…
@@ -420,6 +797,11 @@ model LogAlteracao {
   /// cliques seguidos na mesma ação viram uma linha só
   vezes      Int      @default(1)
   origem     String   @default("portal")
+  /// valores antes e depois da alteração, quando a tela manda
+  antes      Json?
+  depois     Json?
+  /// motivo informado por quem alterou
+  motivo     String?
 
   @@index([quando])
 }

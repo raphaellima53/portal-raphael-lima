@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { TELA_CADASTRO, TelaCadastro } from '@/components/cadastro/cadastro';
 import { Aviso, PageHead } from '@/components/ds';
 import { SecaoAbas } from '@/components/secao-abas';
 import { inicioDe, itemDoCaminho } from '@/components/shell/sidebar';
@@ -39,6 +40,16 @@ export default function TelaPendente() {
       </>
     );
   }
+
+  if (folha && TELA_CADASTRO[folha.tela])
+    return (
+      <TelaCadastro
+        key={folha.tela}
+        tela={folha.tela}
+        titulo={folha.label}
+        abas={item.secoes ? <SecaoAbas item={item} tela={folha.tela} /> : null}
+      />
+    );
 
   return (
     <>

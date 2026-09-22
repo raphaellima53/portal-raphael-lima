@@ -4,6 +4,7 @@ import { ChevronLeftIcon, LockIcon, PlusIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { Cadastro } from '@/components/cadastro/cadastro';
 import { CampoData } from '@/components/campos-data';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
@@ -49,6 +50,8 @@ const VAZIO = {
   setores: {} as Setores,
   seguranca: {} as Record<string, boolean>,
   observacoes: '',
+  foto: '',
+  trocarSenha: false,
 };
 
 /** Novo usuário e Editar usuário: identidade, cargo, hierarquia, setores e segurança (P.usuarioForm) */
@@ -85,6 +88,8 @@ export function FormUsuario({ id }: { id: number | null }) {
         setores: u.setores,
         seguranca: u.seguranca,
         observacoes: u.observacoes,
+        foto: u.foto,
+        trocarSenha: u.trocarSenha,
       });
     else
       setV({
@@ -462,6 +467,31 @@ export function FormUsuario({ id }: { id: number | null }) {
                   </Label>
                 </div>
               ))}
+              <div className="flex items-center gap-2.5">
+                <Checkbox
+                  id="nu-trocar"
+                  checked={v.trocarSenha}
+                  onCheckedChange={(x) => set('trocarSenha', x === true)}
+                />
+                <Label htmlFor="nu-trocar" className="font-normal">
+                  Obrigar a trocar a senha no próximo login
+                </Label>
+              </div>
+              <Campo id="nu-foto" rotulo="Foto do perfil (endereço da imagem)" className="mt-2">
+                <div className="flex items-center gap-3">
+                  {/^https?:\/\//.test(v.foto) && (
+                    // biome-ignore lint/performance/noImgElement: prévia de uma imagem externa qualquer
+                    <img src={v.foto} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                  )}
+                  <Input
+                    id="nu-foto"
+                    type="url"
+                    placeholder="https://"
+                    value={v.foto}
+                    onChange={(e) => set('foto', e.target.value)}
+                  />
+                </div>
+              </Campo>
               <Campo id="nu-obs" rotulo="Observações" className="mt-2">
                 <textarea
                   id="nu-obs"
@@ -485,6 +515,22 @@ export function FormUsuario({ id }: { id: number | null }) {
               </Button>
             </div>
           </Secao>
+          {id != null && (
+            /* adequação ao Portal Alumni: a conta guarda vários e-mails, telefones e endereços, um principal de cada */
+            <div className="grid gap-6 rounded-lg border border-borda-suave bg-card p-5">
+              <h2 className="text-lg font-bold text-texto">Contatos da conta</h2>
+              {[
+                ['usuario-emails', 'E-mails'],
+                ['usuario-telefones', 'Telefones'],
+                ['usuario-enderecos', 'Endereços'],
+              ].map(([cad, t]) => (
+                <section key={cad} aria-label={t} className="grid gap-2">
+                  <h3 className="text-md font-bold text-texto-2">{t}</h3>
+                  <Cadastro id={cad} pai={id} />
+                </section>
+              ))}
+            </div>
+          )}
           <div className="flex items-start gap-2.5 rounded-lg border border-azul-linha bg-azul-suave px-4 py-3 text-texto-2">
             <LockIcon className="mt-0.5 size-4 shrink-0 text-azul" />
             <span>

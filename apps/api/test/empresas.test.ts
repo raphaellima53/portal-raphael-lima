@@ -11,13 +11,20 @@ import { invalidaBase } from '../src/domain/base.ts';
 
 let app: FastifyInstance;
 const criadas: string[] = [];
+/** o histórico de empresa que já não existe (de rodadas anteriores) confundiria o histórico da conta nova de mesmo id */
+async function limpaHistoricoOrfao() {
+  const vivas = (await prisma.empresa.findMany({ select: { id: true } })).map((e) => e.id);
+  await prisma.logAlteracao.deleteMany({ where: { entidade: 'Empresa', entidadeId: { notIn: vivas } } });
+}
 before(async () => {
   app = await montaApp();
   invalidaBase();
+  await limpaHistoricoOrfao();
 });
 after(async () => {
   await prisma.aluno.updateMany({ where: { empresaId: { in: criadas } }, data: { empresaId: null } });
   await prisma.empresa.deleteMany({ where: { id: { in: criadas } } });
+  await limpaHistoricoOrfao();
   await app.close();
   await prisma.$disconnect();
 });

@@ -1,14 +1,17 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { ChipMulti } from '@/components/config/comum';
+import { CamposEndereco, CamposPessoa } from '@/components/pessoa-campos';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { PESSOA_VAZIA, type PessoaExtra, useCatalogos } from '@/lib/cadastros';
 import { useAcaoProf, useFormProf, useOpcoesProf } from '@/lib/professores';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +24,12 @@ const Esquema = z.object({
 });
 type Form = z.infer<typeof Esquema>;
 const VAZIO: Form = { nome: '', email: '', teto: '24', cursos: [], ativo: true };
+const cpfMascara = (v: string) => {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  return (
+    [d.slice(0, 3), d.slice(3, 6), d.slice(6, 9)].filter(Boolean).join('.') + (d.length > 9 ? `-${d.slice(9)}` : '')
+  );
+};
 const Erro = ({ t }: { t?: string }) => (t ? <span className="font-medium text-vermelho">{t}</span> : null);
 
 /** Novo professor e Editar professor: nome, e-mail, teto semanal, cursos e situação (fmProfessor). */
@@ -40,18 +49,37 @@ export function ProfessorFormDialog({
   const acao = useAcaoProf();
   const f = useForm<Form>({ resolver: zodResolver(Esquema), defaultValues: VAZIO });
   const d = atual.data;
+  /* adequação ao Portal Alumni: CPF, dados pessoais, endereço e skills */
+  const cats = useCatalogos(['genders', 'skills'], !!abre);
+  const [extra, setExtra] = useState<PessoaExtra & { cpf: string; skills: string[] }>({
+    ...PESSOA_VAZIA,
+    cpf: '',
+    skills: [],
+  });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reinicia ao abrir e quando o cadastro chega
   useEffect(() => {
     if (!abre) return;
     acao.reset();
+    setExtra(
+      ed && d
+        ? {
+            cpf: d.cpf,
+            skills: d.skills,
+            telefone: d.telefone,
+            nascimento: d.nascimento,
+            genero: d.genero,
+            endereco: d.endereco,
+          }
+        : { ...PESSOA_VAZIA, cpf: '', skills: [] },
+    );
     f.reset(ed && d ? { nome: d.nome, email: d.email, teto: String(d.teto), cursos: d.cursos, ativo: d.ativo } : VAZIO);
   }, [abre, d]);
 
   const erros = f.formState.errors;
   const enviar = f.handleSubmit((v) =>
     acao.mutate(
-      { caminho: ed ? `/${id}` : '', method: ed ? 'PUT' : 'POST', json: { ...v, teto: Number(v.teto) } },
+      { caminho: ed ? `/${id}` : '', method: ed ? 'PUT' : 'POST', json: { ...v, ...extra, teto: Number(v.teto) } },
       {
         onSuccess: (r) => {
           aoFechar();
@@ -130,6 +158,54 @@ export function ProfessorFormDialog({
                     </fieldset>
                   )}
                 />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="pr-cpf">CPF</Label>
+                  <Input
+                    id="pr-cpf"
+                    inputMode="numeric"
+                    placeholder="000.000.000-00"
+                    value={cpfMascara(extra.cpf)}
+                    onChange={(e) => setExtra({ ...extra, cpf: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+                  />
+                </div>
+                <CamposPessoa
+                  prefixo="pr"
+                  valor={extra}
+                  aoMudar={(p) => setExtra({ ...extra, ...p })}
+                  generos={cats.data?.genders ?? []}
+                />
+                <fieldset className="grid gap-2 sm:col-span-2">
+                  <legend className="mb-1.5 font-semibold text-texto-2">Skills</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {[...new Set([...(cats.data?.skills ?? []), ...extra.skills])].map((s) => (
+                      <ChipMulti
+                        key={s}
+                        on={extra.skills.includes(s)}
+                        aoClicar={() =>
+                          setExtra({
+                            ...extra,
+                            skills: extra.skills.includes(s)
+                              ? extra.skills.filter((x) => x !== s)
+                              : [...extra.skills, s],
+                          })
+                        }
+                      >
+                        {s}
+                      </ChipMulti>
+                    ))}
+                  </div>
+                  <span className="text-apagado">
+                    as skills vêm do catálogo Skills dos professores, em Configurações
+                  </span>
+                </fieldset>
+                <fieldset className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+                  <legend className="mb-1.5 font-semibold text-texto-2">Endereço</legend>
+                  <CamposEndereco
+                    prefixo="pr-end"
+                    valor={extra.endereco}
+                    aoMudar={(e) => setExtra({ ...extra, endereco: e })}
+                  />
+                </fieldset>
                 <Controller
                   control={f.control}
                   name="ativo"

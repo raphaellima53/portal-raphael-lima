@@ -24,13 +24,27 @@ const emDias = (n: number | null) => {
 };
 const diaUTC = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
+/** valores iniciais dos catálogos da adequação ao Portal Alumni */
+const CATALOGOS_ALUMNI: Record<string, string[]> = {
+  categoriasServico: ['Atendimento', 'Acompanhamento', 'Consultoria'],
+  tiposConteudo: ['Vídeo', 'Áudio', 'PDF', 'Link', 'Exercício', 'SCORM'],
+  fontes: ['Própria', 'Parceiro', 'Livro didático', 'Internet'],
+  categoriasCurriculo: ['Geral', 'Business', 'Conversação', 'Preparatório'],
+  progressoes: ['Linear', 'Por módulo', 'Livre'],
+  tiposGeracao: ['Automática', 'Manual'],
+  visibilidadesOferta: ['Pública', 'Só convidados', 'Interna'],
+};
+
 async function limpa() {
   await prisma.$transaction([
     prisma.sessao.deleteMany(),
     prisma.dashboardConfig.deleteMany(),
     prisma.preferencia.deleteMany(),
     prisma.usuario.deleteMany(),
+    /* adequação ao Portal Alumni: a matrícula aponta para a oferta, e a oferta e o serviço para o curso */
     prisma.matricula.deleteMany(),
+    prisma.oferta.deleteMany(),
+    prisma.servico.deleteMany(),
     prisma.aluno.deleteMany(),
     prisma.turma.deleteMany(),
     prisma.modulo.deleteMany(),
@@ -46,6 +60,8 @@ async function limpa() {
     prisma.cargo.deleteMany(),
     prisma.colaborador.deleteMany(),
     prisma.curriculo.deleteMany(),
+    prisma.conteudo.deleteMany(),
+    prisma.calendario.deleteMany(),
     prisma.aulaAjuste.deleteMany(),
     prisma.logAlteracao.deleteMany(),
     prisma.evento.deleteMany(),
@@ -63,6 +79,13 @@ async function main() {
   await limpa();
 
   await prisma.catalogo.createMany({ data: base.catalogos });
+  /* os catálogos da adequação ao Portal Alumni (os mesmos valores da migração 20260922170000_catalogos_alumni) */
+  await prisma.catalogo.createMany({
+    data: Object.entries(CATALOGOS_ALUMNI).flatMap(([tipo, nomes]) =>
+      nomes.map((nome, ordem) => ({ tipo, nome, ativo: true, ordem })),
+    ),
+    skipDuplicates: true,
+  });
   await prisma.departamento.createMany({ data: base.departamentos });
   await prisma.cargo.createMany({ data: base.cargos });
   await prisma.colaborador.createMany({ data: base.colaboradores });

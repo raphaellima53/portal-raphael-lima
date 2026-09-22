@@ -6,6 +6,7 @@ import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigat
 import { useEffect, useState } from 'react';
 import { Abas } from '@/components/abas';
 import { AcessoDaPessoa, type AcessoPessoa } from '@/components/acesso-pessoa';
+import { AbaCadastro } from '@/components/cadastro/cadastro';
 import { Aviso, PageHead } from '@/components/ds';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -152,6 +153,7 @@ export function FichaAluno() {
         {f.aba === 'disponibilidade' && <AbaDisponibilidade f={f} d={f.dados as DispAba} setMsg={setMsg} />}
         {f.aba === 'financeiro' && <AbaFinanceiro d={f.dados as FinanceiroAba} />}
         {f.aba === 'acesso' && <AcessoDaPessoa d={f.dados as AcessoPessoa} />}
+        <AbaCadastro key={f.aba} dados={f.dados} />
         {f.aba === 'agendamentos' && <AbaAgendamentos f={f} d={f.dados as AgendamentosAba} vai={vai} />}
         {f.aba === 'feedbacks' && <AbaFeedbacks f={f} d={f.dados as FeedbacksAba} vai={vai} setMsg={setMsg} />}
       </div>

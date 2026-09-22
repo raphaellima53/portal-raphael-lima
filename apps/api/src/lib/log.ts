@@ -27,6 +27,10 @@ export async function registra(o: {
   detalhe?: string;
   nome: string;
   autor: string;
+  /** valores antes e depois e o motivo, quando a tela manda (Auditoria) */
+  antes?: unknown;
+  depois?: unknown;
+  motivo?: string;
 }) {
   const entidade = ENTIDADE[o.tipo] ?? o.tipo;
   const ult = await prisma.logAlteracao.findFirst({ where: { origem: 'portal' }, orderBy: { id: 'desc' } });
@@ -41,7 +45,13 @@ export async function registra(o: {
   ) {
     await prisma.logAlteracao.update({
       where: { id: ult.id },
-      data: { quando: agora, detalhe: o.detalhe ?? null, vezes: { increment: 1 } },
+      data: {
+        quando: agora,
+        detalhe: o.detalhe ?? null,
+        vezes: { increment: 1 },
+        ...(o.depois !== undefined ? { depois: o.depois as never } : {}),
+        ...(o.motivo ? { motivo: o.motivo } : {}),
+      },
     });
     return;
   }
@@ -54,6 +64,9 @@ export async function registra(o: {
       nome: o.nome,
       autor: o.autor,
       origem: 'portal',
+      antes: o.antes === undefined ? undefined : (o.antes as never),
+      depois: o.depois === undefined ? undefined : (o.depois as never),
+      motivo: o.motivo || null,
     },
   });
 }

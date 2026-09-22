@@ -21,9 +21,21 @@ const Esquema = z.object({
   tipo: z.string(),
   estrutura: z.enum(['modulos', 'turmas', 'nenhuma']),
   cor: z.string(),
-  itens: z.array(z.object({ nome: z.string(), cor: z.string() })),
+  itens: z.array(
+    z.object({
+      nome: z.string(),
+      cor: z.string(),
+      sigla: z.string(),
+      descricao: z.string(),
+      vagas: z.number().int().min(1, 'Vagas do módulo: pelo menos 1.').nullable(),
+    }),
+  ),
   autoAgenda: z.boolean(),
   ativo: z.boolean(),
+  sigla: z.string().max(20, 'Sigla com até 20 letras.'),
+  natureza: z.enum(['Curso', 'Serviço', 'Assinatura']),
+  visibilidadeOferta: z.string(),
+  tipoSala: z.string(),
 });
 
 const VAZIO: Form = {
@@ -36,6 +48,10 @@ const VAZIO: Form = {
   itens: [],
   autoAgenda: false,
   ativo: true,
+  sigla: '',
+  natureza: 'Curso',
+  visibilidadeOferta: '',
+  tipoSala: '',
 };
 
 /** Novo curso e Editar curso: cada curso é um produto com regras fechadas. */
@@ -111,6 +127,61 @@ export function CursoFormDialog({
               />
             </div>
             <div className="grid gap-1.5">
+              <Label htmlFor="cf-sigla">Sigla</Label>
+              <Input id="cf-sigla" placeholder="Ex.: CLC" maxLength={20} {...f.register('sigla')} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Natureza</Label>
+              <Controller
+                control={f.control}
+                name="natureza"
+                render={({ field }) => (
+                  <Escolha
+                    rotulo="Natureza"
+                    destacar={false}
+                    valor={field.value}
+                    aoMudar={field.onChange}
+                    opcoes={['Curso', 'Serviço', 'Assinatura'].map((x) => ({ v: x, l: x }))}
+                  />
+                )}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Visibilidade da oferta</Label>
+              <Controller
+                control={f.control}
+                name="visibilidadeOferta"
+                render={({ field }) => (
+                  <Escolha
+                    rotulo="Visibilidade da oferta"
+                    todos="não definida"
+                    destacar={false}
+                    valor={field.value}
+                    aoMudar={field.onChange}
+                    opcoes={(opcoes.data?.visibilidades ?? []).map((x) => ({ v: x, l: x }))}
+                  />
+                )}
+              />
+              <span className="text-apagado">quem vê a oferta deste curso</span>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Tipo de sala</Label>
+              <Controller
+                control={f.control}
+                name="tipoSala"
+                render={({ field }) => (
+                  <Escolha
+                    rotulo="Tipo de sala"
+                    todos="qualquer sala"
+                    destacar={false}
+                    valor={field.value}
+                    aoMudar={field.onChange}
+                    opcoes={(opcoes.data?.tiposSala ?? []).map((x) => ({ v: x, l: x }))}
+                  />
+                )}
+              />
+            </div>
+            <div className="grid gap-1.5">
               <Label>Idioma</Label>
               <Controller
                 control={f.control}
@@ -164,7 +235,9 @@ export function CursoFormDialog({
                   />
                 )}
               />
-              <span className="text-apagado">é aqui que as turmas entram — não há cadastro de turma fora do curso</span>
+              <span className="text-apagado">
+                as turmas nascem aqui; grade, professor e vagas de cada uma ficam em Produtos › Turmas
+              </span>
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="cf-cor">Cor</Label>
@@ -177,9 +250,9 @@ export function CursoFormDialog({
             </div>
             <fieldset className="grid gap-2 sm:col-span-2">
               <legend className="mb-1.5 font-semibold text-texto-2">Módulos ou turmas</legend>
-              <div className="grid gap-2 md:grid-cols-2">
+              <div className="grid gap-3">
                 {itens.fields.map((it, k) => (
-                  <div key={it.id} className="flex items-center gap-2">
+                  <div key={it.id} className="flex flex-wrap items-center gap-2">
                     <input
                       type="color"
                       aria-label="Cor do módulo"
@@ -188,8 +261,41 @@ export function CursoFormDialog({
                     />
                     <Input
                       placeholder="Nome do módulo"
+                      className="min-w-[180px] flex-1"
                       aria-label={`Módulo ou turma ${k + 1}`}
                       {...f.register(`itens.${k}.nome`)}
+                    />
+                    <Input
+                      placeholder="Sigla"
+                      className="w-[96px]"
+                      maxLength={20}
+                      aria-label={`Sigla do módulo ${k + 1}`}
+                      {...f.register(`itens.${k}.sigla`)}
+                    />
+                    {f.watch('estrutura') === 'modulos' && (
+                      <Controller
+                        control={f.control}
+                        name={`itens.${k}.vagas`}
+                        render={({ field }) => (
+                          <Input
+                            placeholder="Vagas"
+                            inputMode="numeric"
+                            className="w-[88px]"
+                            aria-label={`Vagas do módulo ${k + 1} (vazio = as do curso)`}
+                            value={field.value == null ? '' : String(field.value)}
+                            onChange={(e) => {
+                              const d = e.target.value.replace(/\D/g, '').slice(0, 3);
+                              field.onChange(d ? Number(d) : null);
+                            }}
+                          />
+                        )}
+                      />
+                    )}
+                    <Input
+                      placeholder="Descrição (opcional)"
+                      className="basis-full"
+                      aria-label={`Descrição do módulo ${k + 1}`}
+                      {...f.register(`itens.${k}.descricao`)}
                     />
                     <Button
                       type="button"
@@ -207,7 +313,15 @@ export function CursoFormDialog({
                 type="button"
                 variant="ghost"
                 className="w-fit border border-dashed border-borda-forte"
-                onClick={() => itens.append({ nome: '', cor: f.getValues('cor') || '#003FB0' })}
+                onClick={() =>
+                  itens.append({
+                    nome: '',
+                    cor: f.getValues('cor') || '#003FB0',
+                    sigla: '',
+                    descricao: '',
+                    vagas: null,
+                  })
+                }
               >
                 <PlusIcon /> Adicionar módulo ou turma
               </Button>

@@ -1,6 +1,7 @@
 // Capturas de tela do portal rodando (usa o Edge instalado; não baixa navegador).
 // Uso: node scripts/capturas.mjs <saida> <larguraxaltura> <login|-> <rota> [rota…]
-// Rotas com "!" rodam uma ação antes da captura: "inicio!personalizar", "inicio!conta", "inicio!alertas", "inicio!ajuda", "inicio!mini".
+// Rotas com "!" rodam uma ação antes da captura: "inicio!personalizar", "inicio!conta", "inicio!alertas", "inicio!ajuda", "inicio!mini",
+// "rota!botao:Novo serviço" (clica no botão com esse nome).
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from '@playwright/test';
@@ -53,6 +54,12 @@ for (const r of rotas) {
       .click();
   if (acao === 'novoevento') await pg.getByRole('button', { name: 'Novo evento' }).click();
   if (acao === 'gaveta') await pg.getByRole('button', { name: 'Abrir menu' }).click();
+  /* botao:<nome> clica no primeiro botão com esse nome (abre formulários) */
+  if (acao?.startsWith('botao:'))
+    await pg
+      .getByRole('button', { name: acao.slice(6) })
+      .first()
+      .click();
   if (acao) await pg.waitForTimeout(1200);
   const arq = join(saida, `${login}-${w}-${r.replace(/[^a-z0-9]+/gi, '_')}.png`);
   await pg.screenshot({ path: arq });
