@@ -30,6 +30,7 @@ import {
   type ValoresPol,
 } from '../domain/configuracoes.ts';
 import docInfo from '../domain/dados/doc-info.json' with { type: 'json' };
+import { funcionamento } from '../domain/funcionamento.ts';
 import { TELAS_MAPA } from '../domain/mapa.ts';
 import { hrefProf, hrefTela } from '../domain/rotas.ts';
 import { fmt } from '../lib/fmt.ts';
@@ -543,7 +544,7 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
 
   /* ================= Dias e horários ================= */
   app.get('/config/dias', { preHandler: exigeCfg }, async () => ({
-    linhas: await prisma.funcionamento.findMany({ orderBy: { dia: 'asc' } }),
+    linhas: await funcionamento(),
   }));
   app.put('/config/dias', { preHandler: exigeCfg }, async (req, rep) => {
     const hora = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora em HH:MM, de 00:00 a 23:59.');
@@ -556,7 +557,7 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
       })
       .safeParse(req.body);
     if (!r.success) return erro400(rep, r.error);
-    const atual = await prisma.funcionamento.findMany();
+    const atual = await funcionamento();
     let muda = 0;
     for (const l of r.data.linhas) {
       const a = atual.find((x) => x.dia === l.dia);
@@ -569,9 +570,17 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
     const j = Just.safeParse(r.data.just);
     if (!j.success) return erro400(rep, j.error);
     for (const l of r.data.linhas)
-      await prisma.funcionamento.update({
+      await prisma.funcionamento.upsert({
         where: { dia: l.dia },
-        data: { aberto: l.aberto, inicio: l.inicio, fim: l.fim },
+        update: { aberto: l.aberto, inicio: l.inicio, fim: l.fim },
+        /* base sem cadastro: salvar cria o dia a partir do padrão */
+        create: {
+          dia: l.dia,
+          nome: atual.find((x) => x.dia === l.dia)!.nome,
+          aberto: l.aberto,
+          inicio: l.inicio,
+          fim: l.fim,
+        },
       });
     await cfgLog(req.usuario!, 'dias', 'Alterações salvas', `${muda} campos · ${j.data}`, j.data);
     return { msg: `Salvo: ${muda} ${muda === 1 ? 'campo' : 'campos'} · justificativa na Auditoria.`, muda };

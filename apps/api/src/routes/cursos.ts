@@ -14,6 +14,7 @@ import {
   cursoGrade,
   cursoRegras,
 } from '../domain/cursos.ts';
+import { funcionamento } from '../domain/funcionamento.ts';
 import { podeChave } from '../domain/mapa.ts';
 import { registra } from '../lib/log.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
@@ -48,14 +49,6 @@ const exigeCurriculo = (req: FastifyRequest, rep: FastifyReply) => exige(req, re
 const Tempo = z.object({ valor: z.coerce.number().int().min(0).max(100000), unidade: z.enum(['min', 'h']) });
 const minutos = (t: z.infer<typeof Tempo> | null) => (t == null ? null : t.unidade === 'h' ? t.valor * 60 : t.valor);
 const DIAS_CURTO = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-/** dias e horários de funcionamento (Configurações): limitam a grade do módulo */
-const funcionamento = async () =>
-  (await prisma.funcionamento.findMany({ orderBy: { dia: 'asc' } })).map((d) => ({
-    dia: d.dia,
-    aberto: d.aberto,
-    inicio: d.inicio,
-    fim: d.fim,
-  }));
 export const CEFR = ['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 /** minutos guardados → o que o formulário mostra (horas quando fecha a conta) */
 const tempoDe = (m: number | null | undefined) =>

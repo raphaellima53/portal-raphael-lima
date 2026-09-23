@@ -195,6 +195,35 @@ describe('menus e formulários (24/09/2026)', () => {
     assert.equal(ok.status, 200, JSON.stringify(ok.json));
   });
 
+  test('base sem funcionamento: vale o padrão e salvar em Configurações cria os dias', async () => {
+    const h = await adm();
+    const antes = await prisma.funcionamento.findMany();
+    await prisma.funcionamento.deleteMany();
+    try {
+      const fn = (await req(h, 'GET', '/cursos-opcoes')).json.funcionamento;
+      assert.equal(fn.length, 7);
+      assert.deepEqual(
+        fn.find((d: { dia: number }) => d.dia === 6),
+        { dia: 6, nome: 'Sábado', aberto: true, inicio: '08:00', fim: '13:00' },
+      );
+      const linhas = (await req(h, 'GET', '/config/dias')).json.linhas.map(
+        (d: { dia: number; aberto: boolean; inicio: string; fim: string }) => ({
+          dia: d.dia,
+          aberto: d.aberto,
+          inicio: d.inicio,
+          fim: d.dia === 6 ? '14:00' : d.fim,
+        }),
+      );
+      const r = await req(h, 'PUT', '/config/dias', { linhas, just: 'base nova sem funcionamento' });
+      assert.equal(r.status, 200, JSON.stringify(r.json));
+      assert.equal(await prisma.funcionamento.count(), 7);
+      assert.equal((await prisma.funcionamento.findUniqueOrThrow({ where: { dia: 6 } })).fim, '14:00');
+    } finally {
+      await prisma.funcionamento.deleteMany();
+      await prisma.funcionamento.createMany({ data: antes });
+    }
+  });
+
   test('Novo curso Regular (turmas com CEFR) e Particular (alocações)', async () => {
     const h = await adm();
     const reg = await req(h, 'POST', '/cursos', {
