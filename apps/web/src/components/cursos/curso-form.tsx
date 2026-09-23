@@ -70,7 +70,6 @@ const Esquema = z
         if (!it.cancelamento) erro(['itens', k, 'cancelamento'], 'Informe a regra de cancelamento.');
         it.horarios.forEach((h, j) => {
           if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(h.hora)) erro(['itens', k, 'horarios', j, 'hora'], 'Horário HH:MM.');
-          if (!h.professorId) erro(['itens', k, 'horarios', j, 'professorId'], 'Escolha o professor.');
         });
       }
     });
@@ -593,8 +592,8 @@ function ItemCard({
           <div className="grid gap-1.5 sm:col-span-2">
             <p className="m-0 font-semibold text-texto">Grade</p>
             <span className="text-apagado">
-              marque o dia e a hora e escolha o professor; fora do funcionamento (Configurações › Dias e horários) fica
-              travado
+              marque o dia e a hora e escolha o professor (ou vincule depois); fora do funcionamento (Configurações ›
+              Dias e horários) fica travado
             </span>
             <Controller
               control={control}

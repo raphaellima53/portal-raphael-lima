@@ -226,7 +226,8 @@ export function agOfertas(b: Base): Oferta[] {
                 prod: c.name,
                 mod: m,
                 quem: 'Turma aberta',
-                prof: h.prof ?? um(profsDe(c.name, m), k + j),
+                /* horário da grade sem professor vinculado vira aula sem professor na Agenda */
+                prof: h.professorId ? (h.prof ?? um(profsDe(c.name, m), k + j)) : '—',
                 sala: salasGrupo[(k + j) % 3],
                 vagas: c.modInfo[m]?.vagas ?? rg.vagas,
                 duracao: rg.duracao,
@@ -278,7 +279,17 @@ export function agAulasEntre(b: Base, ini: Date, fim: Date, agora = new Date(), 
       let estado: Estado;
       let prof = o.prof;
       let sub: string | null = null;
-      if (quando > agora) estado = !n ? 'semAlunos' : h === 2 ? 'semProfessor' : h === 3 ? 'cancelada' : 'comAlunos';
+      if (quando > agora)
+        estado =
+          o.prof === '—'
+            ? 'semProfessor'
+            : !n
+              ? 'semAlunos'
+              : h === 2
+                ? 'semProfessor'
+                : h === 3
+                  ? 'cancelada'
+                  : 'comAlunos';
       else
         estado =
           !n || h === 3

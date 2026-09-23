@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { corLegivel } from '@/lib/cor';
 import { type CurriculoAba, type Geral, type Grade, type Regras, useCurso } from '@/lib/cursos';
 
+const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const ROTULOS = { geral: 'Visão geral', regras: 'Regras', curriculo: 'Currículo', grade: 'Grade semanal' };
 
 /** Cursos › curso: Visão geral · Regras · Currículo · Grade semanal */
@@ -48,6 +49,13 @@ export default function CursoPage() {
     );
   }
   if (!c) return <p className="text-apagado">Carregando…</p>;
+  /* grade do módulo com horário ainda sem professor vinculado (24/09/2026) */
+  const semProf =
+    c.form.estrutura === 'modulos'
+      ? c.form.itens.flatMap((it) =>
+          it.horarios.filter((h) => !h.professorId).map((h) => `${it.nome} · ${DIAS[h.dia]} ${h.hora}`),
+        )
+      : [];
 
   return (
     <>
@@ -79,6 +87,24 @@ export default function CursoPage() {
         rotulo="Abas do curso"
         itens={c.abas.map((a) => ({ href: `/cursos/${c.id}/${a}`, rotulo: ROTULOS[a], ativa: a === c.aba }))}
       />
+      {semProf.length > 0 && (
+        <Aviso tom="amber" icone="alerta">
+          <b>
+            {semProf.length}{' '}
+            {semProf.length === 1 ? 'horário da grade sem professor' : 'horários da grade sem professor'}:
+          </b>{' '}
+          {semProf.join('; ')}. Essas aulas aparecem na Agenda como sem professor.{' '}
+          {c.pode.editar && (
+            <button
+              type="button"
+              className="cursor-pointer font-semibold text-azul hover:underline"
+              onClick={() => setEditar(true)}
+            >
+              Vincular em Editar curso
+            </button>
+          )}
+        </Aviso>
+      )}
       {msg && (
         <Aviso tom="blue" icone="ok">
           {msg}

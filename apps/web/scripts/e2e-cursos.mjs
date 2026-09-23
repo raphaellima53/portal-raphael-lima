@@ -121,15 +121,22 @@ await passo(
     const grade = d.getByRole('table', { name: 'Grade de Módulo 1' });
     await grade.getByRole('img', { name: 'Sáb 13:00: fora do horário de funcionamento' }).waitFor();
     for (const dia of ['Seg', 'Qua']) {
-      await grade.getByRole('button', { name: `${dia} 08:00: livre, marcar e escolher o professor` }).click();
+      await grade.getByRole('button', { name: `${dia} 08:00: livre, marcar o horário` }).click();
       await pg.getByRole('list', { name: 'Professores' }).getByRole('button').first().click();
     }
     assert.equal(await grade.getByRole('button', { name: /^(Seg|Qua) 08:00: (?!livre)/ }).count(), 2);
+    /* horário sem professor: vale, fica em âmbar e o aviso lista o que falta vincular */
+    await grade.getByRole('button', { name: 'Sex 10:00: livre, marcar o horário' }).click();
+    await pg.getByRole('button', { name: 'Sem professor (vincular depois)' }).click();
+    await grade.getByRole('button', { name: 'Sex 10:00: sem professor' }).waitFor();
+    await d.getByText('1 horário sem professor:').waitFor();
     await d.getByRole('button', { name: 'Criar curso' }).click();
     await pg.waitForURL(/\/cursos\/\d+\/regras/);
     novoId = pg.url().match(/cursos\/(\d+)/)[1];
     await pg.getByText('Módulos — 2 níveis').waitFor();
-    await pg.getByRole('button', { name: 'Editar curso' }).click();
+    await pg.getByText('1 horário da grade sem professor:').waitFor();
+    await pg.getByText(/Nível A · Sex 10:00/).waitFor();
+    await pg.getByRole('button', { name: 'Vincular em Editar curso' }).click();
     assert.equal(
       await d
         .getByRole('table', { name: 'Grade de Módulo 1' })
@@ -137,9 +144,14 @@ await passo(
         .count(),
       2,
     );
+    /* vincular o professor tira o aviso */
+    await d.getByRole('button', { name: 'Sex 10:00: sem professor' }).click();
+    await pg.getByRole('list', { name: 'Professores' }).getByRole('button').first().click();
+    assert.equal(await d.getByText('1 horário sem professor:').count(), 0);
     await d.getByRole('button', { name: 'Remover módulo 2' }).click();
     await d.getByRole('button', { name: 'Salvar' }).click();
     await pg.getByText('Módulos — 1 níveis').waitFor();
+    assert.equal(await pg.getByText('horário da grade sem professor').count(), 0);
   },
 );
 

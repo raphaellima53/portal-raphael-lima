@@ -193,6 +193,35 @@ describe('menus e formulários (24/09/2026)', () => {
       ]),
     ]);
     assert.equal(ok.status, 200, JSON.stringify(ok.json));
+    assert.doesNotMatch(ok.json.msg, /sem professor/);
+
+    /* horário sem professor: salva, avisa e vira aula sem professor na Agenda */
+    const sem = await salva([
+      {
+        ...mod('Módulo A', [{ dia: 1, hora: '08:00' }]),
+        horarios: [
+          { dia: 1, hora: '08:00', professorId: prof.id },
+          { dia: 5, hora: '10:00', professorId: '' },
+          { dia: 4, hora: '10:00', professorId: '' },
+        ],
+      },
+    ]);
+    assert.equal(sem.status, 200, JSON.stringify(sem.json));
+    assert.match(sem.json.msg, /2 horários da grade estão sem professor/);
+    const hs = await prisma.moduloHorario.findMany({ where: { modulo: { curso: { nome: NOME } } } });
+    assert.equal(hs.filter((x) => x.professorId == null).length, 2);
+    const form = (await req(h, 'GET', `/cursos/${opcCurso}`)).json.form;
+    assert.equal(form.itens[0].horarios.filter((x: { professorId: string }) => !x.professorId).length, 2);
+    invalidaBase();
+    const b = await base();
+    const ofs = agOfertas(b).filter((o) => o.prod === NOME);
+    assert.equal(ofs.filter((o) => o.prof === '—').length, 2);
+    const hoje = new Date();
+    const futuras = agAulasEntre(b, hoje, new Date(+hoje + 14 * 864e5), hoje, ofs).filter(
+      (a) => a.quando > hoje && a.prof === '—',
+    );
+    assert.ok(futuras.length > 0);
+    assert.ok(futuras.every((a) => a.estado === 'semProfessor'));
   });
 
   test('base sem funcionamento: vale o padrão e salvar em Configurações cria os dias', async () => {

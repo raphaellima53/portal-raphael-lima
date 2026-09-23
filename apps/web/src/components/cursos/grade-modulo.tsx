@@ -1,6 +1,8 @@
 'use client';
 
+import { AlertTriangleIcon } from 'lucide-react';
 import { useState } from 'react';
+import { Aviso } from '@/components/ds';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { OpcoesCurso } from '@/lib/cursos';
@@ -20,8 +22,8 @@ export const nomeCurto = (n: string) => {
 
 /**
  * Grade do módulo Open-Entry (24/09/2026): dia × hora, das 06h às 22h. Cada célula aberta no funcionamento
- * (Configurações › Dias e horários) é marcável: marcar escolhe o professor daquele horário; a célula marcada
- * mostra o professor e troca ou remove. Fora do funcionamento a célula fica apagada e travada.
+ * (Configurações › Dias e horários) é marcável: marcar escolhe o professor daquele horário (ou deixa sem professor,
+ * em âmbar e listado no aviso); a célula marcada troca ou remove. Fora do funcionamento a célula fica travada.
  */
 export function GradeModulo({
   valor,
@@ -43,7 +45,10 @@ export function GradeModulo({
     const f = aberto(d);
     return !!f?.aberto && hh(h) >= f.inicio && hh(h) < f.fim;
   };
-  const nomeDe = (id: string) => professores.find((p) => p.v === id)?.l ?? '—';
+  const nomeDe = (id: string) => (id ? (professores.find((p) => p.v === id)?.l ?? '—') : 'sem professor');
+  const semProf = valor
+    .filter((x) => !x.professorId)
+    .sort((a, b) => (a.dia || 7) - (b.dia || 7) || a.hora.localeCompare(b.hora));
   const naCelula = (d: number, h: number) =>
     valor.map((x, i) => ({ ...x, i })).filter((x) => x.dia === d && Number.parseInt(x.hora, 10) === h);
   const poe = (d: number, h: number, professorId: string, i?: number) =>
@@ -55,75 +60,94 @@ export function GradeModulo({
   const tira = (i: number) => aoMudar(valor.filter((_, j) => j !== i));
 
   return (
-    <div className="overflow-x-auto rounded-md border border-borda bg-card">
-      <table className="w-full min-w-[560px] table-fixed border-collapse text-sm" aria-label={`Grade de ${rotulo}`}>
-        <colgroup>
-          <col className="w-14" />
-        </colgroup>
-        <thead>
-          <tr className="border-b border-borda">
-            <th scope="col">
-              <span className="sr-only">Hora</span>
-            </th>
-            {dias.map((d) => (
-              <th key={d} scope="col" className="py-2.5 font-semibold text-texto">
-                {DIAS[d]}
+    <div className="grid">
+      {semProf.length > 0 && (
+        <Aviso tom="amber" icone="alerta">
+          <b>
+            {semProf.length} {semProf.length === 1 ? 'horário sem professor' : 'horários sem professor'}:
+          </b>{' '}
+          {semProf.map((x) => `${DIAS[x.dia]} ${x.hora}`).join(', ')}. As aulas aparecem na Agenda como sem professor
+          até o vínculo.
+        </Aviso>
+      )}
+      <div className="overflow-x-auto rounded-md border border-borda bg-card">
+        <table className="w-full min-w-[560px] table-fixed border-collapse text-sm" aria-label={`Grade de ${rotulo}`}>
+          <colgroup>
+            <col className="w-14" />
+          </colgroup>
+          <thead>
+            <tr className="border-b border-borda">
+              <th scope="col">
+                <span className="sr-only">Hora</span>
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {HORAS.map((h) => (
-            <tr key={h} className="border-b border-borda-suave last:border-0">
-              <th scope="row" className="px-3 text-left font-medium text-texto-2">
-                {String(h).padStart(2, '0')}h
-              </th>
-              {dias.map((d) => {
-                const aqui = naCelula(d, h);
-                const pode = livre(d, h);
-                return (
-                  <td key={d} className="h-9 px-1 text-center align-middle">
-                    <div className="flex flex-wrap items-center justify-center gap-1">
-                      {aqui.map((x) => (
-                        <Celula
-                          key={x.i}
-                          rotulo={`${DIAS[d]} ${x.hora}: ${nomeDe(x.professorId)}`}
-                          professores={professores}
-                          atual={x.professorId}
-                          escolhe={(p) => poe(d, h, p, x.i)}
-                          remove={() => tira(x.i)}
-                        >
-                          <span className="inline-flex h-6 max-w-full items-center truncate rounded-[5px] bg-azul px-1.5 text-xs font-semibold text-white">
-                            {x.hora.endsWith(':00') ? '' : `${x.hora} · `}
-                            {nomeCurto(nomeDe(x.professorId))}
-                          </span>
-                        </Celula>
-                      ))}
-                      {!aqui.length &&
-                        (pode ? (
-                          <Celula
-                            rotulo={`${DIAS[d]} ${hh(h)}: livre, marcar e escolher o professor`}
-                            professores={professores}
-                            escolhe={(p) => poe(d, h, p)}
-                          >
-                            <span className="inline-block size-5 rounded-[5px] border border-borda-forte bg-card transition-colors group-hover:border-azul" />
-                          </Celula>
-                        ) : (
-                          <span
-                            className="inline-block size-5 rounded-[5px] bg-[#f3f5f9] dark:bg-hover"
-                            role="img"
-                            aria-label={`${DIAS[d]} ${hh(h)}: fora do horário de funcionamento`}
-                            title="fora do horário de funcionamento"
-                          />
-                        ))}
-                    </div>
-                  </td>
-                );
-              })}
+              {dias.map((d) => (
+                <th key={d} scope="col" className="py-2.5 font-semibold text-texto">
+                  {DIAS[d]}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {HORAS.map((h) => (
+              <tr key={h} className="border-b border-borda-suave last:border-0">
+                <th scope="row" className="px-3 text-left font-medium text-texto-2">
+                  {String(h).padStart(2, '0')}h
+                </th>
+                {dias.map((d) => {
+                  const aqui = naCelula(d, h);
+                  const pode = livre(d, h);
+                  return (
+                    <td key={d} className="h-9 px-1 text-center align-middle">
+                      <div className="flex flex-wrap items-center justify-center gap-1">
+                        {aqui.map((x) => (
+                          <Celula
+                            key={x.i}
+                            rotulo={`${DIAS[d]} ${x.hora}: ${nomeDe(x.professorId)}`}
+                            professores={professores}
+                            atual={x.professorId}
+                            escolhe={(p) => poe(d, h, p, x.i)}
+                            remove={() => tira(x.i)}
+                          >
+                            {x.professorId ? (
+                              <span className="inline-flex h-6 max-w-full items-center truncate rounded-[5px] bg-azul px-1.5 text-xs font-semibold text-white">
+                                {x.hora.endsWith(':00') ? '' : `${x.hora} · `}
+                                {nomeCurto(nomeDe(x.professorId))}
+                              </span>
+                            ) : (
+                              <span className="inline-flex h-6 max-w-full items-center gap-1 truncate rounded-[5px] border border-[#f1d9a6] bg-ambar-suave px-1.5 text-xs font-semibold text-texto">
+                                <AlertTriangleIcon className="size-3.5 shrink-0 text-ambar" aria-hidden />
+                                {x.hora.endsWith(':00') ? '' : `${x.hora} · `}
+                                sem prof.
+                              </span>
+                            )}
+                          </Celula>
+                        ))}
+                        {!aqui.length &&
+                          (pode ? (
+                            <Celula
+                              rotulo={`${DIAS[d]} ${hh(h)}: livre, marcar o horário`}
+                              professores={professores}
+                              escolhe={(p) => poe(d, h, p)}
+                            >
+                              <span className="inline-block size-5 rounded-[5px] border border-borda-forte bg-card transition-colors group-hover:border-azul" />
+                            </Celula>
+                          ) : (
+                            <span
+                              className="inline-block size-5 rounded-[5px] bg-[#f3f5f9] dark:bg-hover"
+                              role="img"
+                              aria-label={`${DIAS[d]} ${hh(h)}: fora do horário de funcionamento`}
+                              title="fora do horário de funcionamento"
+                            />
+                          ))}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -164,7 +188,7 @@ function Celula({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-2" align="center">
-        <p className="m-0 px-2 pt-1 pb-2 font-semibold text-texto">{rotulo.split(':')[0]}</p>
+        <p className="m-0 px-2 pt-1 pb-2 font-semibold text-texto">{rotulo.split(': ')[0]}</p>
         {professores.length > 8 && (
           <Input
             aria-label="Buscar professor"
@@ -174,6 +198,20 @@ function Celula({
             onChange={(e) => setBusca(e.target.value)}
           />
         )}
+        <button
+          type="button"
+          aria-current={atual === '' || undefined}
+          onClick={() => {
+            escolhe('');
+            fecha();
+          }}
+          className={cn(
+            'mb-1 w-full cursor-pointer rounded-md border-b border-borda px-2 pt-1.5 pb-2 text-left text-texto-2 hover:bg-hover',
+            atual === '' && 'font-semibold text-texto',
+          )}
+        >
+          Sem professor (vincular depois)
+        </button>
         <ul className="m-0 max-h-60 list-none overflow-y-auto p-0" aria-label="Professores">
           {lista.map((p) => (
             <li key={p.v}>

@@ -28,7 +28,7 @@ const dialogo = () => pg.getByRole('dialog');
 await pg.goto(`${BASE}/cursos`);
 await pg.getByRole('button', { name: 'Novo curso' }).click();
 await dialogo().getByRole('button', { name: 'Novo módulo' }).click();
-await dialogo().getByRole('button', { name: 'Seg 08:00: livre, marcar e escolher o professor' }).click();
+await dialogo().getByRole('button', { name: 'Seg 08:00: livre, marcar o horário' }).click();
 await pg.getByRole('list', { name: 'Professores' }).getByRole('button').first().click();
 await foto('curso-open-entry');
 await dialogo().getByRole('button', { name: 'Criar curso' }).click();

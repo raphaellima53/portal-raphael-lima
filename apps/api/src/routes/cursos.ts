@@ -83,7 +83,8 @@ const CursoForm = z.object({
             z.object({
               dia: z.coerce.number().int().min(0).max(6),
               hora: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Horário da grade inválido (HH:MM).'),
-              professorId: z.string().min(1, 'Escolha o professor de cada horário da grade.'),
+              /* 24/09/2026: o professor pode ficar para depois; a grade e a agenda avisam o que falta */
+              professorId: z.string().default(''),
             }),
           )
           .max(120)
@@ -315,6 +316,7 @@ export default async function rotasCursos(app: FastifyInstance) {
               .code(400)
               .send({ erro: `${m.nome}: ${DIAS_CURTO[h.dia]} ${h.hora} aparece duas vezes na grade.` });
           vistos.add(k);
+          if (!h.professorId) continue;
           const kp = `${k}|${h.professorId}`;
           const outroMod = ocupado.get(kp);
           if (outroMod)
@@ -376,7 +378,9 @@ export default async function rotasCursos(app: FastifyInstance) {
         });
         await tx.moduloHorario.deleteMany({ where: { moduloId: mod.id } });
         if (m.horarios.length)
-          await tx.moduloHorario.createMany({ data: m.horarios.map((h) => ({ moduloId: mod.id, ...h })) });
+          await tx.moduloHorario.createMany({
+            data: m.horarios.map((h) => ({ moduloId: mod.id, ...h, professorId: h.professorId || null })),
+          });
       }
       await tx.cursoAlocacao.deleteMany({ where: { cursoId: curso.id } });
       if (alocacoes.length)
@@ -438,7 +442,15 @@ export default async function rotasCursos(app: FastifyInstance) {
       return curso;
     });
     invalidaBase();
-    return { id: salvo.id, msg: antigo ? 'Curso salvo.' : 'Curso criado. Confira as regras dele.' };
+    const semProf = estrutura === 'modulos' ? itens.flatMap((m) => m.horarios).filter((h) => !h.professorId).length : 0;
+    const aviso = semProf
+      ? ` Atenção: ${semProf} ${semProf === 1 ? 'horário da grade está' : 'horários da grade estão'} sem professor; as aulas aparecem na Agenda como sem professor.`
+      : '';
+    return {
+      id: salvo.id,
+      msg: (antigo ? 'Curso salvo.' : 'Curso criado. Confira as regras dele.') + aviso,
+      semProfessor: semProf,
+    };
   };
   app.post('/cursos', { preHandler: exigeCatalogo }, (req, rep) => salvaCurso(req, rep, null));
   app.put('/cursos/:id', { preHandler: exigeCatalogo }, (req, rep) =>
