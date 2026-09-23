@@ -147,6 +147,8 @@ export type OpcoesCurso = {
   visibilidades: string[];
   tiposSala: string[];
   cefr: string[];
+  /* dias e horários de funcionamento: limitam a grade do módulo */
+  funcionamento: { dia: number; aberto: boolean; inicio: string; fim: string }[];
   professores: { v: string; l: string }[];
 };
 export type CursoResp = {

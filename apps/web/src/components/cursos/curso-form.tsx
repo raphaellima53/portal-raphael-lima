@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { type Control, Controller, type UseFormRegister, useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { CampoHora } from '@/components/campos-data';
+import { GradeModulo } from '@/components/cursos/grade-modulo';
 import { Escolha } from '@/components/escolha';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
@@ -26,7 +26,6 @@ const TIPOS = [
   { v: 'turmas', l: 'Grupo Regular' },
   { v: 'nenhuma', l: 'Particular' },
 ] as const;
-const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 const Tempo = z.object({ valor: z.number().int().min(0), unidade: z.enum(['min', 'h']) }).nullable();
 
 const Esquema = z
@@ -501,7 +500,6 @@ function ItemCard({
   erros?: Record<string, { message?: string }>;
   remover: () => void;
 }) {
-  const horarios = useFieldArray({ control, name: `itens.${k}.horarios` });
   const qual = modulo ? 'módulo' : 'turma';
   return (
     <div className="grid gap-3 rounded-md border border-borda bg-bg p-4 sm:grid-cols-2">
@@ -592,88 +590,25 @@ function ItemCard({
             control={control}
             erro={erros?.cancelamento?.message}
           />
-          <p className="m-0 font-semibold text-texto sm:col-span-2">Grade</p>
-          <div className="grid gap-2 sm:col-span-2">
-            {horarios.fields.map((h, j) => (
-              <div key={h.id} className="flex flex-wrap items-end gap-2">
-                <div className="grid w-[150px] gap-1.5">
-                  <Label>
-                    Dia da semana
-                    <Req />
-                  </Label>
-                  <Controller
-                    control={control}
-                    name={`itens.${k}.horarios.${j}.dia`}
-                    render={({ field }) => (
-                      <Escolha
-                        rotulo={`Dia do horário ${j + 1}`}
-                        destacar={false}
-                        valor={String(field.value)}
-                        aoMudar={(x) => field.onChange(Number(x))}
-                        opcoes={DIAS.map((d, i) => ({ v: String(i), l: d }))}
-                      />
-                    )}
-                  />
-                </div>
-                <div className="grid w-[100px] gap-1.5">
-                  <Label htmlFor={`cf-h-${k}-${j}`}>
-                    Horário
-                    <Req />
-                  </Label>
-                  <Controller
-                    control={control}
-                    name={`itens.${k}.horarios.${j}.hora`}
-                    render={({ field }) => (
-                      <CampoHora
-                        id={`cf-h-${k}-${j}`}
-                        rotulo={`Horário ${j + 1}`}
-                        valor={field.value}
-                        aoMudar={field.onChange}
-                      />
-                    )}
-                  />
-                </div>
-                <div className="grid min-w-[200px] flex-1 gap-1.5">
-                  <Label>
-                    Professor
-                    <Req />
-                  </Label>
-                  <Controller
-                    control={control}
-                    name={`itens.${k}.horarios.${j}.professorId`}
-                    render={({ field }) => (
-                      <Escolha
-                        rotulo={`Professor do horário ${j + 1}`}
-                        todos="Selecione…"
-                        destacar={false}
-                        valor={field.value}
-                        aoMudar={field.onChange}
-                        opcoes={op?.professores ?? []}
-                      />
-                    )}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Remover horário ${j + 1}`}
-                  onClick={() => horarios.remove(j)}
-                >
-                  <XIcon />
-                </Button>
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="w-fit border border-dashed border-borda-forte"
-              onClick={() => horarios.append({ dia: 1, hora: '', professorId: '' })}
-            >
-              <PlusIcon /> Novo horário
-            </Button>
-            {Array.isArray(erros?.horarios) && <Erro m="Confira dia, horário e professor da grade." />}
+          <div className="grid gap-1.5 sm:col-span-2">
+            <p className="m-0 font-semibold text-texto">Grade</p>
+            <span className="text-apagado">
+              marque o dia e a hora e escolha o professor; fora do funcionamento (Configurações › Dias e horários) fica
+              travado
+            </span>
+            <Controller
+              control={control}
+              name={`itens.${k}.horarios`}
+              render={({ field }) => (
+                <GradeModulo
+                  valor={field.value ?? []}
+                  aoMudar={field.onChange}
+                  professores={op?.professores ?? []}
+                  funcionamento={op?.funcionamento ?? []}
+                  rotulo={`Módulo ${k + 1}`}
+                />
+              )}
+            />
           </div>
         </>
       )}

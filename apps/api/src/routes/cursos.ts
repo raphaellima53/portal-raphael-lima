@@ -47,6 +47,15 @@ const exigeCurriculo = (req: FastifyRequest, rep: FastifyReply) => exige(req, re
 /** regra de agenda em minutos ou horas (guardada em minutos) */
 const Tempo = z.object({ valor: z.coerce.number().int().min(0).max(100000), unidade: z.enum(['min', 'h']) });
 const minutos = (t: z.infer<typeof Tempo> | null) => (t == null ? null : t.unidade === 'h' ? t.valor * 60 : t.valor);
+const DIAS_CURTO = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+/** dias e horários de funcionamento (Configurações): limitam a grade do módulo */
+const funcionamento = async () =>
+  (await prisma.funcionamento.findMany({ orderBy: { dia: 'asc' } })).map((d) => ({
+    dia: d.dia,
+    aberto: d.aberto,
+    inicio: d.inicio,
+    fim: d.fim,
+  }));
 export const CEFR = ['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 /** minutos guardados → o que o formulário mostra (horas quando fecha a conta) */
 const tempoDe = (m: number | null | undefined) =>
@@ -84,7 +93,7 @@ const CursoForm = z.object({
               professorId: z.string().min(1, 'Escolha o professor de cada horário da grade.'),
             }),
           )
-          .max(40)
+          .max(120)
           .default([]),
       }),
     )
@@ -234,6 +243,7 @@ export default async function rotasCursos(app: FastifyInstance) {
         visibilidades: tipos.filter((t) => t.tipo === 'visibilidadesOferta').map((t) => t.nome),
         tiposSala: tipos.filter((t) => t.tipo === 'roomTypes').map((t) => t.nome),
         cefr: CEFR,
+        funcionamento: await funcionamento(),
         professores: (await prisma.professor.findMany({ where: { ativo: true }, orderBy: { nome: 'asc' } })).map(
           (p) => ({ v: p.id, l: p.nome }),
         ),
@@ -258,6 +268,7 @@ export default async function rotasCursos(app: FastifyInstance) {
       visibilidades: tipos.filter((t) => t.tipo === 'visibilidadesOferta').map((t) => t.nome),
       tiposSala: tipos.filter((t) => t.tipo === 'roomTypes').map((t) => t.nome),
       cefr: CEFR,
+      funcionamento: await funcionamento(),
       professores: (await prisma.professor.findMany({ where: { ativo: true }, orderBy: { nome: 'asc' } })).map((p) => ({
         v: p.id,
         l: p.nome,
@@ -291,6 +302,35 @@ export default async function rotasCursos(app: FastifyInstance) {
       if (!m.vagas) return rep.code(400).send({ erro: `Informe as vagas de ${m.nome}.` });
       if (estrutura === 'modulos' && (!m.agendamento || !m.cancelamento))
         return rep.code(400).send({ erro: `Informe as regras de agendamento e cancelamento de ${m.nome}.` });
+    }
+    /* grade do Open-Entry (24/09/2026): só dentro do funcionamento, uma aula por hora no módulo e o professor
+       em um módulo só na mesma hora */
+    if (estrutura === 'modulos') {
+      const fn = await funcionamento();
+      const ocupado = new Map<string, string>();
+      for (const m of itens) {
+        const vistos = new Set<string>();
+        for (const h of m.horarios) {
+          const d = fn.find((x) => x.dia === h.dia);
+          if (!d?.aberto || h.hora < d.inicio || h.hora >= d.fim)
+            return rep.code(400).send({
+              erro: `${m.nome}: ${DIAS_CURTO[h.dia]} ${h.hora} está fora do horário de funcionamento.`,
+            });
+          const k = `${h.dia}|${h.hora}`;
+          if (vistos.has(k))
+            return rep
+              .code(400)
+              .send({ erro: `${m.nome}: ${DIAS_CURTO[h.dia]} ${h.hora} aparece duas vezes na grade.` });
+          vistos.add(k);
+          const kp = `${k}|${h.professorId}`;
+          const outroMod = ocupado.get(kp);
+          if (outroMod)
+            return rep.code(400).send({
+              erro: `O mesmo professor está em ${outroMod} e ${m.nome} na ${DIAS_CURTO[h.dia]} às ${h.hora}.`,
+            });
+          ocupado.set(kp, m.nome);
+        }
+      }
     }
     const alocacoes = estrutura === 'nenhuma' ? v.alocacoes.filter((x) => x.responsavel || x.vagas) : [];
     const tipo = await prisma.catalogo.findFirst({ where: { tipo: 'courseTypes', nome: v.tipo } });

@@ -140,6 +140,61 @@ describe('menus e formulários (24/09/2026)', () => {
     assert.equal(m2.horarios.length, 0);
   });
 
+  test('grade do módulo: só no funcionamento, uma vez por hora e o professor num módulo só', async () => {
+    const h = await adm();
+    const prof = await prisma.professor.findFirstOrThrow({ where: { ativo: true }, orderBy: { ordem: 'asc' } });
+    const opc = (await req(h, 'GET', '/cursos-opcoes')).json;
+    const sab = opc.funcionamento.find((d: { dia: number }) => d.dia === 6);
+    assert.ok(sab, 'funcionamento vem nas opções do curso');
+    const mod = (nome: string, horarios: { dia: number; hora: string }[]) => ({
+      nome,
+      cor: '#123456',
+      cefr: 'A1',
+      vagas: 6,
+      agendamento: { valor: 2, unidade: 'h' },
+      cancelamento: { valor: 2, unidade: 'h' },
+      horarios: horarios.map((x) => ({ ...x, professorId: prof.id })),
+    });
+    const opcCurso = (await prisma.curso.findFirstOrThrow({ where: { nome: NOME } })).id;
+    const salva = (itens: unknown[]) =>
+      req(h, 'PUT', `/cursos/${opcCurso}`, {
+        nome: NOME,
+        cor: '#123456',
+        idioma: 'Inglês',
+        estrutura: 'modulos',
+        itens,
+      });
+    /* domingo fechado no funcionamento do seed */
+    assert.match(
+      (await salva([mod('Módulo A', [{ dia: 0, hora: '10:00' }])])).json.erro,
+      /fora do horário de funcionamento/,
+    );
+    assert.match((await salva([mod('Módulo A', [{ dia: 6, hora: sab.fim }])])).json.erro, /fora do horário/);
+    assert.match(
+      (
+        await salva([
+          mod('Módulo A', [
+            { dia: 1, hora: '08:00' },
+            { dia: 1, hora: '08:00' },
+          ]),
+        ])
+      ).json.erro,
+      /duas vezes/,
+    );
+    assert.match(
+      (await salva([mod('Módulo A', [{ dia: 1, hora: '08:00' }]), mod('Módulo B', [{ dia: 1, hora: '08:00' }])])).json
+        .erro,
+      /mesmo professor/,
+    );
+    const ok = await salva([
+      mod('Módulo A', [
+        { dia: 1, hora: '08:00' },
+        { dia: 3, hora: '08:00' },
+      ]),
+    ]);
+    assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  });
+
   test('Novo curso Regular (turmas com CEFR) e Particular (alocações)', async () => {
     const h = await adm();
     const reg = await req(h, 'POST', '/cursos', {
