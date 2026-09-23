@@ -50,13 +50,13 @@ await passo('as quatro visões abrem pelo seletor e o endereço guarda a visão'
 });
 
 await passo('‹ › andam um mês e Hoje volta', async () => {
-  const titulo = async () => pg.locator('main .text-md.font-bold').first().innerText();
+  const titulo = async () => pg.locator('main [data-periodo]').first().innerText();
   const antes = await titulo();
   await pg.getByRole('button', { name: 'Próximo período' }).click();
   await pg.waitForURL(/data=/);
-  await pg.waitForFunction((t) => document.querySelector('main .text-md.font-bold')?.textContent !== t, antes);
+  await pg.waitForFunction((t) => document.querySelector('main [data-periodo]')?.textContent !== t, antes);
   await pg.getByRole('button', { name: 'Hoje', exact: true }).click();
-  await pg.waitForFunction((t) => document.querySelector('main .text-md.font-bold')?.textContent === t, antes);
+  await pg.waitForFunction((t) => document.querySelector('main [data-periodo]')?.textContent === t, antes);
 });
 
 await passo('filtro de produto restringe as aulas e o campo fica destacado', async () => {

@@ -11,6 +11,7 @@ import {
   agFaixa,
   agHabilitado,
   agHH,
+  agHM,
   agIndividual,
   agNaAgenda,
   agRotulo,
@@ -166,7 +167,7 @@ export function alPerfil(
         { k: 'Presença', v: pct != null ? `${pct}% nos últimos ${hist} dias` : null },
         {
           k: 'Próxima aula',
-          v: prox ? `${fmt.semana(prox.quando)} · ${agHH(prox.quando.getHours())} · ${agRotulo(prox)}` : null,
+          v: prox ? `${fmt.semana(prox.quando)} · ${agHM(prox.quando)} · ${agRotulo(prox)}` : null,
         },
         { k: 'Feedbacks e ocorrências abertos', v: String(extra.abertos) },
         {
@@ -484,18 +485,23 @@ export function dispPainel(disp: string[], meus: Oferta[]) {
 
 /* ---------------- Agendamentos ---------------- */
 export const fxHora = (a: Aula) => {
-  const fim = a.quando.getHours() * 60 + (a.duracao || 50);
-  return `${agHH(a.quando.getHours())}–${p2(Math.floor(fim / 60))}:${p2(fim % 60)}`;
+  const fim = a.quando.getHours() * 60 + a.quando.getMinutes() + (a.duracao || 50);
+  return `${agHM(a.quando)}–${p2(Math.floor(fim / 60))}:${p2(fim % 60)}`;
 };
 export function alAgenda(b: Base, a: AlunoB, dias: number, ofs: Oferta[], agora = new Date()) {
   const ls = fxProximas(b, (x) => x.alunos.includes(a.name), dias, ofs, agora);
-  const limite = (x: Aula) => {
+  /* o módulo com regra própria (Novo curso, 24/09/2026, em minutos) vale antes da do curso */
+  const prazo = (x: Aula, regra: 'agendamento' | 'cancelamento') => {
     const c = b.cursos.find((y) => y.name === x.prod);
-    /* o módulo com regra própria (Novo curso, 24/09/2026, em minutos) vale antes da do curso */
-    const min = c && x.mod ? c.modInfo[x.mod]?.cancelamentoMin : null;
-    const h = min != null ? min / 60 : c ? crsRegras(c).cancelamento : 6;
+    const min = c && x.mod ? c.modInfo[x.mod]?.[`${regra}Min`] : null;
+    const rg = c ? crsRegras(c) : null;
+    const padrao =
+      regra === 'cancelamento'
+        ? (rg?.cancelamento ?? 6)
+        : ((rg as { antecedencia?: number } | null)?.antecedencia ?? 0);
+    const h = min != null ? min / 60 : padrao;
     const d = new Date(x.quando.getTime() - h * 36e5);
-    return h ? `${dm(d)} · ${agHH(d.getHours())}` : 'até o início';
+    return h ? `${dm(d)} · ${agHM(d)}` : 'até o início';
   };
   return {
     dias,
@@ -510,7 +516,8 @@ export function alAgenda(b: Base, a: AlunoB, dias: number, ofs: Oferta[], agora 
       profId: b.professores.find((t) => t.name === x.prof)?.id ?? null,
       sala: x.sala,
       estadoTag: FX_ESTADO[x.estado],
-      limite: limite(x),
+      agendarAte: prazo(x, 'agendamento'),
+      limite: prazo(x, 'cancelamento'),
     })),
   };
 }
@@ -639,7 +646,7 @@ export function fbGera(a: AlunoB, ofs: Oferta[], agora = new Date()) {
 /** os pontos de qualidade do aluno, lidos da agenda, da presença, da alocação e do currículo */
 export function alQualidade(b: Base, a: AlunoB, dias: number, ofs: Oferta[], agora = new Date()) {
   const ps = fxPassadas(b, (x) => x.alunos.includes(a.name), dias, ofs, agora);
-  const aula = (x: Aula) => `${fmt.semana(x.quando)} ${agHH(x.quando.getHours())} · ${agRotulo(x)}`;
+  const aula = (x: Aula) => `${fmt.semana(x.quando)} ${agHM(x.quando)} · ${agRotulo(x)}`;
   const faltas = ps.filter((x) => fxPresenca(b, a.name, x) === 'falta');
   const naoFin = ps.filter((x) => x.estado === 'naoFinalizada');
   const subst = ps.filter((x) => x.estado === 'substituida');

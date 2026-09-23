@@ -129,7 +129,7 @@ export type AulaLinha = {
   estadoTag: [string, Tom];
 };
 export type AgendamentosAba =
-  | { quando: 'proximas'; dias: number; aulas: (AulaLinha & { sala: string; limite: string })[] }
+  | { quando: 'proximas'; dias: number; aulas: (AulaLinha & { sala: string; agendarAte: string; limite: string })[] }
   | {
       quando: 'passadas';
       dias: number;

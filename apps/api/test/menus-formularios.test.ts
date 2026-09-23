@@ -9,7 +9,8 @@ import { after, before, describe, test } from 'node:test';
 import type { FastifyInstance } from 'fastify';
 import { montaApp } from '../src/app.ts';
 import { prisma } from '../src/db.ts';
-import { agOfertas } from '../src/domain/agenda.ts';
+import { agAulasEntre, agFaixa, agOfertas } from '../src/domain/agenda.ts';
+import { alAgenda } from '../src/domain/alunos.ts';
 import { base, invalidaBase } from '../src/domain/base.ts';
 
 let app: FastifyInstance;
@@ -69,7 +70,7 @@ describe('menus e formulários (24/09/2026)', () => {
       descricao: '',
       agendamento: { valor: 2, unidade: 'h' },
       cancelamento: { valor: 90, unidade: 'min' },
-      horarios: [{ dia: 2, hora: '19:00', professorId: prof.id }],
+      horarios: [{ dia: 2, hora: '19:30', professorId: prof.id }],
     };
     const semIdioma = await req(h, 'POST', '/cursos', {
       nome: NOME,
@@ -102,10 +103,29 @@ describe('menus e formulários (24/09/2026)', () => {
     invalidaBase();
     const ofs = agOfertas(await base()).filter((o) => o.prod === NOME);
     assert.equal(ofs.length, 1);
-    assert.deepEqual([ofs[0].dias, ofs[0].hora, ofs[0].prof], [[2], 19, prof.nome]);
+    assert.deepEqual([ofs[0].dias, ofs[0].hora, ofs[0].prof], [[2], 19.5, prof.nome]);
+    /* horário quebrado (19:30) chega inteiro à Agenda */
+    const b = await base();
+    assert.match(agFaixa({ hora: ofs[0].hora, duracao: 45 }), /^19:30–20:15$/);
+    const hoje = new Date();
+    const aulas = agAulasEntre(b, hoje, new Date(+hoje + 14 * 864e5), hoje, ofs);
+    assert.ok(aulas.length > 0);
+    assert.ok(aulas.every((a) => a.quando.getHours() === 19 && a.quando.getMinutes() === 30));
+    /* prazos do módulo: agendar até 2 h antes e cancelar até 90 min antes */
+    const al = b.alunos[0];
+    const ag = alAgenda(
+      b,
+      al,
+      28,
+      ofs.map((o) => ({ ...o, alunos: [al.name] })),
+      hoje,
+    );
+    assert.ok(ag.aulas.length > 0);
+    assert.match(ag.aulas[0].agendarAte, / · 17:30$/);
+    assert.match(ag.aulas[0].limite, / · 18:00$/);
     const form = (await req(h, 'GET', `/cursos/${r.json.id}`)).json.form;
     assert.deepEqual(form.itens[0].agendamento, { valor: 2, unidade: 'h' });
-    assert.equal(form.itens[0].horarios[0].hora, '19:00');
+    assert.equal(form.itens[0].horarios[0].hora, '19:30');
     /* editar mantém o módulo (id) e regrava a grade */
     const ed = await req(h, 'PUT', `/cursos/${r.json.id}`, {
       nome: NOME,

@@ -5,7 +5,7 @@ import {
   type Aula,
   agAulasEntre,
   agHabilitado,
-  agHH,
+  agHM,
   agRotulo,
   alMat,
   FX_ESTADO,
@@ -685,11 +685,11 @@ export default async function rotasAgenda(app: FastifyInstance) {
           canceladas: n('cancelada'),
         },
         aulas: todas.map((x) => {
-          const fim = x.quando.getHours() * 60 + (x.duracao || 50);
+          const fim = x.quando.getHours() * 60 + x.quando.getMinutes() + (x.duracao || 50);
           return {
             k: x.k,
             data: fmt.semana(x.quando),
-            horario: `${agHH(x.quando.getHours())}–${String(Math.floor(fim / 60)).padStart(2, '0')}:${String(fim % 60).padStart(2, '0')}`,
+            horario: `${agHM(x.quando)}–${String(Math.floor(fim / 60)).padStart(2, '0')}:${String(fim % 60).padStart(2, '0')}`,
             rotulo: agRotulo(x),
             cor: b.corModulo[x.mod ?? ''] || b.corCurso[x.prod] || '#1e46c8',
             prod: x.prod,
@@ -721,12 +721,12 @@ export default async function rotasAgenda(app: FastifyInstance) {
         canceladas: todas.filter((x) => x.estado === 'cancelada').length,
       },
       aulas: todas.map((x) => {
-        const fim = x.quando.getHours() * 60 + (x.duracao || 50);
+        const fim = x.quando.getHours() * 60 + x.quando.getMinutes() + (x.duracao || 50);
         const p = fxPresenca(b, al.name, x);
         return {
           k: x.k,
           data: fmt.semana(x.quando),
-          horario: `${agHH(x.quando.getHours())}–${String(Math.floor(fim / 60)).padStart(2, '0')}:${String(fim % 60).padStart(2, '0')}`,
+          horario: `${agHM(x.quando)}–${String(Math.floor(fim / 60)).padStart(2, '0')}:${String(fim % 60).padStart(2, '0')}`,
           rotulo: agRotulo(x),
           cor: b.corModulo[x.mod ?? ''] || b.corCurso[x.prod] || '#1e46c8',
           prod: x.prod,

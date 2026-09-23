@@ -11,7 +11,18 @@ export const DN = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 export const agISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-export const agHH = (h: number) => `${String(h).padStart(2, '0')}:00`;
+/** hora da oferta em horas (19.5 = 19:30, grade do módulo desde 24/09/2026) */
+export const agHH = (h: number) => {
+  const m = Math.round(h * 60);
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+};
+/** hora de uma data: 19:30 */
+export const agHM = (d: Date) => agHH(d.getHours() + d.getMinutes() / 60);
+/** "19:30" → 19.5 */
+export const agHoraNum = (hm: string) => {
+  const [h, m] = hm.split(':').map(Number);
+  return (h || 0) + (m || 0) / 60;
+};
 /** a semana vai de domingo a sábado */
 export const agInicioSemana = (d: Date) => {
   const s = new Date(d);
@@ -220,7 +231,7 @@ export function agOfertas(b: Base): Oferta[] {
                 vagas: c.modInfo[m]?.vagas ?? rg.vagas,
                 duracao: rg.duracao,
                 dias: [h.dia],
-                hora: Number.parseInt(h.hora, 10),
+                hora: agHoraNum(h.hora),
                 alunos: alunosDe(c.name, m).map((a) => a.name),
               });
             });
@@ -261,7 +272,7 @@ export function agAulasEntre(b: Base, ini: Date, fim: Date, agora = new Date(), 
     ofertas.forEach((o, i) => {
       if (!o.dias.includes(dow)) return;
       const quando = new Date(d);
-      quando.setHours(o.hora, 0, 0, 0);
+      quando.setHours(0, Math.round(o.hora * 60), 0, 0);
       const h = (i * 31 + d.getDate() * 7 + d.getMonth() * 13) % 11;
       const n = o.ocupadas != null ? o.ocupadas : o.alunos.length;
       let estado: Estado;
@@ -334,14 +345,14 @@ export const agNaAgenda = (l: Aula[]) => l.filter((a) => a.estado !== 'cancelada
 export const agDiasTxt = (o: Oferta) => o.dias.map((d) => DN[d]).join(' e ');
 /** faixa da aula: 12:00–12:45 */
 export const agFaixa = (o: { hora: number; duracao?: number }) => {
-  const fim = o.hora * 60 + (o.duracao || 50);
+  const fim = Math.round(o.hora * 60) + (o.duracao || 50);
   return `${agHH(o.hora)}–${String(Math.floor(fim / 60)).padStart(2, '0')}:${String(fim % 60).padStart(2, '0')}`;
 };
 /** aula individual: professor, dias e hora são da matrícula (Alumni Black e Private FLOW) */
 export const agIndividual = (c: CursoB, mod: string | null) => c.estrutura === 'nenhuma' || mod === 'Private FLOW';
 
 /* ---- disponibilidade: grade dia × hora ---- */
-export const dispK = (d: number, h: number) => `${d}-${h}`;
+export const dispK = (d: number, h: number) => `${d}-${Math.floor(h)}`;
 const dispDe = (ofs: Oferta[], padrao: [number[], number[]]) => {
   const s = new Set<string>();
   for (const o of ofs)

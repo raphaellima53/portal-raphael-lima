@@ -7,7 +7,7 @@ import { fmt } from '../lib/fmt.ts';
 import {
   type Aula,
   agAulasEntre,
-  agHH,
+  agHM,
   agRotulo,
   crsItens,
   dispConflitos,
@@ -295,7 +295,7 @@ export function prFeedbacks(avs: Avaliacao[], dias: number) {
       { valor: String(new Set(avs.map((x) => x.aluno)).size), rotulo: 'alunos que avaliaram' },
     ],
     lista: avs.map((x) => ({
-      quando: `${fmt.data(x.quando)} · ${agHH(x.quando.getHours())}`,
+      quando: `${fmt.data(x.quando)} · ${agHM(x.quando)}`,
       aluno: x.aluno,
       curso: x.curso,
       aula: x.aula,

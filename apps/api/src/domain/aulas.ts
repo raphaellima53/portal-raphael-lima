@@ -4,7 +4,7 @@
  */
 import { fmt } from '../lib/fmt.ts';
 import type { AcessoArea, Areas, TipoPerfil } from './acesso.ts';
-import { type Aula, agAulasEntre, agHabilitado, agHH, agRotulo, fxPresenca } from './agenda.ts';
+import { type Aula, agAulasEntre, agHabilitado, agHM, agRotulo, fxPresenca } from './agenda.ts';
 import type { AjusteAula, Base, ConteudoCur, CurriculoB, Suporte } from './base.ts';
 
 export type QuemAula = { nome: string; nivel: number; areas: Areas; tipoPerfil: TipoPerfil | null; ehAluno: boolean };
@@ -64,7 +64,7 @@ export const aulaHojeOuAntes = (a: Aula, agora = new Date()) => {
   f.setHours(23, 59, 59, 999);
   return a.quando <= f;
 };
-export const aulaRot = (a: Aula) => `${agRotulo(a)} · ${fmt.data(a.quando)} ${agHH(a.quando.getHours())}`;
+export const aulaRot = (a: Aula) => `${agRotulo(a)} · ${fmt.data(a.quando)} ${agHM(a.quando)}`;
 export const aulaAlunos = (b: Base, a: Aula) =>
   a.alunos.map((n) => {
     const al = b.alunos.find((x) => x.name === n);
@@ -247,7 +247,7 @@ function aprSlides(b: Base, a: Aula, cur: ReturnType<typeof aulaCur>): Slide[] {
       rot: T.capa,
       titulo: tit,
       sub: `${a.prod}${a.mod ? ` · ${a.mod}` : ''}`,
-      meta: `${aulaDataTxt(a.quando)} · ${agHH(a.quando.getHours())} – ${aulaFim(a)}${a.prof === '—' ? '' : ` · ${a.prof}`}`,
+      meta: `${aulaDataTxt(a.quando)} · ${agHM(a.quando)} – ${aulaFim(a)}${a.prof === '—' ? '' : ` · ${a.prof}`}`,
     },
     { k: 'aq', rot: T.aq, texto: T.aqP(tit) },
   ];
@@ -317,7 +317,7 @@ export function aulaModelo(b: Base, a: Aula, p: QuemAula, agora = new Date()) {
     titulo: cur ? cur.x.titulo : agRotulo(a),
     rotulo: agRotulo(a),
     dataTxt: aulaDataTxt(a.quando),
-    horario: `${agHH(a.quando.getHours())} – ${aulaFim(a)}`,
+    horario: `${agHM(a.quando)} – ${aulaFim(a)}`,
     iso: fmt.iso(a.quando),
     prof: a.prof,
     sub: a.sub,

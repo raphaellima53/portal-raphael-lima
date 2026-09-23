@@ -15,7 +15,7 @@ import {
   fecRotulo,
   folhaDados,
 } from '../domain/acoes.ts';
-import { agHH, agRotulo } from '../domain/agenda.ts';
+import { agHM, agRotulo } from '../domain/agenda.ts';
 import { FB_AREAS, FB_CANAIS, FB_ST, FB_TIPOS } from '../domain/alunos.ts';
 import {
   FOLHA_SIT,
@@ -165,7 +165,7 @@ export default async function rotasAcoes(app: FastifyInstance) {
           const v = folhaValor(b, a);
           return {
             k: a.k,
-            quando: `${fmt.data(a.quando)} ${agHH(a.quando.getHours())}`,
+            quando: `${fmt.data(a.quando)} ${agHM(a.quando)}`,
             aula: agRotulo(a),
             noLugar: a.sub,
             presenca: s === 'pendente' ? '—' : folhaPresenca(b, a),

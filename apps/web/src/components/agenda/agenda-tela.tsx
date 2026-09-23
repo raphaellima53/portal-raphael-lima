@@ -303,7 +303,9 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
   const barra = d && (
     <div className="flex flex-wrap items-center gap-3 border-b border-borda-suave px-[18px] py-3.5">
       <div className="min-w-0 flex-1">
-        <span className="block text-sm text-texto">{d.titulo}</span>
+        <span className="block text-sm text-texto" data-periodo>
+          {d.titulo}
+        </span>
         {d.sub && <span className="font-medium text-azul">{d.sub}</span>}
       </div>
       {nav}

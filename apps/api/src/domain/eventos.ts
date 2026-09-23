@@ -3,7 +3,7 @@
  * Participantes: colaborador (time interno), prestador (professor) e aluno. Aparecem na Mensal, Semanal e Diária.
  */
 import { prisma } from '../db.ts';
-import { agAulasEntre, agHH, agRotulo } from './agenda.ts';
+import { agAulasEntre, agHM, agRotulo } from './agenda.ts';
 import type { Base } from './base.ts';
 
 export type Participante = { g: 'colaborador' | 'prestador' | 'aluno'; n: string };
@@ -101,9 +101,7 @@ export function evChoques(b: Base, e: { ini: Date; fim: Date; part: Participante
       return a.quando < e.fim && fimA > e.ini;
     })
     .flatMap((a) =>
-      [a.prof, ...a.alunos]
-        .filter((n) => nomes.has(n))
-        .map((n) => `${n} tem ${agRotulo(a)} às ${agHH(a.quando.getHours())}`),
+      [a.prof, ...a.alunos].filter((n) => nomes.has(n)).map((n) => `${n} tem ${agRotulo(a)} às ${agHM(a.quando)}`),
     );
 }
 

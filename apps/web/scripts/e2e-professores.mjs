@@ -112,8 +112,17 @@ await passo('novo professor vai para Cursos; editar chega com os dados', async (
   await pg.getByRole('button', { name: 'Novo' }).click();
   await pg.getByRole('menuitem', { name: 'Professor' }).click();
   const d = dialogo(pg);
-  await d.getByRole('textbox', { name: /Nome completo/ }).fill('Professor e2e');
+  await pg.fill('#pr-nome', 'Professor e2e');
+  await d.getByText('Habilitação', { exact: true }).click();
   await d.getByRole('button', { name: 'Alumni Black' }).click();
+  /* 24/09/2026: CPF, CNPJ, e-mail, contato e admissão são obrigatórios no cadastro novo */
+  await d.getByRole('button', { name: 'Cadastrar' }).click();
+  await d.getByText('Informe o CPF.').waitFor();
+  await pg.fill('#pr-cpf', '52998224725');
+  await pg.fill('#pr-cnpj', '12345678000195');
+  await pg.fill('#pr-email', 'professor.e2e@alumni.teste');
+  await pg.fill('#pr-tel', '11912345678');
+  await pg.fill('#pr-adm', '01/09/2026');
   await d.getByRole('button', { name: 'Cadastrar' }).click();
   await pg.waitForURL(/\/professores\/p\d+\/cursos$/);
   await pg.getByRole('switch', { name: 'Habilitado em Alumni Black' }).waitFor();
@@ -123,12 +132,8 @@ await passo('novo professor vai para Cursos; editar chega com os dados', async (
   );
   await pg.getByRole('button', { name: 'Editar dados' }).click();
   await pg.waitForTimeout(700);
-  assert.equal(
-    await dialogo(pg)
-      .getByRole('textbox', { name: /Nome completo/ })
-      .inputValue(),
-    'Professor e2e',
-  );
+  assert.equal(await pg.inputValue('#pr-nome'), 'Professor e2e');
+  assert.equal(await pg.inputValue('#pr-cnpj'), '12.345.678/0001-95');
   await dialogo(pg).getByRole('button', { name: 'Salvar' }).click();
   await pg.getByText('Nada mudou no cadastro.').waitFor();
 });

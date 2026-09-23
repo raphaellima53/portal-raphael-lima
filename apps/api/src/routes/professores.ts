@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../db.ts';
 import { podeAcao } from '../domain/acesso.ts';
 import { acessoDaPessoa } from '../domain/acesso-pessoa.ts';
-import { agOfertas, agRotulo, crsItens, prDisp } from '../domain/agenda.ts';
+import { agHM, agOfertas, agRotulo, crsItens, prDisp } from '../domain/agenda.ts';
 import { dispChaveValida, dispPainel, dispTroca } from '../domain/alunos.ts';
 import { type Base, base, invalidaBase, type ProfessorB } from '../domain/base.ts';
 import { podeChave } from '../domain/mapa.ts';
@@ -243,7 +243,7 @@ export default async function rotasProfessores(app: FastifyInstance) {
         ...prFeedbacks(avs, hist),
         aulas: dadas.map((x) => ({
           k: x.k,
-          rotulo: `${fmt.semana(x.quando)} ${String(x.quando.getHours()).padStart(2, '0')}:00 · ${agRotulo(x)}`,
+          rotulo: `${fmt.semana(x.quando)} ${agHM(x.quando)} · ${agRotulo(x)}`,
         })),
         alunos: [...new Set(dadas.flatMap((x) => x.alunos))].sort((x, y) => x.localeCompare(y)),
         notas: [5, 4, 3, 2, 1].map((n) => ({ v: String(n), l: `${n} — ${FB_NOTAS[n]}` })),

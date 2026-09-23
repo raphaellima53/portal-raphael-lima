@@ -12,6 +12,7 @@ import {
   agCor,
   agDiasTxt,
   agHH,
+  agHM,
   agInicioSemana,
   agISO,
   agNaAgenda,
@@ -149,7 +150,7 @@ export const DASH_BLOCOS: Bloco[] = [
       const feitas = hj.length - prox.length;
       return {
         linhas: prox.slice(0, 7).map((a) => ({
-          nome: txt(`${agHH(a.quando.getHours())} · ${agRotulo(a)}`, { cor: agCor(c.b, a) }),
+          nome: txt(`${agHM(a.quando)} · ${agRotulo(a)}`, { cor: agCor(c.b, a) }),
           valor: `${a.n}/${a.vagas}`,
           href: hrefAgenda({ vista: 'diaria' }),
           sub: [a.prof === '—' ? { t: 'sem professor', tom: 'red' } : { t: a.prof }, { t: ` · ${a.sala}` }],
@@ -179,7 +180,7 @@ export const DASH_BLOCOS: Bloco[] = [
           ponto: kb(k)[2],
         })),
         linhas: ls.slice(0, 5).map((a) => ({
-          nome: txt(`${fmt.semana(a.quando)} · ${agHH(a.quando.getHours())} · ${agRotulo(a)}`),
+          nome: txt(`${fmt.semana(a.quando)} · ${agHM(a.quando)} · ${agRotulo(a)}`),
           valorBadge: { t: FX_ESTADO[a.estado][0], tom: FX_ESTADO[a.estado][1] as Tom },
           href: hrefAgenda({ vista: 'diaria', data: agISO(a.quando) }),
           sub: txt(a.quem),

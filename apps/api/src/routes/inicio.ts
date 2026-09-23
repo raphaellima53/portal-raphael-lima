@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db.ts';
 import { acessoResumo, nivelDe, PERFIS, perfilNome } from '../domain/acesso.ts';
-import { agAulasEntre, agCor, agHH, agNaAgenda, agOfertas, agRotulo, alMat } from '../domain/agenda.ts';
+import { agAulasEntre, agCor, agHM, agNaAgenda, agOfertas, agRotulo, alMat } from '../domain/agenda.ts';
 import { alertasDe, extrasAlertas } from '../domain/alertas.ts';
 import { type Base, base } from '../domain/base.ts';
 import { blocoDef, DASH_BLOCOS, DASH_GRUPOS, DASH_PADRAO, montaDashboard } from '../domain/dashboard.ts';
@@ -36,7 +36,7 @@ function areaDoAluno(b: Base, u: UsuarioSessao) {
     })),
     restam: mats.reduce((s, e) => s + Math.max(0, e.total - e.usadas), 0),
     proximas: prox.slice(0, 10).map((x) => ({
-      quando: `${fmt.data(x.quando)} · ${agHH(x.quando.getHours())}`,
+      quando: `${fmt.data(x.quando)} · ${agHM(x.quando)}`,
       rotulo: agRotulo(x),
       cor: agCor(b, x),
       prof: x.prof,

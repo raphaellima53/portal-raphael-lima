@@ -397,6 +397,7 @@ function Proximas({ f, d, vai }: { f: FichaResp; d: Extract<AgendamentosAba, { q
               <Th>Professor</Th>
               <Th>Sala</Th>
               <Th>Situação</Th>
+              <Th>Agendar até</Th>
               <Th>Cancelar sem débito até</Th>
             </Tr>
           </THead>
@@ -425,11 +426,12 @@ function Proximas({ f, d, vai }: { f: FichaResp; d: Extract<AgendamentosAba, { q
                   <Td>
                     <Badge tom={x.estadoTag[1]}>{x.estadoTag[0]}</Badge>
                   </Td>
+                  <Td className="whitespace-nowrap">{x.agendarAte}</Td>
                   <Td className="whitespace-nowrap">{x.limite}</Td>
                 </Tr>
               ))
             ) : (
-              <Vazio n={7} txt="nenhuma aula no período" />
+              <Vazio n={8} txt="nenhuma aula no período" />
             )}
           </TBody>
         </Table>

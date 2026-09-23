@@ -182,8 +182,11 @@ await passo('editar dados: o formulário chega com a empresa e salvar sem mudan�
   const d = dialogo(pg);
   await d.getByText('Matrículas ativas', { exact: true }).waitFor();
   await pg.waitForTimeout(800);
+  /* empresa e contrato ficam em Mais dados (24/09/2026) */
+  await d.getByText('Mais dados (opcional)').click();
   assert.equal(await d.getByRole('combobox', { name: 'Empresa' }).innerText(), 'Vetora Tecnologia');
-  assert.equal(await d.getByRole('textbox', { name: 'Contrato até' }).inputValue(), '21/07/2027');
+  /* o seed grava o fim do contrato relativo ao dia em que roda */
+  assert.match(await d.getByRole('textbox', { name: 'Contrato até' }).inputValue(), /^\d{2}\/\d{2}\/20\d{2}$/);
   await d.getByRole('button', { name: 'Salvar' }).click();
   await pg.getByText('Nada mudou no cadastro.').waitFor();
 });

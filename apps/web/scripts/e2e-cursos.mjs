@@ -84,29 +84,55 @@ await passo('regras: duração nova muda o horário da grade', async () => {
 });
 
 let novoId = '';
-await passo('Novo curso: cria com dois módulos e abre nas Regras; editar tira um módulo', async () => {
-  await pg.goto(`${BASE}/cursos`);
-  await pg.getByRole('button', { name: 'Novo curso' }).click();
-  await dialogo(pg).getByRole('button', { name: 'Criar' }).click();
-  await dialogo(pg).getByText('Informe o nome do curso.').waitFor();
-  await pg.fill('#cf-nome', 'Curso de teste e2e');
-  await dialogo(pg)
-    .getByRole('button', { name: /Adicionar módulo/ })
-    .click();
-  await dialogo(pg).getByRole('textbox', { name: 'Módulo ou turma 1' }).fill('Nível A');
-  await dialogo(pg)
-    .getByRole('button', { name: /Adicionar módulo/ })
-    .click();
-  await dialogo(pg).getByRole('textbox', { name: 'Módulo ou turma 2' }).fill('Nível B');
-  await dialogo(pg).getByRole('button', { name: 'Criar' }).click();
-  await pg.waitForURL(/\/cursos\/\d+\/regras/);
-  novoId = pg.url().match(/cursos\/(\d+)/)[1];
-  await pg.getByText('Módulos — 2 níveis').waitFor();
-  await pg.getByRole('button', { name: 'Editar curso' }).click();
-  await dialogo(pg).getByRole('button', { name: 'Remover módulo' }).nth(1).click();
-  await dialogo(pg).getByRole('button', { name: 'Salvar' }).click();
-  await pg.getByText('Módulos — 1 níveis').waitFor();
-});
+await passo(
+  'Novo curso: obrigatórios, dois módulos (grade 19:30) e abre nas Regras; editar tira um módulo',
+  async () => {
+    const d = dialogo(pg);
+    const escolhe = async (nome, opcao) => {
+      await d.getByRole('combobox', { name: nome }).click();
+      await pg.getByRole('option', { name: opcao, exact: true }).click();
+    };
+    await pg.goto(`${BASE}/cursos`);
+    await pg.getByRole('button', { name: 'Novo curso' }).click();
+    await d.getByRole('button', { name: 'Criar curso' }).click();
+    await d.getByText('Informe o nome do curso.').waitFor();
+    await pg.fill('#cf-nome', 'Curso de teste e2e');
+    await escolhe('Idioma', 'Inglês');
+    assert.equal(await d.getByRole('radio', { name: 'Grupo Open-Entry' }).getAttribute('aria-checked'), 'true');
+    for (const [k, nome, cefr] of [
+      [0, 'Nível A', 'A1'],
+      [1, 'Nível B', 'A2'],
+    ]) {
+      await d.getByRole('button', { name: 'Novo módulo' }).click();
+      await pg.fill(`#cf-it-nome-${k}`, nome);
+      await escolhe(`CEFR do módulo ${k + 1}`, cefr);
+      await pg.fill(`#cf-it-vagas-${k}`, '6');
+      await pg.fill(`#cf-agendamento-${k}`, '2');
+      await pg.fill(`#cf-cancelamento-${k}`, '90');
+      await d.getByRole('combobox', { name: 'Unidade de cancelamento' }).nth(k).click();
+      await pg.getByRole('option', { name: 'minutos', exact: true }).click();
+    }
+    /* sem a regra obrigatória o módulo não salva */
+    await pg.fill('#cf-agendamento-1', '');
+    await d.getByRole('button', { name: 'Criar curso' }).click();
+    await d.getByText('Informe a regra de agendamento.').waitFor();
+    await pg.fill('#cf-agendamento-1', '2');
+    /* grade com horário quebrado */
+    await d.getByRole('button', { name: 'Novo horário' }).first().click();
+    await pg.fill('#cf-h-0-0', '1930');
+    await d.getByRole('combobox', { name: 'Professor do horário 1' }).click();
+    await pg.getByRole('option').nth(1).click();
+    await d.getByRole('button', { name: 'Criar curso' }).click();
+    await pg.waitForURL(/\/cursos\/\d+\/regras/);
+    novoId = pg.url().match(/cursos\/(\d+)/)[1];
+    await pg.getByText('Módulos — 2 níveis').waitFor();
+    await pg.getByRole('button', { name: 'Editar curso' }).click();
+    assert.equal(await pg.inputValue('#cf-h-0-0'), '19:30');
+    await d.getByRole('button', { name: 'Remover módulo 2' }).click();
+    await d.getByRole('button', { name: 'Salvar' }).click();
+    await pg.getByText('Módulos — 1 níveis').waitFor();
+  },
+);
 
 await passo('currículo: novo currículo, conteúdo, publicar, nova versão, subir e descartar', async () => {
   await pg.goto(`${BASE}/cursos/${novoId}/curriculo`);
