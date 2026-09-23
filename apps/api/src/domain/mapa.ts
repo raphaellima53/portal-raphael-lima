@@ -364,9 +364,43 @@ const menuDaChave = (chave: string) => TELAS_MAPA.find((x) => x.chave === chave)
 export type Pessoa = UsuarioAcesso & { ehAluno: boolean };
 
 /** personaPodeChave: a chave de acesso abre para a pessoa? */
+/*
+ * Atividades em cartões (23/09/2026): cada setor tem uma frente (Comercial ou Operações) e as telas que liberam o setor.
+ * As chaves atv.* abrem para quem vê pelo menos um setor da frente (atv.dash: de qualquer frente).
+ */
+export const ATV_FRENTES: [string, string[]][] = [
+  ['Comercial', ['Comercial', 'Marketing']],
+  ['Operações', ['Pedagógico', 'Acadêmico', 'Administrativo', 'Financeiro/Fiscal', 'CX']],
+];
+export const ATV_SETOR_TELAS: Record<string, string[]> = {
+  Comercial: ['acFunil', 'acRenovacao'],
+  Marketing: ['acCampanhas'],
+  Pedagógico: ['acAlocacao', 'acSubstituicao'],
+  Acadêmico: ['acNivel', 'acReposicao'],
+  Administrativo: ['acAdmissao'],
+  'Financeiro/Fiscal': ['acFechamento', 'acCobranca'],
+  CX: ['acAtendimentos', 'acRetencao'],
+};
+export const atvFrenteDe = (setor: string) => ATV_FRENTES.find(([, ss]) => ss.includes(setor))?.[0] ?? 'Operações';
+const chaveDaTela = (t: string) => TELAS_MAPA.find((n) => n.tela === t && !n.aba)?.chave ?? t;
+/** setores que a pessoa vê (de uma frente, ou de todas) */
+export const atvSetores = (p: Pessoa, frente?: string) =>
+  ATV_FRENTES.filter(([f]) => !frente || f === frente)
+    .flatMap(([, ss]) => ss)
+    .filter((s) => ATV_SETOR_TELAS[s].some((t) => podeChave(p, chaveDaTela(t))));
+const ATV_CHAVES: Record<string, string | undefined> = {
+  'atv.dash': undefined,
+  'atv.comercial': 'Comercial',
+  'atv.operacoes': 'Operações',
+};
+
 export function podeChave(p: Pessoa, chave: string): boolean {
   if (p.ehAluno) return false;
   if (chave === 'inicio') return true;
+  if (chave in ATV_CHAVES) return atvSetores(p, ATV_CHAVES[chave]).length > 0;
+  /* aba Contratos das fichas: quem vê as parcelas e atua em contratos ou vendas */
+  if (chave === 'deal.contratos')
+    return podeChave(p, 'aluno.financeiro') && (podeChave(p, 'acFechamento') || podeChave(p, 'acFunil'));
   const t: TelaAcesso = { id: '', m: menuDaChave(chave) || (chave ? '' : 'fora'), chave };
   return telaPermitida(p, t);
 }
@@ -502,6 +536,30 @@ type ItemDef = {
 /** telas que ainda não existem no mapa do portal */
 const TELAS_NOVAS: Record<string, { label: string; chave: string }> = {
   servicos: { label: 'Serviços', chave: 'catalogo' },
+  /* Atividades em cartões (23/09/2026) */
+  atvDash: { label: 'Visão geral', chave: 'atv.dash' },
+  atvCatalogo: { label: 'Catálogo de atividades', chave: 'atv.dash' },
+  atvComercial: { label: 'Atividades', chave: 'atv.comercial' },
+  atvOperacoes: { label: 'Atividades', chave: 'atv.operacoes' },
+  /* Deal (23/09/2026): acesso emprestado da tela vizinha, como no protótipo 23 */
+  dlPainel: { label: 'Painel de vendas', chave: 'acFunil' },
+  dlPedidos: { label: 'Pedidos', chave: 'acFunil' },
+  dlRenovacoes: { label: 'Renovações', chave: 'acFunil' },
+  dlImportar: { label: 'Importações', chave: 'acFunil' },
+  dlVendedores: { label: 'Vendedores', chave: 'acFunil' },
+  dlDescontos: { label: 'Descontos', chave: 'acFunil' },
+  dlBolsas: { label: 'Bolsas', chave: 'acFunil' },
+  dlOrdens: { label: 'Ordem de faturamento', chave: 'acFechamento' },
+  dlFechamento: { label: 'Fechamento por matrícula', chave: 'acFechamento' },
+  dlNotas: { label: 'Notas fiscais', chave: 'acCobranca' },
+  dlCobrancas: { label: 'Cobranças', chave: 'acCobranca' },
+  dlLiquidacao: { label: 'Liquidação manual', chave: 'acCobranca' },
+  dlConciliacao: { label: 'Conciliação', chave: 'acCobranca' },
+  dlPosicao: { label: 'Posição financeira', chave: 'acCobranca' },
+  dlContas: { label: 'Clientes empresariais', chave: 'acFechamento' },
+  dlConferencia: { label: 'Conferência', chave: 'acCobranca' },
+  dlOfertas: { label: 'Ofertas padrão', chave: 'catalogo' },
+  dlPresets: { label: 'Presets de venda', chave: 'catalogo' },
   /* adequação ao Portal Alumni (22/09/2026): cadastros simples (domain/cadastros.ts) com o acesso da tela vizinha */
   turmas: { label: 'Turmas', chave: 'catalogo' },
   conteudos: { label: 'Conteúdos', chave: 'curso.curriculo' },
@@ -529,7 +587,7 @@ export const NAV_EQUIPE: ItemDef[] = [
     id: 'usuarios',
     nome: 'Usuários',
     icon: 'users',
-    prefixos: ['/professores'],
+    prefixos: ['/professores', '/contratos'],
     secoes: [
       sec('Alunos', 'pedAlunos'),
       sec('Equipe', { tela: 'professores', label: 'Equipe' }, 'departamentos', 'cargos'),
@@ -544,25 +602,27 @@ export const NAV_EQUIPE: ItemDef[] = [
       sec('Cursos', { tela: 'cursos', label: 'Catálogo' }, 'turmas'),
       sec('Materiais', { tela: 'curriculo', label: 'Currículos e acervos' }, 'conteudos', 'ciclos', 'calendarios'),
       sec('Serviços', 'servicos'),
+      sec('Ofertas', 'dlOfertas', 'dlPresets'),
     ],
   },
   {
     id: 'acoes',
-    /* Ações virou Atividades (21/09/2026); a primeira aba é o painel de cartões por setor */
+    /*
+     * Ações virou Atividades (21/09/2026). Em 23/09/2026 (rascunho "D - Atividades (Cartões)"): Dashboard · Comercial · Operações.
+     * Comercial e Operações abrem no quadro de cartões; as telas dos setores viram subabas agrupadas pelo setor.
+     */
     nome: 'Atividades',
     icon: 'zap',
+    /* a ficha e o Novo pedido acendem Atividades */
+    prefixos: ['/pedidos'],
     secoes: [
-      sec('Setores', 'atividades'),
-      sec('Pedagógico', 'acAlocacao', 'acSubstituicao', 'relatoriosMatricula'),
-      sec('Acadêmico', 'acNivel', 'acReposicao'),
-      sec('Administrativo', 'acAdmissao'),
-      sec('Financeiro/Fiscal', 'acFechamento', 'acCobranca', 'extratos', 'lancamentos', 'rpFinanceiro'),
-      sec('Comercial', 'acFunil', 'ofertas', 'acRenovacao'),
-      sec('Marketing', 'acCampanhas'),
-      sec('CX', 'acAtendimentos', 'acRetencao'),
       sec(
-        'Relatórios',
-        'relatorio',
+        'Dashboard',
+        'atvDash',
+        'atvCatalogo',
+        { tela: 'dlPainel', label: 'Vendas' },
+        { tela: 'rpFinanceiro', label: 'Financeiro' },
+        { tela: 'relatorio', pai: 'Relatórios' },
         { tela: 'rpPresenca', pai: 'Alunos' },
         { tela: 'rpPacote', pai: 'Alunos' },
         { tela: 'rpProfessores', pai: 'Professores' },
@@ -570,6 +630,48 @@ export const NAV_EQUIPE: ItemDef[] = [
         { tela: 'rpAulas', pai: 'Cursos' },
         { tela: 'rpOcupacao', pai: 'Cursos' },
       ),
+      sec(
+        'Comercial',
+        'atvComercial',
+        { tela: 'acFunil', pai: 'Funil' },
+        { tela: 'acRenovacao', pai: 'Funil' },
+        { tela: 'ofertas', label: 'Ofertas do CRM', pai: 'Funil' },
+        /* o antigo menu Vendas (Deal) mora aqui desde 23/09/2026 */
+        { tela: 'dlPedidos', pai: 'Vendas' },
+        { tela: 'dlRenovacoes', pai: 'Vendas' },
+        { tela: 'dlImportar', pai: 'Vendas' },
+        { tela: 'dlVendedores', pai: 'Vendas' },
+        { tela: 'dlDescontos', pai: 'Vendas' },
+        { tela: 'dlBolsas', pai: 'Vendas' },
+        { tela: 'acCampanhas', pai: 'Marketing' },
+      ),
+      sec(
+        'Operações',
+        'atvOperacoes',
+        { tela: 'acAlocacao', pai: 'Pedagógico' },
+        { tela: 'acSubstituicao', pai: 'Pedagógico' },
+        { tela: 'relatoriosMatricula', pai: 'Pedagógico' },
+        { tela: 'acNivel', pai: 'Acadêmico' },
+        { tela: 'acReposicao', pai: 'Acadêmico' },
+        { tela: 'acAdmissao', pai: 'Administrativo' },
+        { tela: 'acFechamento', pai: 'Financeiro/Fiscal' },
+        { tela: 'acCobranca', pai: 'Financeiro/Fiscal' },
+        { tela: 'extratos', pai: 'Financeiro/Fiscal' },
+        { tela: 'lancamentos', pai: 'Financeiro/Fiscal' },
+        { tela: 'acAtendimentos', pai: 'CX' },
+        { tela: 'acRetencao', pai: 'CX' },
+      ),
+    ],
+  },
+  /* Financeiro do Deal (23/09/2026): faturamento, recebimento e posição; os contratos ficam nas fichas */
+  {
+    id: 'financeiro',
+    nome: 'Financeiro',
+    icon: 'money',
+    secoes: [
+      sec('Faturamento', 'dlOrdens', 'dlFechamento', 'dlNotas'),
+      sec('Recebimento', 'dlCobrancas', 'dlLiquidacao', 'dlConciliacao'),
+      sec('Posição', 'dlPosicao', 'dlContas', 'dlConferencia'),
     ],
   },
   /* Auditoria e Configurações voltam ao menu lateral, só para o Admin (a regra de acesso já é essa) */
@@ -681,14 +783,6 @@ export function navDe(p: Pessoa & { temAluno: boolean }): ItemNav[] {
       }))
       .filter((sec) => sec.telas.length);
     if (!secoes.length) continue;
-    /* Atividades abre no painel de cartões dos setores que a pessoa vê */
-    if (m.id === 'acoes')
-      secoes.unshift({
-        etapa: 'Setores',
-        telas: [
-          { id: 'acoes-atividades', tela: 'atividades', label: 'Setores', pai: null, href: hrefTela('atividades') },
-        ],
-      });
     const f = secoes[0].telas[0];
     const umaTela = secoes.length === 1 && secoes[0].telas.length === 1;
     out.push({
@@ -710,6 +804,11 @@ export function navDe(p: Pessoa & { temAluno: boolean }): ItemNav[] {
 
 /** Chaves liberadas para a pessoa (o front esconde abas e blocos com isto). */
 export function chavesDe(p: Pessoa): string[] {
-  const todas = new Set<string>(['inicio', ...TELAS_MAPA.map((n) => n.chave), 'aluno.alocacao']);
+  const todas = new Set<string>([
+    'inicio',
+    ...TELAS_MAPA.map((n) => n.chave),
+    'aluno.alocacao',
+    ...Object.keys(ATV_CHAVES),
+  ]);
   return [...todas].filter((c) => podeChave(p, c));
 }

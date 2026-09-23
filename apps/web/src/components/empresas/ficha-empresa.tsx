@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { Abas } from '@/components/abas';
+import { AbaContratos } from '@/components/deal/contratos';
 import { Aviso, PageHead, Stat } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { usePaginacao } from '@/components/paginacao';
@@ -122,6 +123,7 @@ function FichaInterna() {
           [
             ['geral', 'Visão geral'],
             ['alunos', e.turma ? 'Turmas' : 'Alunos'],
+            ...(e.veContratos ? [['contratos', 'Contratos'] as const] : []),
             ['historico', 'Histórico'],
           ] as const
         ).map(([k, l]) => ({ href: `/empresas/${e.id}/${k}`, rotulo: l, ativa: k === e.aba }))}
@@ -133,6 +135,7 @@ function FichaInterna() {
       )}
       {e.aba === 'geral' && <Geral d={e.dados as GeralEmp} />}
       {e.aba === 'alunos' && <Alunos e={e} d={e.dados as AlunosEmp} setMsg={setMsg} />}
+      {e.aba === 'contratos' && <AbaContratos empresaId={e.id} volta={`/empresas/${e.id}/contratos`} rot={e.nome} />}
       {e.aba === 'historico' && <Historico d={e.dados as HistoricoEmp} />}
 
       <EmpresaFormDialog abre={editar} eu="" aoFechar={() => setEditar(null)} aoSalvo={(r) => setMsg({ txt: r.msg })} />

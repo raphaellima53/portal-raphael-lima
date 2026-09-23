@@ -68,6 +68,8 @@ const AL_ABAS = [
   ['disponibilidade', 'Disponibilidade', 'matriculas'],
   ['datas', 'Datas bloqueadas', 'matriculas', 'aluno.disponibilidade'],
   ['financeiro', 'Parcelas', 'financeiro'],
+  /* 23/09/2026: "Contratos serão uma aba dentro dos perfis de alunos" — contratos da empresa e os pedidos do aluno (Deal) */
+  ['contratos', 'Contratos e pedidos', 'contratos', 'deal.contratos'],
   ['agendamentos', 'Agendamentos', 'historico'],
   ['feedbacks', 'Feedbacks', 'historico'],
   ['fbaulas', 'Feedbacks das aulas', 'historico', 'aluno.feedbacks'],
@@ -87,6 +89,7 @@ const GRUPOS: Record<string, string> = {
   dados: 'Dados',
   matriculas: 'Matrícula',
   financeiro: 'Financeiro',
+  contratos: 'Contratos',
   historico: 'Histórico',
   acesso: 'Acesso',
 };
@@ -424,6 +427,8 @@ export default async function rotasAlunos(app: FastifyInstance) {
       }
     } else if (ABA_CADASTRO[aba]) {
       dados = { cadastro: ABA_CADASTRO[aba], pai: a.id };
+    } else if (aba === 'contratos') {
+      dados = { alunoId: a.id };
     } else if (aba === 'acesso') {
       dados = await acessoDaPessoa(b, { alunoId: a.id }, u);
     } else if (aba === 'financeiro') {

@@ -87,7 +87,7 @@ describe('um ID, vários perfis', () => {
     const f = (await get(h, `/alunos/${alunoId}?aba=financeiro`)).json();
     assert.deepEqual(
       f.grupos.map((g: { rotulo: string }) => g.rotulo),
-      ['Dados', 'Matrícula', 'Financeiro', 'Histórico', 'Acesso'],
+      ['Dados', 'Matrícula', 'Financeiro', 'Contratos', 'Histórico', 'Acesso'],
     );
     assert.equal(f.aba, 'financeiro');
     assert.ok(f.dados.linhas.length > 0);
@@ -107,7 +107,7 @@ describe('um ID, vários perfis', () => {
     assert.equal(f.aba, 'acesso');
     assert.deepEqual(
       f.grupos.map((g: { rotulo: string }) => g.rotulo),
-      ['Dados', 'Matrícula', 'Financeiro', 'Histórico', 'Acesso'],
+      ['Dados', 'Matrícula', 'Financeiro', 'Contratos', 'Histórico', 'Acesso'],
     );
     assert.equal(f.dados.usuario.email, 'persona.i@alumni.teste');
     assert.match(f.dados.usuario.codigo, /^#\d{5}$/);

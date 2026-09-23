@@ -31,6 +31,7 @@ export type PodeLista = {
 export type ListaResp = { alunos: AlunoLinha[]; produtos: string[]; situacoes: string[]; pode: PodeLista };
 
 export type AbaAluno =
+  | 'contratos'
   | 'perfil'
   | 'log'
   | 'cursos'

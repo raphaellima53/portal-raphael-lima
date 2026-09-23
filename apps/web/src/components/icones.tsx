@@ -2,6 +2,7 @@ import {
   BookOpenIcon,
   Building2Icon,
   CalendarIcon,
+  CircleDollarSignIcon,
   CircleHelpIcon,
   Code2Icon,
   FileTextIcon,
@@ -31,6 +32,7 @@ export const ICONES: Record<string, LucideIcon> = {
   code: Code2Icon,
   users: UsersIcon,
   help: CircleHelpIcon,
+  money: CircleDollarSignIcon,
 };
 
 export const iconeDe = (nome: string): LucideIcon => ICONES[nome] ?? LayoutGridIcon;

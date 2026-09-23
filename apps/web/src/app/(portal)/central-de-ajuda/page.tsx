@@ -54,7 +54,15 @@ const PROFESSOR: Pergunta[] = [
 const EQUIPE: Pergunta[] = [
   [
     'Onde fica cada coisa no menu?',
-    'Agenda: aulas e eventos. Usuários: alunos, equipe e empresas. Produtos e serviços: cursos, materiais e serviços. Atividades: o trabalho de cada setor e os relatórios. Auditoria e Configurações aparecem só para o Admin.',
+    'Agenda: aulas e eventos. Usuários: alunos, equipe e empresas (com os contratos na ficha). Produtos e serviços: cursos, materiais, serviços e ofertas. Atividades: Dashboard, Comercial (atividades, funil e vendas) e Operações (atividades de cada setor). Financeiro: faturamento, recebimento e posição. Auditoria e Configurações aparecem só para o Admin.',
+  ],
+  [
+    'Como registro uma atividade?',
+    'Em Atividades › Comercial ou Operações, Nova atividade: escolha do catálogo ou escreva uma avulsa, com setor, tipo, responsável, prazo, prioridade e com quem (aluno, empresa, professor ou lead). As atividades recorrentes do catálogo (diárias, semanais, mensais…) aparecem sozinhas no quadro a cada período. Iniciar e Concluir movem o cartão; a pesquisa e os filtros ficam acima do quadro.',
+  ],
+  [
+    'Onde ficam vendas, contratos e notas fiscais?',
+    'Vendas (pedidos, renovações, importações, vendedores, descontos, bolsas) ficam em Atividades › Comercial. Os contratos ficam na aba Contratos da ficha do aluno e da ficha da empresa. Ordens, notas, cobranças, liquidação e conciliação ficam em Financeiro. As ofertas padrão ficam em Produtos e serviços › Ofertas.',
   ],
   [
     'Onde está o Dashboard?',

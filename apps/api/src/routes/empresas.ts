@@ -27,7 +27,8 @@ import { registra } from '../lib/log.ts';
 import { EnderecoIn, enderecoTxt } from '../lib/pessoa.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
 
-const ABAS = ['geral', 'alunos', 'historico'] as const;
+/* 23/09/2026: a aba Contratos mostra os contratos do Deal da empresa */
+const ABAS = ['geral', 'alunos', 'contratos', 'historico'] as const;
 /** gerente de conta que não é persona de teste (EMP_GERENTES do portal) */
 const GERENTE_BASE = 'Hozana Galvão Jannuzzi';
 /** gerir a conta vai até a hierarquia Editor; Colaborador e Visualizador só leem */
@@ -183,7 +184,9 @@ export default async function rotasEmpresas(app: FastifyInstance) {
     const dias = empDias(e);
     const crs = e.turmaCurso ? b.cursos.find((c) => c.name === e.turmaCurso) : undefined;
     let dados: unknown;
-    if (aba === 'geral') {
+    if (aba === 'contratos') {
+      dados = { empresaId: e.id };
+    } else if (aba === 'geral') {
       const pct = d.contratadas ? Math.round((d.consumo / d.contratadas) * 100) : 0;
       dados = {
         stats: [
@@ -325,6 +328,7 @@ export default async function rotasEmpresas(app: FastifyInstance) {
       aba,
       dados,
       podeGerir: podeGerir(u),
+      veContratos: podeChave(u, 'acFechamento') || podeChave(u, 'acFunil'),
       form: {
         nome: e.nome,
         cnpj: e.cnpj,

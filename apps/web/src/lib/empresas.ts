@@ -49,7 +49,7 @@ export type EmpresaForm = {
   rhTelefone: string;
   endereco: Endereco;
 };
-export type AbaEmpresa = 'geral' | 'alunos' | 'historico';
+export type AbaEmpresa = 'geral' | 'alunos' | 'contratos' | 'historico';
 export type GeralEmp = {
   stats: { valor: string; rotulo: string; tom?: Tom; sub?: string }[];
   alertas: string[];
@@ -93,6 +93,8 @@ export type FichaEmpresa = {
   aba: AbaEmpresa;
   dados: GeralEmp | AlunosEmp | HistoricoEmp;
   podeGerir: boolean;
+  /** aba Contratos (Deal) */
+  veContratos: boolean;
   form: EmpresaForm;
   renovar: { fim: string; fimAtual: string; licencas: number; valor: number };
 };

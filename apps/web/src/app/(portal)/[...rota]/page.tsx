@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { TELA_CADASTRO, TelaCadastro } from '@/components/cadastro/cadastro';
+import { TelaOfertas, TelaPresets } from '@/components/deal/financeiro';
 import { Aviso, PageHead } from '@/components/ds';
 import { SecaoAbas } from '@/components/secao-abas';
 import { inicioDe, itemDoCaminho } from '@/components/shell/sidebar';
@@ -39,6 +40,12 @@ export default function TelaPendente() {
         </Aviso>
       </>
     );
+  }
+
+  /* Produtos e serviços › Ofertas (Deal, 23/09/2026) */
+  if (folha && (folha.tela === 'dlOfertas' || folha.tela === 'dlPresets')) {
+    const Tela = folha.tela === 'dlOfertas' ? TelaOfertas : TelaPresets;
+    return <Tela abas={item.secoes ? <SecaoAbas item={item} tela={folha.tela} /> : null} />;
   }
 
   if (folha && TELA_CADASTRO[folha.tela])

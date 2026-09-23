@@ -81,14 +81,25 @@ describe('menu e acesso', () => {
     type N = { label: string; lugar?: string; secoes?: { etapa: string }[] };
     assert.deepEqual(
       me.nav.map((n: N) => (n.lugar ? `${n.lugar}:${n.label}` : n.label)),
-      ['Início', 'Agenda', 'Usuários', 'Produtos e serviços', 'Atividades', 'Auditoria', 'Configurações', 'conta:Engenharia'],
+      [
+        'Início',
+        'Agenda',
+        'Usuários',
+        'Produtos e serviços',
+        'Atividades',
+        'Financeiro',
+        'Auditoria',
+        'Configurações',
+        'conta:Engenharia',
+      ],
     );
     const secoes = (k: string) => me.nav.find((n: N) => n.label === k).secoes.map((x: { etapa: string }) => x.etapa);
     assert.deepEqual(secoes('Usuários'), ['Alunos', 'Equipe', 'Empresas']);
-    assert.deepEqual(secoes('Produtos e serviços'), ['Cursos', 'Materiais', 'Serviços']);
+    assert.deepEqual(secoes('Produtos e serviços'), ['Cursos', 'Materiais', 'Serviços', 'Ofertas']);
     assert.deepEqual(secoes('Configurações').slice(0, 2), ['Painel', 'Acessos']);
-    assert.equal(secoes('Atividades')[0], 'Setores');
-    assert.equal(secoes('Atividades').at(-1), 'Relatórios');
+    /* 23/09/2026: Atividades em cartões (Dashboard · Comercial · Operações) e o Financeiro do Deal */
+    assert.deepEqual(secoes('Atividades'), ['Dashboard', 'Comercial', 'Operações']);
+    assert.deepEqual(secoes('Financeiro'), ['Faturamento', 'Recebimento', 'Posição']);
   });
 
   test('professor: Agenda, Histórico de aulas e Meu perfil; o histórico é o das aulas dele', async () => {

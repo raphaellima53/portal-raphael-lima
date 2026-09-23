@@ -103,13 +103,13 @@ await passo('Produtos e serviços: catálogo, currículos e serviços', async ()
 
 await passo('Atividades reúne relatórios, financeiro e auditoria', async () => {
   await adm.getByRole('link', { name: 'Atividades' }).click();
-  /* Atividades abre no painel de cartões por setor */
-  await adm.waitForURL(/\/acoes\/atividades$/);
-  await adm.getByRole('link', { name: 'Pedagógico', exact: true }).waitFor();
+  /* Atividades abre no Dashboard (23/09/2026: Dashboard · Comercial · Operações) */
+  await adm.waitForURL(/\/acoes\/atvDash$/);
+  await adm.getByRole('heading', { name: 'Visão geral das atividades' }).waitFor();
   const abas = await adm.getByRole('tablist', { name: 'Seções' }).getByRole('tab').allInnerTexts();
-  for (const a of ['Setores', 'Pedagógico', 'Financeiro/Fiscal', 'CX', 'Relatórios']) assert.ok(abas.includes(a), a);
+  for (const a of ['Dashboard', 'Comercial', 'Operações']) assert.ok(abas.includes(a), a);
   assert.ok(!abas.includes('Auditoria'));
-  await adm.getByRole('tab', { name: 'Relatórios' }).click();
+  await adm.getByRole('tab', { name: 'Relatório por seletores' }).click();
   await adm.waitForURL(/\/relatorios\/relatorio$/);
   assert.equal(await ativo(adm), 'Atividades');
   await adm.getByRole('link', { name: 'Auditoria' }).click();
