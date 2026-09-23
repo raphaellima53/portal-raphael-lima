@@ -31,6 +31,9 @@ export type TurmaB = {
   curriculo: string;
   /** turma inativa sai da grade e da agenda */
   ativa: boolean;
+  cor: string;
+  cefr: string;
+  descricao: string;
 };
 export type CursoB = {
   id: number;
@@ -55,7 +58,21 @@ export type CursoB = {
   tipoSala: string;
   configAgenda: Record<string, string | boolean> | null;
   /** sigla, descrição e vagas de cada módulo, pelo nome */
-  modInfo: Record<string, { sigla: string; descricao: string; vagas: number | null }>;
+  modInfo: Record<
+    string,
+    {
+      sigla: string;
+      descricao: string;
+      vagas: number | null;
+      /* 24/09/2026: CEFR, regras de agenda do módulo (minutos) e a grade (dia, hora, professor) */
+      cefr: string;
+      agendamentoMin: number | null;
+      cancelamentoMin: number | null;
+      horarios: { dia: number; hora: string; professorId: string | null; prof: string | null }[];
+    }
+  >;
+  /** curso Particular: as alocações (responsável e vagas) */
+  alocacoes: { responsavel: string; vagas: number }[];
 };
 export type ProfessorB = {
   id: string;
@@ -197,7 +214,8 @@ async function carrega(): Promise<Base> {
       prisma.curso.findMany({
         orderBy: { ordem: 'asc' },
         include: {
-          modulos: { orderBy: { ordem: 'asc' } },
+          modulos: { orderBy: { ordem: 'asc' }, include: { horarios: { orderBy: [{ dia: 'asc' }, { hora: 'asc' }] } } },
+          alocacoes: { orderBy: { ordem: 'asc' } },
           turmas: { orderBy: { ordem: 'asc' }, include: { professor: { select: { nome: true } } } },
         },
       }),
@@ -260,8 +278,25 @@ async function carrega(): Promise<Base> {
       tipoSala: c.tipoSala,
       configAgenda: (c.configAgenda as Record<string, string | boolean> | null) ?? null,
       modInfo: Object.fromEntries(
-        c.modulos.map((m) => [m.nome, { sigla: m.sigla, descricao: m.descricao, vagas: m.vagas }]),
+        c.modulos.map((m) => [
+          m.nome,
+          {
+            sigla: m.sigla,
+            descricao: m.descricao,
+            vagas: m.vagas,
+            cefr: m.cefr,
+            agendamentoMin: m.agendamentoMin,
+            cancelamentoMin: m.cancelamentoMin,
+            horarios: m.horarios.map((h) => ({
+              dia: h.dia,
+              hora: h.hora,
+              professorId: h.professorId,
+              prof: professores.find((p) => p.id === h.professorId)?.nome ?? null,
+            })),
+          },
+        ]),
       ),
+      alocacoes: c.alocacoes.map((x) => ({ responsavel: x.responsavel, vagas: x.vagas })),
       turmas: c.turmas.map((t) => ({
         id: t.id,
         name: t.nome,
@@ -275,6 +310,9 @@ async function carrega(): Promise<Base> {
         periodo: t.periodo,
         curriculo: t.curriculo,
         ativa: t.ativa,
+        cor: t.cor,
+        cefr: t.cefr,
+        descricao: t.descricao,
       })),
     };
   });

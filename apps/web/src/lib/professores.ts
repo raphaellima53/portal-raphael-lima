@@ -76,6 +76,9 @@ export type FichaProf = {
   pode: { editar: boolean; desativar: boolean; como: boolean; operar: boolean; agenda: boolean; alunos: boolean };
 };
 export type ProfForm = PessoaExtra & {
+  /** 24/09/2026 */
+  cnpj: string;
+  admissao: string;
   cpf: string;
   skills: string[];
   nome: string;

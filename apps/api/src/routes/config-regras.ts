@@ -33,7 +33,15 @@ import docInfo from '../domain/dados/doc-info.json' with { type: 'json' };
 import { TELAS_MAPA } from '../domain/mapa.ts';
 import { hrefProf, hrefTela } from '../domain/rotas.ts';
 import { fmt } from '../lib/fmt.ts';
-import { diaUTC as diaOuNulo, isoUTC, PessoaIn, pessoaDoBanco, pessoaParaBanco } from '../lib/pessoa.ts';
+import {
+  CnpjIn,
+  diaUTC as diaOuNulo,
+  faltando,
+  isoUTC,
+  PessoaIn,
+  pessoaDoBanco,
+  pessoaParaBanco,
+} from '../lib/pessoa.ts';
 import { cfgLog, erro400, exigeCfg } from './config-acessos.ts';
 
 const diaUTC = (iso: string) => new Date(`${iso}T00:00:00Z`);
@@ -70,6 +78,9 @@ const ColabIn = z.object({
     .regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Data de admissão inválida.')
     .default(''),
   ...PessoaIn.shape,
+  /* 24/09/2026: Novo colaborador ou Novo prestador (este com CNPJ) */
+  vinculo: z.enum(['Colaborador', 'Prestador']).default('Colaborador'),
+  cnpj: CnpjIn,
 });
 const CatIn = z.object({
   nome: Nome,
@@ -114,6 +125,8 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
         ativo: c.ativo,
         cpf: c.cpf,
         admissao: isoUTC(c.admissao),
+        vinculo: c.vinculo,
+        cnpj: c.cnpj,
         ...pessoaDoBanco(c),
       })),
       cargos: cargos.filter((c) => c.ativo).map((c) => ({ nome: c.nome, departamento: c.departamento })),
@@ -124,6 +137,16 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
     if (!r.success) return { erro: r.error.issues[0].message };
     const v = r.data;
     if (!v.nome) return { erro: 'Preencha o nome completo.' };
+    if (!id) {
+      const falta = faltando([
+        [!!v.cpf, 'Informe o CPF.'],
+        [v.vinculo !== 'Prestador' || !!v.cnpj, 'Informe o CNPJ.'],
+        [!!v.email, 'Informe o e-mail primário.'],
+        [!!v.telefone, 'Informe o contato.'],
+        [!!v.admissao, 'Informe a data de admissão.'],
+      ]);
+      if (falta) return { erro: falta };
+    }
     if (!z.string().email().safeParse(v.email).success) return { erro: 'Informe um e-mail válido.' };
     const outro = await prisma.colaborador.findUnique({ where: { email: v.email } });
     if (outro && outro.id !== id) return { erro: `${v.email} já é de ${outro.nome}.` };
@@ -136,6 +159,8 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
       ativo: v.ativo,
       cpf: v.cpf,
       admissao: diaOuNulo(v.admissao),
+      vinculo: v.vinculo,
+      cnpj: v.vinculo === 'Prestador' ? v.cnpj : '',
       ...pessoaParaBanco(v),
     };
     if (id) {
@@ -268,7 +293,7 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
     if (id && !x) return rep.code(404).send({ erro: `${cap(c.um)} não encontrado.` });
     if (itens.some((i) => i.id !== id && normaliza(i.nome) === normaliza(v.nome)))
       return rep.code(400).send({ erro: `Já existe ${c.um} com esse nome.` });
-    if (k === 'cargos' && !v.departamento) return rep.code(400).send({ erro: 'Escolha o departamento.' });
+    /* 24/09/2026: Novo cargo pede só nome e descrição; o departamento é opcional (vazio = —) */
     const antes = x?.nome ?? '';
     if (k === 'departamentos') {
       const data = { nome: v.nome, descricao: v.descricao, ativo: v.ativo };
@@ -279,7 +304,7 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
         await prisma.cargo.updateMany({ where: { departamento: antes }, data: { departamento: v.nome } });
       }
     } else if (k === 'cargos') {
-      const data = { nome: v.nome, departamento: v.departamento, descricao: v.descricao, ativo: v.ativo };
+      const data = { nome: v.nome, departamento: v.departamento || '—', descricao: v.descricao, ativo: v.ativo };
       if (x) await prisma.cargo.update({ where: { id: x.id }, data });
       else await prisma.cargo.create({ data: { ...data, ordem: itens.length } });
       if (x && antes !== v.nome)

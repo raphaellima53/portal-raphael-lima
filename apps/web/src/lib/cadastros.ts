@@ -91,7 +91,14 @@ export type Endereco = {
   cidade: string;
   uf: string;
 };
-export type PessoaExtra = { telefone: string; nascimento: string; genero: string; endereco: Endereco };
+export type PessoaExtra = {
+  telefone: string;
+  nascimento: string;
+  genero: string;
+  endereco: Endereco;
+  /** 24/09/2026 */
+  emailSecundario: string;
+};
 export const ENDERECO_VAZIO: Endereco = {
   cep: '',
   rua: '',
@@ -101,4 +108,10 @@ export const ENDERECO_VAZIO: Endereco = {
   cidade: '',
   uf: '',
 };
-export const PESSOA_VAZIA: PessoaExtra = { telefone: '', nascimento: '', genero: '', endereco: ENDERECO_VAZIO };
+export const PESSOA_VAZIA: PessoaExtra = {
+  telefone: '',
+  nascimento: '',
+  genero: '',
+  endereco: ENDERECO_VAZIO,
+  emailSecundario: '',
+};

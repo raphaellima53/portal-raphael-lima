@@ -33,39 +33,46 @@ const ativo = (pg) => pg.locator('nav[aria-label="Menu principal"] a[aria-curren
 
 const adm = await entra('admin@alumni.teste', 'alumni-admin');
 
-await passo('Admin: Início · A Agenda · B Usuários · C Produtos e serviços · D Atividades · E Auditoria · F Configurações', async () => {
-  await adm.getByRole('heading', { name: 'Dashboard' }).waitFor();
-  assert.deepEqual(await menu(adm), [
-    'Início',
-    'Agenda',
-    'Usuários',
-    'Produtos e serviços',
-    'Atividades',
-    'Auditoria',
-    'Configurações',
-  ]);
-  /* rodapé: Central de ajuda; Meu perfil e Trocar senha no menu da conta */
-  await adm.getByRole('button', { name: 'Central de ajuda' }).click();
-  await adm.waitForURL(/\/central-de-ajuda$/);
-  await adm.getByText('Onde fica cada coisa no menu?').waitFor();
-  await adm.getByRole('button', { name: 'Opções da conta' }).click();
-  await adm.getByRole('menuitem', { name: 'Meu perfil' }).click();
-  await adm.waitForURL(/\/meu-perfil$/);
-  await adm.getByText('Conta de acesso').waitFor();
-});
+await passo(
+  'Admin: Início · A Agenda · B Usuários · C Produtos e serviços · D Atividades · E Auditoria · F Configurações',
+  async () => {
+    await adm.getByRole('heading', { name: 'Dashboard' }).waitFor();
+    assert.deepEqual(await menu(adm), [
+      'Início',
+      'Produtos e serviços',
+      'Usuários',
+      'Agenda',
+      'Atividades',
+      'Financeiro',
+      'Auditoria',
+      'Configurações',
+    ]);
+    /* rodapé: Central de ajuda; Meu perfil e Trocar senha no menu da conta */
+    await adm.getByRole('button', { name: 'Central de ajuda' }).click();
+    await adm.waitForURL(/\/central-de-ajuda$/);
+    await adm.getByText('Onde fica cada coisa no menu?').waitFor();
+    await adm.getByRole('button', { name: 'Opções da conta' }).click();
+    await adm.getByRole('menuitem', { name: 'Meu perfil' }).click();
+    await adm.waitForURL(/\/meu-perfil$/);
+    await adm.getByText('Conta de acesso').waitFor();
+  },
+);
 
 await passo('Usuários abre Alunos com as abas das pessoas; a ficha mantém o menu aceso', async () => {
   await adm.getByRole('link', { name: 'Usuários' }).click();
   await adm.waitForURL(/\/alunos$/);
   const abas = await adm.getByRole('tablist', { name: 'Seções' }).getByRole('tab').allInnerTexts();
-  assert.deepEqual(abas, ['Alunos', 'Equipe', 'Empresas']);
+  assert.deepEqual(abas, ['Alunos', 'Time', 'Departamentos', 'Cargos', 'Empresas']);
   /* o ID do cadastro vem antes do nome, com 5 dígitos */
   await adm.getByText(/^Mostrando 1–10 de/).waitFor();
   const linha1 = await adm.locator('main table tbody tr').first().locator('td').allInnerTexts();
   assert.match(linha1[0], /^\d{5}$/);
   await adm.getByRole('tab', { name: 'Empresas' }).click();
   await adm.waitForURL(/\/empresas$/);
-  await adm.getByRole('cell', { name: /^E\d{4}$/ }).first().waitFor();
+  await adm
+    .getByRole('cell', { name: /^E\d{4}$/ })
+    .first()
+    .waitFor();
   await adm.goto(`${BASE}/professores/p1/perfil`);
   await adm.getByText('Cursos e avaliação').waitFor();
   assert.equal(await ativo(adm), 'Usuários');
@@ -73,13 +80,13 @@ await passo('Usuários abre Alunos com as abas das pessoas; a ficha mantém o me
 
 await passo('Equipe: professores e colaboradores numa lista só, em ordem alfabética', async () => {
   await adm.getByRole('link', { name: 'Usuários' }).click();
-  await adm.getByRole('tab', { name: 'Equipe' }).click();
+  await adm.getByRole('tab', { name: 'Time' }).click();
   await adm.waitForURL(/\/equipe$/);
-  await adm.getByRole('heading', { name: 'Equipe' }).waitFor();
+  await adm.getByRole('heading', { name: 'Time' }).waitFor();
   await adm.getByRole('combobox', { name: 'Itens por página' }).click();
   await adm.getByRole('option', { name: '50' }).click();
   await adm.waitForTimeout(300);
-  const linhas = adm.locator('main table[aria-label="Equipe"] tbody tr');
+  const linhas = adm.locator('main table[aria-label="Time"] tbody tr');
   /* colunas: ID · Nome (com o e-mail embaixo) · Tipo */
   const nomes = (await linhas.locator('td:nth-child(2)').allInnerTexts()).map((t) => t.split('\n')[0]);
   const tipos = await linhas.locator('td:nth-child(3)').allInnerTexts();
@@ -94,7 +101,7 @@ await passo('Produtos e serviços: catálogo, currículos e serviços', async ()
   await adm.getByRole('link', { name: 'Produtos e serviços' }).click();
   await adm.waitForURL(/\/cursos$/);
   const abasP = await adm.getByRole('tablist', { name: 'Seções' }).getByRole('tab').allInnerTexts();
-  assert.deepEqual(abasP, ['Cursos', 'Materiais', 'Serviços']);
+  assert.deepEqual(abasP, ['Cursos', 'Ofertas', 'Materiais', 'Serviços']);
   await adm.getByRole('tab', { name: 'Serviços' }).click();
   await adm.waitForURL(/\/produtos\/servicos$/);
   await adm.getByText('Os serviços (atendimento, acompanhamento e consultoria)').waitFor();
@@ -227,7 +234,10 @@ await passo('Equipe: o cadastro do colaborador mostra o Acesso ao portal', async
   await adm.goto(`${BASE}/equipe`);
   await adm.getByRole('combobox', { name: 'Tipo' }).click();
   await adm.getByRole('option', { name: 'Colaboradores' }).click();
-  await adm.getByRole('button', { name: /^Editar / }).first().click();
+  await adm
+    .getByRole('button', { name: /^Editar / })
+    .first()
+    .click();
   await adm.getByRole('dialog').getByRole('heading', { name: 'Acesso ao portal' }).waitFor();
   await adm.keyboard.press('Escape');
 });

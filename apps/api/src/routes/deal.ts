@@ -10,6 +10,7 @@ import { podeAcao } from '../domain/acesso.ts';
 import { agAulasEntre, alMat, alSit, fxPresenca } from '../domain/agenda.ts';
 import {
   cnpjFmt,
+  criaPedido,
   ctVig,
   DEAL_FORMAS,
   DEAL_PRESETS,
@@ -398,46 +399,23 @@ export default async function rotasDeal(app: FastifyInstance) {
       v.tipo === 'B2B2C' && a.empresa
         ? c.contratos.find((x) => x.empresa === a.empresa && x.status === 'Ativo')
         : undefined;
-    const hoje = new Date();
-    const p = await prisma.pedido.create({
-      data: {
-        data: hoje,
-        alunoId: a.id,
-        cliente: a.name,
-        curso: of.curso,
-        ofertaId: of.id,
-        ofertaNome: of.nome,
-        total,
-        forma: v.forma,
-        parcelas: v.parcelas,
-        preset: v.preset,
-        tipo: v.tipo,
-        contratoId: ct?.id ?? null,
-        vendedor: v.vendedor,
-        renovacao: v.preset === 'B2C_RENOVACAO',
-        cupom: cp?.codigo ?? '',
-        desconto: desc,
-        chave: 'novo|',
-        obs: v.obs,
-        hist: [histDeal(u.nome, 'Venda criada', `para ${a.name} por ${v.vendedor}, pelo Novo pedido`)],
-      },
+    const p = await criaPedido({
+      alunoId: a.id,
+      cliente: a.name,
+      oferta: of,
+      total,
+      forma: v.forma,
+      parcelas: v.parcelas,
+      preset: v.preset,
+      tipo: v.tipo,
+      contrato: ct ?? null,
+      vendedor: v.vendedor,
+      cupom: cp?.codigo ?? '',
+      desconto: desc,
+      obs: v.obs,
+      autor: u.nome,
+      origem: 'pelo Novo pedido',
     });
-    const chave = `novo|${p.id}`;
-    await prisma.pedido.update({ where: { id: p.id }, data: { chave } });
-    /* cronograma: vence dia 10; a 1ª parcela no cartão já entra paga (o gateway cobra na hora) */
-    await prisma.parcelaPedido.createMany({
-      data: Array.from({ length: v.parcelas }, (_, k) => ({
-        chave: `${chave}|${k}`,
-        pedidoId: p.id,
-        n: k + 1,
-        de: v.parcelas,
-        venc: new Date(hoje.getFullYear(), hoje.getMonth() + k + (hoje.getDate() > 10 ? 1 : 0), 10),
-        valor: Math.round((total / v.parcelas) * 100) / 100,
-        pago: k === 0 && v.forma !== 3 ? hoje : null,
-      })),
-    });
-    if (ct && !ct.benef.includes(a.id))
-      await prisma.contratoEmpresa.update({ where: { id: ct.id }, data: { benef: [...ct.benef, a.id] } });
     await log(u, `pedido-${p.id}`, a.name, 'Venda criada', `${of.nome} · ${R(total)}`);
     return { id: p.id, msg: `Pedido #${p.id} criado para ${a.name}: ${R(total)} em ${v.parcelas}x.` };
   });
@@ -1128,11 +1106,13 @@ export default async function rotasDeal(app: FastifyInstance) {
   });
 
   /* ================= PRODUTOS E SERVIÇOS › OFERTAS ================= */
-  app.get('/deal/ofertas', { preHandler: exige(DEAL_CH.cat, DEAL_CH.vendas) }, async () => {
+  app.get('/deal/ofertas', { preHandler: exige(DEAL_CH.cat, DEAL_CH.vendas) }, async (req) => {
     const c = await dealCtx();
     const pend = (o: DealCtx['ofertas'][number]) =>
       !o.planoVindi && o.faturamento === 'Gateway' ? ['sem plano na Vindi'] : [];
     return {
+      podeCriar: podeOperar(req.usuario!) && podeChave(req.usuario!, DEAL_CH.cat),
+      cursos: c.b.cursos.filter((x) => x.active !== false).map((x) => x.name),
       stats: [
         { v: String(c.ofertas.filter((o) => o.ativa).length), l: 'ativas' },
         {
@@ -1160,6 +1140,49 @@ export default async function rotasDeal(app: FastifyInstance) {
       })),
     };
   });
+  /* Produtos e serviços › Ofertas › Nova oferta (24/09/2026): curso, horas ofertadas, valor e vigência em meses */
+  app.post('/deal/ofertas', { preHandler: [exige(DEAL_CH.cat), operar] }, async (req, rep) => {
+    const u = req.usuario!;
+    const r = z
+      .object({
+        curso: z.string().min(1, 'Escolha o curso.'),
+        horas: z.number().int().min(1, 'Informe as horas ofertadas.').max(2000),
+        valor: z.number().positive('Informe o valor.').max(10_000_000),
+        meses: z.number().int().min(1, 'Informe a vigência em meses.').max(60),
+        mercado: z.enum(['B2C', 'B2B2C', 'B2B']).default('B2C'),
+      })
+      .safeParse(req.body);
+    if (!r.success) return erro400(rep, r.error);
+    const v = r.data;
+    const c = await prisma.curso.findFirst({ where: { nome: v.curso } });
+    if (!c) return rep.code(400).send({ erro: 'Curso não encontrado.' });
+    await dealCtx();
+    const base0 =
+      `${c.nome.replace(/[^A-Za-z]/g, '').slice(0, 4)}-${v.horas}H${v.mercado === 'B2B2C' ? '-EMP' : v.mercado === 'B2B' ? '-B2B' : ''}`.toUpperCase();
+    let codigo = base0;
+    for (let i = 2; await prisma.ofertaPadrao.findUnique({ where: { codigo } }); i++) codigo = `${base0}-${i}`;
+    const turma = c.estrutura === 'turmas';
+    const o = await prisma.ofertaPadrao.create({
+      data: {
+        codigo,
+        nome: `${turma ? 'Contrato de turma' : 'Pacote de aulas'} ${c.nome} · ${v.horas} horas (em até ${v.meses} ${v.meses === 1 ? 'mês' : 'meses'})`,
+        curso: c.nome,
+        aulas: v.horas,
+        meses: v.meses,
+        preco: v.valor,
+        parcelasMax: Math.min(12, v.meses),
+        recorrente: false,
+        forma: v.mercado === 'B2B' ? 4 : 1,
+        faturamento: v.mercado === 'B2B' ? 'Faturado contra NF' : 'Gateway',
+        mercado: v.mercado,
+        nicho: v.mercado === 'B2C' ? 'Pessoa física' : v.mercado === 'B2B2C' ? 'Benefício corporativo' : 'Empresas',
+        itens: [{ tipologia: 'Serviço', produto: 'Aulas ao vivo', curso: c.nome }],
+      },
+    });
+    await log(u, `oferta-${o.id}`, o.nome, 'Oferta criada', `${o.codigo} · ${R(v.valor)}`);
+    return { id: o.id, msg: `Oferta ${o.codigo} criada.` };
+  });
+
   app.get('/deal/presets', { preHandler: exige(DEAL_CH.cat, DEAL_CH.vendas) }, async () => {
     const c = await dealCtx();
     return {

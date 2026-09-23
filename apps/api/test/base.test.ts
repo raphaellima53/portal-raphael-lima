@@ -83,9 +83,9 @@ describe('menu e acesso', () => {
       me.nav.map((n: N) => (n.lugar ? `${n.lugar}:${n.label}` : n.label)),
       [
         'Início',
-        'Agenda',
-        'Usuários',
         'Produtos e serviços',
+        'Usuários',
+        'Agenda',
         'Atividades',
         'Financeiro',
         'Auditoria',
@@ -94,8 +94,8 @@ describe('menu e acesso', () => {
       ],
     );
     const secoes = (k: string) => me.nav.find((n: N) => n.label === k).secoes.map((x: { etapa: string }) => x.etapa);
-    assert.deepEqual(secoes('Usuários'), ['Alunos', 'Equipe', 'Empresas']);
-    assert.deepEqual(secoes('Produtos e serviços'), ['Cursos', 'Materiais', 'Serviços', 'Ofertas']);
+    assert.deepEqual(secoes('Usuários'), ['Alunos', 'Time', 'Departamentos', 'Cargos', 'Empresas']);
+    assert.deepEqual(secoes('Produtos e serviços'), ['Cursos', 'Ofertas', 'Materiais', 'Serviços']);
     assert.deepEqual(secoes('Configurações').slice(0, 2), ['Painel', 'Acessos']);
     /* 23/09/2026: Atividades em cartões (Dashboard · Comercial · Operações) e o Financeiro do Deal */
     assert.deepEqual(secoes('Atividades'), ['Dashboard', 'Comercial', 'Operações']);

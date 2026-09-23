@@ -108,6 +108,20 @@ export type Grade = {
     ocupacao: string;
   }[];
 };
+/** regra de agenda (24/09/2026): valor em minutos ou horas */
+export type Tempo = { valor: number; unidade: 'min' | 'h' };
+/** módulo (Open-Entry) ou turma (Regular) do Novo curso */
+export type ItemCurso = {
+  nome: string;
+  cor: string;
+  sigla: string;
+  descricao: string;
+  vagas: number | null;
+  cefr: string;
+  agendamento: Tempo | null;
+  cancelamento: Tempo | null;
+  horarios: { dia: number; hora: string; professorId: string }[];
+};
 export type CursoForm = {
   nome: string;
   descricao: string;
@@ -115,7 +129,9 @@ export type CursoForm = {
   tipo: string;
   estrutura: 'modulos' | 'turmas' | 'nenhuma';
   cor: string;
-  itens: { nome: string; cor: string; sigla: string; descricao: string; vagas: number | null }[];
+  itens: ItemCurso[];
+  /** curso Particular: alocações */
+  alocacoes: { responsavel: string; vagas: number }[];
   autoAgenda: boolean;
   ativo: boolean;
   /* adequação ao Portal Alumni */
@@ -125,7 +141,14 @@ export type CursoForm = {
   tipoSala: string;
 };
 export type Aba = 'geral' | 'regras' | 'curriculo' | 'grade';
-export type OpcoesCurso = { idiomas: string[]; tipos: string[]; visibilidades: string[]; tiposSala: string[] };
+export type OpcoesCurso = {
+  idiomas: string[];
+  tipos: string[];
+  visibilidades: string[];
+  tiposSala: string[];
+  cefr: string[];
+  professores: { v: string; l: string }[];
+};
 export type CursoResp = {
   id: number;
   nome: string;

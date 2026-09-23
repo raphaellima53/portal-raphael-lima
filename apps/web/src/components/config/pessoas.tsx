@@ -6,6 +6,7 @@ import { AcessoDaPessoa, type AcessoPessoa } from '@/components/acesso-pessoa';
 import { CampoData } from '@/components/campos-data';
 import { PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { mascaraCnpj, mascaraCpf } from '@/components/mascaras';
 import { usePaginacao } from '@/components/paginacao';
 import { CamposEndereco, CamposPessoa } from '@/components/pessoa-campos';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
-import { PESSOA_VAZIA, type PessoaExtra, useCatalogos } from '@/lib/cadastros';
+import { PESSOA_VAZIA, type PessoaExtra } from '@/lib/cadastros';
 import { type Catalogo, type Colaboradores, useAcaoCfg, useCfg } from '@/lib/config';
 import { AvisoMsg, Barra, Busca, Campo, Chave, ErroQ, FormDialog, type Msg, normaliza, Vazio } from './comum';
 
@@ -40,12 +41,6 @@ const Situacao = ({
 const StatusBadge = ({ ativo, fem }: { ativo: boolean; fem?: boolean }) => (
   <Badge tom={ativo ? 'green' : 'gray'}>{ativo ? (fem ? 'Ativa' : 'Ativo') : fem ? 'Inativa' : 'Inativo'}</Badge>
 );
-const cpfMascara = (v: string) => {
-  const d = v.replace(/\D/g, '').slice(0, 11);
-  return (
-    [d.slice(0, 3), d.slice(3, 6), d.slice(6, 9)].filter(Boolean).join('.') + (d.length > 9 ? `-${d.slice(9)}` : '')
-  );
-};
 const Novo = ({ rotulo, aoClicar }: { rotulo: string; aoClicar: () => void }) => (
   <Button variant="primary" onClick={aoClicar}>
     <PlusIcon /> {rotulo}
@@ -57,32 +52,35 @@ export { Novo, passaSit, Situacao, StatusBadge };
 /* ================= Colaboradores (a lista mora em Usuários › Equipe, junto dos professores) ================= */
 export type ColabLinha = Colaboradores['linhas'][number];
 
-/** Cadastro e edição de colaborador: abre com a linha (editar) ou com null (novo). */
+/**
+ * Novo colaborador e Novo prestador (24/09/2026): Nome, CPF, e-mail primário, contato e admissão obrigatórios
+ * (o prestador também com CNPJ); e-mail secundário, nascimento e endereço opcionais; cargo e situação por último.
+ * Abre com a linha (editar) ou com null (novo) e o vínculo.
+ */
 export function ColaboradorFormDialog({
   abre,
   cargos,
   aoFechar,
   aoSalvo,
 }: {
-  abre: { linha: ColabLinha | null } | null;
+  abre: { linha: ColabLinha | null; vinculo?: 'Colaborador' | 'Prestador' } | null;
   cargos: Colaboradores['cargos'];
   aoFechar: () => void;
   aoSalvo: (msg: string) => void;
 }) {
   const acao = useAcaoCfg();
-  const [form, setForm] = useState<
-    | ({
-        id: number | null;
-        nome: string;
-        email: string;
-        cargo: string;
-        ativo: boolean;
-        cpf: string;
-        admissao: string;
-      } & PessoaExtra)
-    | null
-  >(null);
-  const cats = useCatalogos(['genders'], !!abre);
+  type F = {
+    id: number | null;
+    nome: string;
+    email: string;
+    cargo: string;
+    ativo: boolean;
+    cpf: string;
+    cnpj: string;
+    admissao: string;
+    vinculo: 'Colaborador' | 'Prestador';
+  } & PessoaExtra;
+  const [form, setForm] = useState<F | null>(null);
   const [erro, setErro] = useState('');
   const [aberto, setAberto] = useState<typeof abre>(null);
   if (abre !== aberto) {
@@ -100,17 +98,43 @@ export function ColaboradorFormDialog({
               cargo: c.cargo === '—' ? '' : c.cargo,
               ativo: c.ativo,
               cpf: c.cpf,
+              cnpj: c.cnpj ?? '',
               admissao: c.admissao,
+              vinculo: c.vinculo ?? 'Colaborador',
               telefone: c.telefone,
               nascimento: c.nascimento,
               genero: c.genero,
               endereco: c.endereco,
+              emailSecundario: c.emailSecundario ?? '',
             }
-          : { id: null, nome: '', email: '', cargo: '', ativo: true, cpf: '', admissao: '', ...PESSOA_VAZIA },
+          : {
+              id: null,
+              nome: '',
+              email: '',
+              cargo: '',
+              ativo: true,
+              cpf: '',
+              cnpj: '',
+              admissao: '',
+              vinculo: abre.vinculo ?? 'Colaborador',
+              ...PESSOA_VAZIA,
+            },
     );
   }
-  const salvar = () =>
-    form &&
+  const novo = !form?.id;
+  const prest = form?.vinculo === 'Prestador';
+  const salvar = () => {
+    if (!form) return;
+    if (novo) {
+      const falta =
+        (!form.nome.trim() && 'Informe o nome.') ||
+        (form.cpf.length !== 11 && 'Informe o CPF (11 dígitos).') ||
+        (prest && form.cnpj.length !== 14 && 'Informe o CNPJ (14 dígitos).') ||
+        (!form.email && 'Informe o e-mail primário.') ||
+        (!form.telefone && 'Informe o contato.') ||
+        (!form.admissao && 'Informe a admissão.');
+      if (falta) return setErro(falta);
+    }
     acao.mutate(
       {
         caminho: form.id ? `/colaboradores/${form.id}` : '/colaboradores',
@@ -125,21 +149,23 @@ export function ColaboradorFormDialog({
         onError: (e) => setErro(e.message),
       },
     );
+  };
   const dep = cargos.find((c) => c.nome === form?.cargo)?.departamento;
+  const quem = prest ? 'prestador' : 'colaborador';
 
   return (
     <FormDialog
       aberto={!!form}
       aoFechar={aoFechar}
-      titulo={form?.id ? 'Editar colaborador' : 'Novo colaborador'}
+      titulo={form?.id ? `Editar ${quem}` : `Novo ${quem}`}
       erro={erro}
       ocupado={acao.isPending}
-      rotuloOk={form?.id ? 'Salvar' : 'Cadastrar'}
+      rotuloOk={form?.id ? 'Salvar' : `Cadastrar ${quem}`}
       aoSalvar={salvar}
     >
       {form && (
         <>
-          <Campo id="co-nome" rotulo="Nome completo" req className="sm:col-span-2">
+          <Campo id="co-nome" rotulo="Nome" req className="sm:col-span-2">
             <Input
               id="co-nome"
               autoFocus
@@ -147,14 +173,62 @@ export function ColaboradorFormDialog({
               onChange={(e) => setForm({ ...form, nome: e.target.value })}
             />
           </Campo>
-          <Campo id="co-email" rotulo="E-mail" req>
+          <Campo id="co-cpf" rotulo="CPF" req={novo}>
+            <Input
+              id="co-cpf"
+              inputMode="numeric"
+              placeholder="xxx.xxx.xxx-xx"
+              value={mascaraCpf(form.cpf)}
+              onChange={(e) => setForm({ ...form, cpf: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+            />
+          </Campo>
+          {prest && (
+            <Campo id="co-cnpj" rotulo="CNPJ" req={novo}>
+              <Input
+                id="co-cnpj"
+                inputMode="numeric"
+                placeholder="xx.xxx.xxx/xxxx-xx"
+                value={mascaraCnpj(form.cnpj)}
+                onChange={(e) => setForm({ ...form, cnpj: e.target.value.replace(/\D/g, '').slice(0, 14) })}
+              />
+            </Campo>
+          )}
+          <Campo id="co-email" rotulo="E-mail primário" req>
             <Input
               id="co-email"
               type="email"
+              placeholder="xxxxxx@xxxx.com"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </Campo>
+          <Campo id="co-email2" rotulo="E-mail secundário">
+            <Input
+              id="co-email2"
+              type="email"
+              placeholder="xxxxxx@xxxx.com"
+              value={form.emailSecundario}
+              onChange={(e) => setForm({ ...form, emailSecundario: e.target.value })}
+            />
+          </Campo>
+          <Campo id="co-adm" rotulo="Admissão" req={novo}>
+            <CampoData
+              id="co-adm"
+              rotulo="Admissão"
+              valor={form.admissao}
+              aoMudar={(v) => setForm({ ...form, admissao: v })}
+            />
+          </Campo>
+          <CamposPessoa
+            prefixo="co"
+            obrigatorio={novo}
+            semGenero
+            valor={form}
+            aoMudar={(p) => setForm({ ...form, ...p })}
+          />
+          <h3 className="mt-2 font-bold text-texto sm:col-span-2">Endereço</h3>
+          <CamposEndereco prefixo="co-end" valor={form.endereco} aoMudar={(e) => setForm({ ...form, endereco: e })} />
+          <h3 className="mt-2 font-bold text-texto sm:col-span-2">No time</h3>
           <Campo rotulo="Cargo" ajuda={dep ? `departamento: ${dep}` : 'o departamento vem do cargo escolhido'}>
             <Escolha
               rotulo="Cargo"
@@ -165,37 +239,12 @@ export function ColaboradorFormDialog({
               opcoes={cargos.map((c) => ({ v: c.nome, l: c.nome }))}
             />
           </Campo>
-          <Campo id="co-cpf" rotulo="CPF">
-            <Input
-              id="co-cpf"
-              inputMode="numeric"
-              placeholder="000.000.000-00"
-              value={cpfMascara(form.cpf)}
-              onChange={(e) => setForm({ ...form, cpf: e.target.value.replace(/\D/g, '').slice(0, 11) })}
-            />
-          </Campo>
-          <Campo id="co-adm" rotulo="Admissão">
-            <CampoData
-              id="co-adm"
-              rotulo="Admissão"
-              valor={form.admissao}
-              aoMudar={(v) => setForm({ ...form, admissao: v })}
-            />
-          </Campo>
-          <CamposPessoa
-            prefixo="co"
-            valor={form}
-            aoMudar={(p) => setForm({ ...form, ...p })}
-            generos={cats.data?.genders ?? []}
-          />
-          <h3 className="mt-2 font-bold text-texto sm:col-span-2">Endereço</h3>
-          <CamposEndereco prefixo="co-end" valor={form.endereco} aoMudar={(e) => setForm({ ...form, endereco: e })} />
           <Chave
             id="co-ativo"
             className="sm:col-span-2"
             on={form.ativo}
             aoMudar={(v) => setForm({ ...form, ativo: v })}
-            rotulo="Colaborador ativo"
+            rotulo={prest ? 'Prestador ativo' : 'Colaborador ativo'}
           />
           {form.id != null && <AcessoColaborador id={form.id} />}
         </>
@@ -390,10 +439,14 @@ export function TelaCatalogo({ k, abas }: { k: string; abas: React.ReactNode }) 
                   </Campo>
                 )}
                 {k === 'cargos' && (
-                  <Campo rotulo="Departamento" req className="sm:col-span-2">
+                  <Campo
+                    rotulo="Departamento"
+                    className="sm:col-span-2"
+                    ajuda="opcional — o colaborador com este cargo entra no departamento"
+                  >
                     <Escolha
                       rotulo="Departamento"
-                      todos="escolha o departamento"
+                      todos="sem departamento"
                       destacar={false}
                       valor={form.departamento}
                       aoMudar={(v) => setForm({ ...form, departamento: v })}

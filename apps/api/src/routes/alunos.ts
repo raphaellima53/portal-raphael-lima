@@ -41,6 +41,16 @@ import {
 } from '../domain/alunos.ts';
 import { BLACK_VALOR_PADRAO, folhaVeValor } from '../domain/aulas.ts';
 import { type AlunoB, type Base, base, invalidaBase } from '../domain/base.ts';
+import { criaPedido, DEAL_FORMAS, garanteDeal } from '../domain/deal.ts';
+import { GENEROS } from '../lib/pessoa.ts';
+import { CEFR } from './cursos.ts';
+
+/** ofertas padrão ativas (a primeira leitura carrega o Deal) */
+const dealOfertasAtivas = async () => {
+  await garanteDeal();
+  return prisma.ofertaPadrao.findMany({ where: { ativa: true }, orderBy: { nome: 'asc' } });
+};
+
 import {
   AnexoIn,
   avancaFeedback,
@@ -54,7 +64,7 @@ import { podeChave } from '../domain/mapa.ts';
 import { vinculosDe } from '../domain/vinculos.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
-import { diaUTC, isoUTC, PessoaIn, pessoaDoBanco, pessoaParaBanco } from '../lib/pessoa.ts';
+import { diaUTC, faltando, isoUTC, PessoaIn, pessoaDoBanco, pessoaParaBanco } from '../lib/pessoa.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
 
 /** abas da ficha: [chave, rótulo, grupo, chave de acesso quando não é aluno.<aba>] (AL_ABAS do portal) */
@@ -250,6 +260,29 @@ const AlunoIn = z.object({
     })
     .nullable()
     .optional(),
+  /* Novo aluno (24/09/2026) › Matrícula: a oferta vira a matrícula e o pedido (contrato e pagamento) */
+  matricula: z
+    .object({
+      ofertaId: z.coerce.number().int(),
+      item: z.string().nullable().default(null),
+      modalidade: z.enum(['Online', 'Presencial']).default('Online'),
+      contratoId: z.coerce.number().int().nullable().default(null),
+      forma: z.coerce.number().int().min(1).max(3).default(1),
+      parcelas: z.coerce.number().int().min(1).max(12).default(1),
+    })
+    .nullable()
+    .default(null),
+  /* › Nivelamento: CEFR e quando foi concluído (fica na matrícula) */
+  nivelamento: z
+    .object({
+      cefr: z.string().max(10),
+      concluidoEm: z
+        .string()
+        .regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Data do nivelamento inválida.')
+        .default(''),
+    })
+    .nullable()
+    .default(null),
 });
 
 type ContratoIn = NonNullable<z.infer<typeof MatriculaIn>['contrato']>;
@@ -329,6 +362,21 @@ export default async function rotasAlunos(app: FastifyInstance) {
           pacote: crsRegras(c).pacote,
         })),
       fb: { tipos: FB_TIPOS, areas: FB_AREAS, canais: FB_CANAIS, situacoes: FB_ST },
+      /* Novo aluno (24/09/2026): Matrícula (oferta, contrato, pagamento) e Nivelamento (CEFR) */
+      ofertas: (await dealOfertasAtivas()).map((o) => ({
+        id: o.id,
+        nome: o.nome,
+        curso: o.curso,
+        aulas: o.aulas,
+        parcelasMax: o.parcelasMax,
+        mercado: o.mercado,
+      })),
+      contratos: (await prisma.contratoEmpresa.findMany({ where: { status: 'Ativo' }, orderBy: { nome: 'asc' } })).map(
+        (c) => ({ id: c.id, nome: c.nome, empresa: c.empresa }),
+      ),
+      formas: DEAL_FORMAS.filter((f) => f.id !== 4).map((f) => ({ id: f.id, nome: f.nome })),
+      cefr: CEFR,
+      generos: GENEROS,
     };
   });
 
@@ -562,6 +610,26 @@ export default async function rotasAlunos(app: FastifyInstance) {
     const antes = id == null ? null : await alunoOu404(b, id, rep);
     if (id != null && !antes) return;
     const extraAntes = id == null ? null : extrasAluno(await prisma.aluno.findUniqueOrThrow({ where: { id } }));
+    /* obrigatórios do Novo aluno (24/09/2026); cadastros antigos sem eles continuam editáveis */
+    if (id == null) {
+      const falta = faltando([
+        [!!v.cpf, 'Informe o CPF.'],
+        [!!v.email, 'Informe o e-mail primário.'],
+        [!!v.telefone, 'Informe o contato.'],
+      ]);
+      if (falta) return rep.code(400).send({ erro: falta });
+    }
+    /* a Matrícula do Novo aluno sai da oferta escolhida */
+    const of = v.matricula ? await prisma.ofertaPadrao.findUnique({ where: { id: v.matricula.ofertaId } }) : null;
+    if (v.matricula && !of) return rep.code(400).send({ erro: 'Oferta não encontrada.' });
+    if (of && v.matricula)
+      v.nova = { curso: of.curso, item: v.matricula.item, modalidade: v.matricula.modalidade, total: of.aulas };
+    if (v.nivelamento?.cefr && !v.nova?.curso)
+      return rep.code(400).send({ erro: 'O nivelamento fica na matrícula: escolha a oferta.' });
+    const ct = v.matricula?.contratoId
+      ? await prisma.contratoEmpresa.findUnique({ where: { id: v.matricula.contratoId } })
+      : null;
+    if (v.matricula?.contratoId && !ct) return rep.code(400).send({ erro: 'Contrato não encontrado.' });
     let nova: ReturnType<typeof confereMatricula> | null = null;
     if (v.nova?.curso) {
       if (!(v.nova.total > 0)) return rep.code(400).send({ erro: 'Informe o pacote de aulas da nova matrícula.' });
@@ -600,7 +668,7 @@ export default async function rotasAlunos(app: FastifyInstance) {
     }
     if (nova && !('erro' in nova)) {
       const ordem = antes ? antes.matriculas.length : 0;
-      await prisma.matricula.create({
+      const mat = await prisma.matricula.create({
         data: {
           alunoId: alunoId!,
           cursoId: nova.c.id,
@@ -612,6 +680,30 @@ export default async function rotasAlunos(app: FastifyInstance) {
         },
       });
       await turmaOcupa(b, nova.c.name, nova.item, 1);
+      if (v.nivelamento?.cefr)
+        await prisma.nivelamento.create({
+          data: {
+            matriculaId: mat.id,
+            cefr: v.nivelamento.cefr,
+            concluidoEm: v.nivelamento.concluidoEm ? new Date(`${v.nivelamento.concluidoEm}T00:00:00Z`) : null,
+          },
+        });
+      /* contrato e pagamento: o pedido do Deal com as parcelas (o aluno entra como beneficiário do contrato) */
+      if (of && v.matricula)
+        await criaPedido({
+          alunoId: alunoId!,
+          cliente: v.nome,
+          oferta: of,
+          total: Number(of.preco),
+          forma: v.matricula.forma,
+          parcelas: Math.min(v.matricula.parcelas, of.parcelasMax),
+          preset: ct ? 'B2B2C_REEMBOLSO' : 'B2C_DIRETO',
+          tipo: ct ? 'B2B2C' : 'B2C',
+          contrato: ct,
+          vendedor: u.nome,
+          autor: u.nome,
+          origem: 'pelo Novo aluno',
+        });
     }
     invalidaBase();
     const nb = await base();

@@ -27,7 +27,7 @@ import {
 import { vinculosDe } from '../domain/vinculos.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
-import { PessoaIn, pessoaDoBanco, pessoaParaBanco } from '../lib/pessoa.ts';
+import { CnpjIn, diaUTC, faltando, isoUTC, PessoaIn, pessoaDoBanco, pessoaParaBanco } from '../lib/pessoa.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
 
 /** abas da ficha: [chave, rótulo, grupo, chave de acesso quando não é prof.<aba>] (PR_ABAS do portal) */
@@ -126,6 +126,12 @@ const ProfIn = z.object({
     .default(''),
   ...PessoaIn.shape,
   skills: z.array(z.string().max(80)).max(40).default([]),
+  /* 24/09/2026 (Novo professor): CNPJ e admissão */
+  cnpj: CnpjIn,
+  admissao: z
+    .string()
+    .regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Data de admissão inválida.')
+    .default(''),
 });
 
 export default async function rotasProfessores(app: FastifyInstance) {
@@ -278,6 +284,8 @@ export default async function rotasProfessores(app: FastifyInstance) {
       cursos: t.cursos,
       ativo: t.active,
       cpf: db.cpf,
+      cnpj: db.cnpj,
+      admissao: isoUTC(db.admissao),
       skills: db.skills,
       ...pessoaDoBanco(db),
     };
@@ -294,6 +302,16 @@ export default async function rotasProfessores(app: FastifyInstance) {
     if (id && !antes) return;
     if (b.professores.some((x) => x !== antes && x.name.toLowerCase() === v.nome.toLowerCase()))
       return rep.code(409).send({ erro: 'Já existe um professor com esse nome.' });
+    if (id == null) {
+      const falta = faltando([
+        [!!v.cpf, 'Informe o CPF.'],
+        [!!v.cnpj, 'Informe o CNPJ.'],
+        [!!v.email, 'Informe o e-mail primário.'],
+        [!!v.telefone, 'Informe o contato.'],
+        [!!v.admissao, 'Informe a data de admissão.'],
+      ]);
+      if (falta) return rep.code(400).send({ erro: falta });
+    }
     const validos = b.cursos.map((c) => c.name);
     const cursos = validos.filter((c) => v.cursos.includes(c));
     if (antes) {
@@ -318,6 +336,8 @@ export default async function rotasProfessores(app: FastifyInstance) {
           cursos,
           habilitacao: habil && Object.keys(habil).length ? habil : undefined,
           cpf: v.cpf,
+          cnpj: v.cnpj,
+          admissao: diaUTC(v.admissao),
           skills: v.skills,
           ...pessoaParaBanco(v),
         },
@@ -377,6 +397,8 @@ export default async function rotasProfessores(app: FastifyInstance) {
         disponibilidade: [],
         ordem: Math.max(0, ...todos.map((x) => x.ordem)) + 1,
         cpf: v.cpf,
+        cnpj: v.cnpj,
+        admissao: diaUTC(v.admissao),
         skills: v.skills,
         ...pessoaParaBanco(v),
       },

@@ -39,6 +39,10 @@ export const PessoaIn = z.object({
     .default(''),
   genero: z.string().trim().max(80).default(''),
   endereco: EnderecoIn,
+  /* 24/09/2026: e-mail secundário de aluno, professor e colaborador */
+  emailSecundario: z
+    .union([z.literal(''), z.string().trim().toLowerCase().email('E-mail secundário inválido.').max(200)])
+    .default(''),
 });
 export type Pessoa = z.infer<typeof PessoaIn>;
 
@@ -58,6 +62,7 @@ export const pessoaParaBanco = (p: Pessoa) => ({
   nascimento: diaUTC(p.nascimento),
   genero: p.genero || null,
   endereco: vazio(p.endereco) ? undefined : p.endereco,
+  emailSecundario: p.emailSecundario,
 });
 
 /** das colunas do banco para o formulário */
@@ -66,7 +71,9 @@ export const pessoaDoBanco = (x: {
   nascimento?: Date | null;
   genero?: string | null;
   endereco?: unknown;
+  emailSecundario?: string | null;
 }): Pessoa => ({
+  emailSecundario: x.emailSecundario ?? '',
   telefone: x.telefone ?? '',
   nascimento: isoUTC(x.nascimento),
   genero: x.genero ?? '',
@@ -87,3 +94,15 @@ export const enderecoTxt = (e: unknown) => {
     .filter(Boolean)
     .join(' · ');
 };
+
+/** CNPJ: vazio ou 14 dígitos (o banco guarda só os dígitos) */
+export const CnpjIn = z
+  .string()
+  .trim()
+  .transform((s) => s.replace(/\D/g, ''))
+  .refine((s) => !s || s.length === 14, 'O CNPJ precisa de 14 dígitos.')
+  .default('');
+/** obrigatórios do cadastro novo (24/09/2026): devolve a mensagem do primeiro que faltar */
+export const faltando = (campos: [boolean, string][]) => campos.find(([ok]) => !ok)?.[1] ?? null;
+/** gênero (24/09/2026): as quatro opções do Novo aluno */
+export const GENEROS = ['Masculino', 'Feminino', 'Não binário', 'Outro'];

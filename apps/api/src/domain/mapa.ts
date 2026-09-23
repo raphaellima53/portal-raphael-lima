@@ -558,7 +558,7 @@ const TELAS_NOVAS: Record<string, { label: string; chave: string }> = {
   dlPosicao: { label: 'Posição financeira', chave: 'acCobranca' },
   dlContas: { label: 'Clientes empresariais', chave: 'acFechamento' },
   dlConferencia: { label: 'Conferência', chave: 'acCobranca' },
-  dlOfertas: { label: 'Ofertas padrão', chave: 'catalogo' },
+  dlOfertas: { label: 'Ofertas', chave: 'catalogo' },
   dlPresets: { label: 'Presets de venda', chave: 'catalogo' },
   /* adequação ao Portal Alumni (22/09/2026): cadastros simples (domain/cadastros.ts) com o acesso da tela vizinha */
   turmas: { label: 'Turmas', chave: 'catalogo' },
@@ -582,7 +582,18 @@ const sec = (t: string, ...telas: (string | TelaNav)[]) => ({
  * a Central de ajuda, o Meu perfil e o Trocar senha ficam no rodapé.
  */
 export const NAV_EQUIPE: ItemDef[] = [
-  { id: 'agenda', nome: 'Agenda', icon: 'cal', secoes: [sec('Agenda', 'agenda')] },
+  {
+    id: 'produtos',
+    nome: 'Produtos e serviços',
+    icon: 'bookOpen',
+    secoes: [
+      /* 24/09/2026: Cursos e Ofertas primeiro (pirâmide nova); Materiais e Serviços continuam depois */
+      sec('Cursos', { tela: 'cursos', label: 'Catálogo' }, 'turmas'),
+      sec('Ofertas', 'dlOfertas', 'dlPresets'),
+      sec('Materiais', { tela: 'curriculo', label: 'Currículos e acervos' }, 'conteudos', 'ciclos', 'calendarios'),
+      sec('Serviços', 'servicos'),
+    ],
+  },
   {
     id: 'usuarios',
     nome: 'Usuários',
@@ -590,21 +601,14 @@ export const NAV_EQUIPE: ItemDef[] = [
     prefixos: ['/professores', '/contratos'],
     secoes: [
       sec('Alunos', 'pedAlunos'),
-      sec('Equipe', { tela: 'professores', label: 'Equipe' }, 'departamentos', 'cargos'),
+      /* 24/09/2026: Equipe vira Time; Departamentos e Cargos ganham seção própria */
+      sec('Time', { tela: 'professores', label: 'Time' }),
+      sec('Departamentos', 'departamentos'),
+      sec('Cargos', 'cargos'),
       sec('Empresas', 'empresas'),
     ],
   },
-  {
-    id: 'produtos',
-    nome: 'Produtos e serviços',
-    icon: 'bookOpen',
-    secoes: [
-      sec('Cursos', { tela: 'cursos', label: 'Catálogo' }, 'turmas'),
-      sec('Materiais', { tela: 'curriculo', label: 'Currículos e acervos' }, 'conteudos', 'ciclos', 'calendarios'),
-      sec('Serviços', 'servicos'),
-      sec('Ofertas', 'dlOfertas', 'dlPresets'),
-    ],
-  },
+  { id: 'agenda', nome: 'Agenda', icon: 'cal', secoes: [sec('Agenda', 'agenda')] },
   {
     id: 'acoes',
     /*

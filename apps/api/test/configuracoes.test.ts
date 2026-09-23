@@ -156,10 +156,10 @@ describe('configurações', () => {
       'Está em uso: inative em vez de excluir.',
     );
     assert.equal((await envia('DELETE', `/config/catalogo/idiomas/${novo.id}`, h)).json().msg, `${nome} excluído.`);
-    assert.equal(
-      (await envia('POST', '/config/catalogo/cargos', h, { nome: 'Cargo sem departamento' })).json().erro,
-      'Escolha o departamento.',
-    );
+    /* 24/09/2026: o Novo cargo pede só nome e descrição; o departamento é opcional */
+    const semDep = (await envia('POST', '/config/catalogo/cargos', h, { nome: 'Cargo sem departamento' })).json();
+    assert.equal(semDep.erro, undefined);
+    await prisma.cargo.deleteMany({ where: { nome: 'Cargo sem departamento' } });
   });
 
   test('feriados: importa os nacionais, cria recesso e remove', async () => {

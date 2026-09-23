@@ -145,6 +145,7 @@ describe('alunos · cadastro, matrícula e alocação', () => {
       nome: 'Aluno de teste api',
       cpf: '123.456.789-01',
       email: 'teste.api@alumni.teste',
+      telefone: '+55 (11) 91234-5678',
       status: 'Ativo',
       nova: { curso: 'FAAP', item: 'Turma 1', modalidade: 'Presencial', total: 36 },
     });
@@ -158,6 +159,7 @@ describe('alunos · cadastro, matrícula e alocação', () => {
 
     const ed = await req(h, 'PUT', `/alunos/${id}`, {
       nome: 'Aluno de teste api 2',
+      telefone: '+55 (11) 91234-5678',
       cpf: '12345678901',
       email: 'teste.api@alumni.teste',
       status: 'Suspenso',

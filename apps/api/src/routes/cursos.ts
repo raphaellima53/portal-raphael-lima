@@ -44,6 +44,18 @@ async function exige(req: FastifyRequest, rep: FastifyReply, chaves: string[]) {
 const exigeCatalogo = (req: FastifyRequest, rep: FastifyReply) => exige(req, rep, ['catalogo']);
 const exigeCurriculo = (req: FastifyRequest, rep: FastifyReply) => exige(req, rep, ['curso.curriculo', 'cfg']);
 
+/** regra de agenda em minutos ou horas (guardada em minutos) */
+const Tempo = z.object({ valor: z.coerce.number().int().min(0).max(100000), unidade: z.enum(['min', 'h']) });
+const minutos = (t: z.infer<typeof Tempo> | null) => (t == null ? null : t.unidade === 'h' ? t.valor * 60 : t.valor);
+export const CEFR = ['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+/** minutos guardados → o que o formulário mostra (horas quando fecha a conta) */
+const tempoDe = (m: number | null | undefined) =>
+  m == null
+    ? null
+    : m && m % 60 === 0
+      ? { valor: m / 60, unidade: 'h' as const }
+      : { valor: m, unidade: 'min' as const };
+
 const CursoForm = z.object({
   nome: z.string().trim().min(1, 'Informe o nome do curso.').max(120),
   descricao: z.string().trim().max(500).default(''),
@@ -60,9 +72,33 @@ const CursoForm = z.object({
         sigla: z.string().trim().max(20).default(''),
         descricao: z.string().trim().max(300).default(''),
         vagas: z.coerce.number().int().min(1).max(500).nullable().default(null),
+        /* 24/09/2026 (Novo curso): CEFR do módulo ou da turma; no Open-Entry, regras de agenda e grade */
+        cefr: z.string().trim().max(10).default(''),
+        agendamento: Tempo.nullable().default(null),
+        cancelamento: Tempo.nullable().default(null),
+        horarios: z
+          .array(
+            z.object({
+              dia: z.coerce.number().int().min(0).max(6),
+              hora: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Horário da grade inválido (HH:MM).'),
+              professorId: z.string().min(1, 'Escolha o professor de cada horário da grade.'),
+            }),
+          )
+          .max(40)
+          .default([]),
       }),
     )
     .max(80)
+    .default([]),
+  /* curso Particular: as alocações (responsável e vagas) */
+  alocacoes: z
+    .array(
+      z.object({
+        responsavel: z.string().trim().max(160).default(''),
+        vagas: z.coerce.number().int().min(1).max(50).default(1),
+      }),
+    )
+    .max(200)
     .default([]),
   sigla: z.string().trim().max(20).default(''),
   natureza: z.enum(['Curso', 'Serviço', 'Assinatura']).default('Curso'),
@@ -170,8 +206,21 @@ export default async function rotasCursos(app: FastifyInstance) {
           cor: c.cores[n] || b.corModulo[n] || c.color,
           sigla: c.modInfo[n]?.sigla ?? '',
           descricao: c.modInfo[n]?.descricao ?? '',
-          vagas: c.modInfo[n]?.vagas ?? null,
+          vagas:
+            c.estrutura === 'turmas'
+              ? (c.turmas.find((t) => t.name === n)?.vagas ?? null)
+              : (c.modInfo[n]?.vagas ?? null),
+          cefr:
+            c.estrutura === 'turmas' ? (c.turmas.find((t) => t.name === n)?.cefr ?? '') : (c.modInfo[n]?.cefr ?? ''),
+          agendamento: tempoDe(c.modInfo[n]?.agendamentoMin),
+          cancelamento: tempoDe(c.modInfo[n]?.cancelamentoMin),
+          horarios: (c.modInfo[n]?.horarios ?? []).map((h) => ({
+            dia: h.dia,
+            hora: h.hora,
+            professorId: h.professorId ?? '',
+          })),
         })),
+        alocacoes: c.alocacoes,
         autoAgenda: c.autoAgenda,
         ativo: c.active,
         sigla: c.sigla,
@@ -184,6 +233,10 @@ export default async function rotasCursos(app: FastifyInstance) {
         tipos: tipos.filter((t) => t.tipo === 'courseTypes').map((t) => t.nome),
         visibilidades: tipos.filter((t) => t.tipo === 'visibilidadesOferta').map((t) => t.nome),
         tiposSala: tipos.filter((t) => t.tipo === 'roomTypes').map((t) => t.nome),
+        cefr: CEFR,
+        professores: (await prisma.professor.findMany({ where: { ativo: true }, orderBy: { nome: 'asc' } })).map(
+          (p) => ({ v: p.id, l: p.nome }),
+        ),
       },
       pode: {
         agenda: podeChave(u, 'agenda'),
@@ -204,6 +257,11 @@ export default async function rotasCursos(app: FastifyInstance) {
       tipos: tipos.filter((t) => t.tipo === 'courseTypes').map((t) => t.nome),
       visibilidades: tipos.filter((t) => t.tipo === 'visibilidadesOferta').map((t) => t.nome),
       tiposSala: tipos.filter((t) => t.tipo === 'roomTypes').map((t) => t.nome),
+      cefr: CEFR,
+      professores: (await prisma.professor.findMany({ where: { ativo: true }, orderBy: { nome: 'asc' } })).map((p) => ({
+        v: p.id,
+        l: p.nome,
+      })),
     };
   });
 
@@ -226,6 +284,15 @@ export default async function rotasCursos(app: FastifyInstance) {
     if (new Set(itens.map((x) => x.nome.toLowerCase())).size !== itens.length)
       return rep.code(400).send({ erro: 'Há módulos ou turmas com o mesmo nome.' });
     const estrutura = itens.length ? (v.estrutura === 'nenhuma' ? 'modulos' : v.estrutura) : 'nenhuma';
+    /* obrigatórios do Novo curso (24/09/2026) */
+    if (!v.idioma) return rep.code(400).send({ erro: 'Escolha o idioma do curso.' });
+    for (const m of itens) {
+      if (!CEFR.includes(m.cefr)) return rep.code(400).send({ erro: `Escolha o CEFR de ${m.nome}.` });
+      if (!m.vagas) return rep.code(400).send({ erro: `Informe as vagas de ${m.nome}.` });
+      if (estrutura === 'modulos' && (!m.agendamento || !m.cancelamento))
+        return rep.code(400).send({ erro: `Informe as regras de agendamento e cancelamento de ${m.nome}.` });
+    }
+    const alocacoes = estrutura === 'nenhuma' ? v.alocacoes.filter((x) => x.responsavel || x.vagas) : [];
     const tipo = await prisma.catalogo.findFirst({ where: { tipo: 'courseTypes', nome: v.tipo } });
     const formato = (tipo?.dados as { format?: string } | null)?.format ?? '—';
     const dados = {
@@ -255,33 +322,61 @@ export default async function rotasCursos(app: FastifyInstance) {
               ordem: ((await tx.curso.aggregate({ _max: { ordem: true } }))._max.ordem ?? -1) + 1,
             },
           });
-      await tx.modulo.deleteMany({ where: { cursoId: curso.id } });
-      if (estrutura === 'modulos')
-        await tx.modulo.createMany({
-          data: itens.map((m, k) => ({
+      /* módulos: o que continua mantém o id (e a grade é regravada); o que saiu da lista é apagado */
+      const mods = estrutura === 'modulos' ? itens : [];
+      await tx.modulo.deleteMany({ where: { cursoId: curso.id, nome: { notIn: mods.map((m) => m.nome) } } });
+      for (const [k, m] of mods.entries()) {
+        const dadosMod = {
+          cor: m.cor,
+          sigla: m.sigla,
+          descricao: m.descricao,
+          vagas: m.vagas,
+          ordem: k,
+          cefr: m.cefr,
+          agendamentoMin: minutos(m.agendamento),
+          cancelamentoMin: minutos(m.cancelamento),
+        };
+        const mod = await tx.modulo.upsert({
+          where: { cursoId_nome: { cursoId: curso.id, nome: m.nome } },
+          update: dadosMod,
+          create: { cursoId: curso.id, nome: m.nome, ...dadosMod },
+        });
+        await tx.moduloHorario.deleteMany({ where: { moduloId: mod.id } });
+        if (m.horarios.length)
+          await tx.moduloHorario.createMany({ data: m.horarios.map((h) => ({ moduloId: mod.id, ...h })) });
+      }
+      await tx.cursoAlocacao.deleteMany({ where: { cursoId: curso.id } });
+      if (alocacoes.length)
+        await tx.cursoAlocacao.createMany({
+          data: alocacoes.map((x, k) => ({
             cursoId: curso.id,
-            nome: m.nome,
-            cor: m.cor,
-            sigla: m.sigla,
-            descricao: m.descricao,
-            vagas: m.vagas,
+            responsavel: x.responsavel || `Aluno ${k + 1}`,
+            vagas: x.vagas,
             ordem: k,
           })),
         });
       /* turma que já existia mantém grade, professor e vagas; a nova entra em branco */
-      const nomes = estrutura === 'turmas' ? itens.map((x) => x.nome) : [];
+      const ts = estrutura === 'turmas' ? itens : [];
+      const nomes = ts.map((x) => x.nome);
       await tx.turma.deleteMany({ where: { cursoId: curso.id, nome: { notIn: nomes } } });
-      for (const [k, nome] of nomes.entries()) {
+      for (const [k, it] of ts.entries()) {
+        const nome = it.nome;
         const t = antigo?.turmas.find((x) => x.nome === nome);
-        if (t) await tx.turma.update({ where: { id: t.id }, data: { ordem: k } });
+        const extra = { cor: it.cor, cefr: it.cefr, descricao: it.descricao };
+        if (t)
+          await tx.turma.update({
+            where: { id: t.id },
+            data: { ordem: k, ...extra, ...(it.vagas ? { vagas: it.vagas } : {}) },
+          });
         else
           await tx.turma.create({
             data: {
               cursoId: curso.id,
               nome,
+              ...extra,
               grupo: '—',
               grade: '—',
-              vagas: 20,
+              vagas: it.vagas ?? 20,
               ocupadas: 0,
               sala: '—',
               modalidade: 'Presencial',

@@ -3,47 +3,51 @@
 import { CampoData } from '@/components/campos-data';
 import { Campo } from '@/components/config/comum';
 import { Escolha } from '@/components/escolha';
+import { GENEROS, mascaraContato } from '@/components/mascaras';
 import { Input } from '@/components/ui/input';
 import type { Endereco, PessoaExtra } from '@/lib/cadastros';
 
 /* máscaras pt-BR (regras de UI: campos formatados pelo contexto) */
 const dig = (v: string, n: number) => v.replace(/\D/g, '').slice(0, n);
-export const mascaraTelefone = (v: string) => {
-  const d = dig(v, 11);
-  if (d.length <= 2) return d;
-  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  return `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}`;
-};
+/** contato no formato +xx (xx) xxxxx-xxxx (24/09/2026) */
+export const mascaraTelefone = mascaraContato;
 const mascaraCep = (v: string) => {
   const d = dig(v, 8);
   return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
 };
 
-/** Telefone, nascimento e gênero: os dados pessoais que aluno, professor e colaborador têm em comum */
+/**
+ * Contato, nascimento e gênero: os dados pessoais que aluno, professor e colaborador têm em comum.
+ * 24/09/2026: contato +xx (xx) xxxxx-xxxx (obrigatório nos cadastros novos) e gênero com as quatro opções.
+ */
 export function CamposPessoa({
   prefixo,
   valor,
   aoMudar,
-  generos,
+  obrigatorio = false,
+  semGenero = false,
 }: {
   prefixo: string;
   valor: PessoaExtra;
   aoMudar: (v: PessoaExtra) => void;
-  generos: string[];
+  /** @deprecated o gênero usa as quatro opções fixas */
+  generos?: string[];
+  obrigatorio?: boolean;
+  semGenero?: boolean;
 }) {
   const set = <K extends keyof PessoaExtra>(k: K, x: PessoaExtra[K]) => aoMudar({ ...valor, [k]: x });
   return (
     <>
-      <Campo id={`${prefixo}-tel`} rotulo="Telefone">
+      <Campo id={`${prefixo}-tel`} rotulo="Contato" req={obrigatorio}>
         <Input
           id={`${prefixo}-tel`}
           inputMode="tel"
-          placeholder="(00) 00000-0000"
+          placeholder="+55 (00) 00000-0000"
           value={valor.telefone}
           onChange={(e) => set('telefone', mascaraTelefone(e.target.value))}
         />
       </Campo>
-      <Campo id={`${prefixo}-nasc`} rotulo="Nascimento">
+      <Campo id={`${prefixo}-nasc`} rotulo="Data de nascimento">
         <CampoData
           id={`${prefixo}-nasc`}
           rotulo="Nascimento"
@@ -51,16 +55,18 @@ export function CamposPessoa({
           aoMudar={(v) => set('nascimento', v)}
         />
       </Campo>
-      <Campo rotulo="Gênero">
-        <Escolha
-          rotulo="Gênero"
-          todos="não informado"
-          destacar={false}
-          valor={valor.genero}
-          aoMudar={(v) => set('genero', v)}
-          opcoes={[...new Set([...generos, ...(valor.genero ? [valor.genero] : [])])].map((g) => ({ v: g, l: g }))}
-        />
-      </Campo>
+      {!semGenero && (
+        <Campo rotulo="Gênero">
+          <Escolha
+            rotulo="Gênero"
+            todos="não informado"
+            destacar={false}
+            valor={valor.genero}
+            aoMudar={(v) => set('genero', v)}
+            opcoes={[...new Set([...GENEROS, ...(valor.genero ? [valor.genero] : [])])].map((g) => ({ v: g, l: g }))}
+          />
+        </Campo>
+      )}
     </>
   );
 }

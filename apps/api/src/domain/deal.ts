@@ -522,6 +522,72 @@ async function carga() {
     );
 }
 
+/**
+ * Cria o pedido com o cronograma próprio (vence dia 10; a 1ª parcela no cartão já entra paga) e põe o aluno
+ * como beneficiário do contrato empresarial, se houver. Usado pelo Novo pedido e pela Matrícula do Novo aluno.
+ */
+export async function criaPedido(o: {
+  alunoId: number;
+  cliente: string;
+  oferta: { id: number; nome: string; curso: string };
+  total: number;
+  forma: number;
+  parcelas: number;
+  preset: string;
+  tipo: string;
+  contrato: { id: number; benef: number[] } | null;
+  vendedor: string;
+  cupom?: string;
+  desconto?: number;
+  obs?: string;
+  autor: string;
+  origem: string;
+}) {
+  const hoje = new Date();
+  const p = await prisma.pedido.create({
+    data: {
+      data: hoje,
+      alunoId: o.alunoId,
+      cliente: o.cliente,
+      curso: o.oferta.curso,
+      ofertaId: o.oferta.id,
+      ofertaNome: o.oferta.nome,
+      total: o.total,
+      forma: o.forma,
+      parcelas: o.parcelas,
+      preset: o.preset,
+      tipo: o.tipo,
+      contratoId: o.contrato?.id ?? null,
+      vendedor: o.vendedor,
+      renovacao: o.preset === 'B2C_RENOVACAO',
+      cupom: o.cupom ?? '',
+      desconto: o.desconto ?? 0,
+      chave: 'novo|',
+      obs: o.obs ?? '',
+      hist: [histDeal(o.autor, 'Venda criada', `para ${o.cliente} por ${o.vendedor}, ${o.origem}`)],
+    },
+  });
+  const chave = `novo|${p.id}`;
+  await prisma.pedido.update({ where: { id: p.id }, data: { chave } });
+  await prisma.parcelaPedido.createMany({
+    data: Array.from({ length: o.parcelas }, (_, k) => ({
+      chave: `${chave}|${k}`,
+      pedidoId: p.id,
+      n: k + 1,
+      de: o.parcelas,
+      venc: new Date(hoje.getFullYear(), hoje.getMonth() + k + (hoje.getDate() > 10 ? 1 : 0), 10),
+      valor: Math.round((o.total / o.parcelas) * 100) / 100,
+      pago: k === 0 && o.forma !== 3 ? hoje : null,
+    })),
+  });
+  if (o.contrato && !o.contrato.benef.includes(o.alunoId))
+    await prisma.contratoEmpresa.update({
+      where: { id: o.contrato.id },
+      data: { benef: [...o.contrato.benef, o.alunoId] },
+    });
+  return p;
+}
+
 /* ---------------- leitura: tudo que as telas usam, calculado uma vez por pedido HTTP ---------------- */
 export type Linha = Cobranca;
 export type PedidoDb = Prisma.PedidoGetPayload<object>;

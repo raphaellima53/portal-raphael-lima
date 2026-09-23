@@ -79,6 +79,10 @@ describe('professores', () => {
       nome: 'Professor de teste api',
       email: 'p@teste.teste',
       teto: 10,
+      cpf: '529.982.247-25',
+      cnpj: '12.345.678/0001-95',
+      telefone: '+55 (11) 91234-5678',
+      admissao: '2026-09-01',
     });
     assert.equal(novo.status, 200, JSON.stringify(novo.json));
     const id = novo.json.id as string;

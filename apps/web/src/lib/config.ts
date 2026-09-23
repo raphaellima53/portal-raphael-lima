@@ -158,6 +158,9 @@ export type Colaboradores = {
     ativo: boolean;
     cpf: string;
     admissao: string;
+    /** 24/09/2026: Colaborador ou Prestador (com CNPJ) */
+    vinculo: 'Colaborador' | 'Prestador';
+    cnpj: string;
   } & PessoaExtra)[];
   cargos: { nome: string; departamento: string }[];
 };

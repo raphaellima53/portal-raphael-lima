@@ -84,7 +84,7 @@ describe('cursos', () => {
       estrutura: 'turmas',
       tipo: 'Turmas dedicadas',
       idioma: 'Inglês',
-      itens: [{ nome: 'Turma A', cor: '#123456' }],
+      itens: [{ nome: 'Turma A', cor: '#123456', cefr: 'A1', vagas: 8 }],
     });
     assert.equal(novo.status, 200);
     criados.cursos.push(novo.json.id);
@@ -96,9 +96,10 @@ describe('cursos', () => {
       nome: 'Curso de teste api 2',
       cor: '#123456',
       estrutura: 'turmas',
+      idioma: 'Inglês',
       itens: [
-        { nome: 'Turma A', cor: '#123456' },
-        { nome: 'Turma B', cor: '#123456' },
+        { nome: 'Turma A', cor: '#123456', cefr: 'A1', vagas: 7 },
+        { nome: 'Turma B', cor: '#123456', cefr: 'A2', vagas: 20 },
       ],
     });
     assert.equal(ed.status, 200);
@@ -114,6 +115,7 @@ describe('cursos', () => {
       nome: 'Curso de teste api 2',
       cor: '#123456',
       estrutura: 'turmas',
+      idioma: 'Inglês',
       itens: [],
     });
     assert.equal(semItens.status, 200);

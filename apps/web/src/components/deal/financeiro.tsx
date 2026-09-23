@@ -1,14 +1,17 @@
 'use client';
 
-import { FileTextIcon } from 'lucide-react';
+import { FileTextIcon, PlusIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Busca, normaliza } from '@/components/acoes/alocacao';
 import type { Msg } from '@/components/alunos/comum';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { type NotaL, type Sit, type StatD, useDeal, useDealAcao } from '@/lib/deal';
 import { Lk, Nada, SitB, Stats, Sub, TabelaDeal } from './comum';
 import { TabelaNotas } from './pedido';
@@ -597,6 +600,8 @@ export function TelaConferencia({ abas }: { abas: React.ReactNode }) {
 
 /* ---------------- Produtos e serviços › Ofertas ---------------- */
 type Ofertas = {
+  podeCriar: boolean;
+  cursos: string[];
   stats: StatD[];
   itens: {
     id: number;
@@ -617,6 +622,8 @@ export function TelaOfertas({ abas }: { abas: React.ReactNode }) {
   const q = useDeal<Ofertas>('/ofertas');
   const [busca, setBusca] = useState('');
   const [merc, setMerc] = useState('');
+  const [nova, setNova] = useState(false);
+  const [msg, setMsg] = useState<Msg>(null);
   const ls = (q.data?.itens ?? []).filter(
     (o) =>
       (!merc || o.mercado === merc) &&
@@ -624,8 +631,26 @@ export function TelaOfertas({ abas }: { abas: React.ReactNode }) {
   );
   return (
     <>
-      <PageHead titulo="Ofertas padrão" />
+      <PageHead
+        titulo="Ofertas"
+        acoes={
+          q.data?.podeCriar ? (
+            <Button variant="primary" onClick={() => setNova(true)}>
+              <PlusIcon /> Nova oferta
+            </Button>
+          ) : null
+        }
+      />
       {abas}
+      <MsgAviso m={msg} />
+      {q.data && (
+        <NovaOferta
+          cursos={q.data.cursos}
+          aberto={nova}
+          aoFechar={() => setNova(false)}
+          aoSalvo={(txt) => setMsg({ txt })}
+        />
+      )}
       <Erro e={q.error} />
       {q.data && <Stats itens={q.data.stats} />}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -733,5 +758,131 @@ export function TelaPresets({ abas }: { abas: React.ReactNode }) {
         ]}
       />
     </>
+  );
+}
+
+/** Nova oferta (24/09/2026): curso, horas ofertadas, valor e vigência em meses */
+function NovaOferta({
+  cursos,
+  aberto,
+  aoFechar,
+  aoSalvo,
+}: {
+  cursos: string[];
+  aberto: boolean;
+  aoFechar: () => void;
+  aoSalvo: (t: string) => void;
+}) {
+  const acao = useDealAcao();
+  const [v, setV] = useState({ curso: '', horas: '', valor: '', meses: '', mercado: 'B2C' });
+  const [erro, setErro] = useState('');
+  useEffect(() => {
+    if (aberto) {
+      setV({ curso: '', horas: '', valor: '', meses: '', mercado: 'B2C' });
+      setErro('');
+    }
+  }, [aberto]);
+  const dig = (x: string, n: number) => x.replace(/\D/g, '').slice(0, n);
+  /* R$ 0,00: digita só números e a vírgula entra sozinha */
+  const moeda = (x: string) => {
+    const d = x.replace(/\D/g, '').slice(0, 10);
+    return d ? (Number(d) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '';
+  };
+  const salvar = () => {
+    const valor = Number(v.valor.replace(/\./g, '').replace(',', '.'));
+    if (!v.curso) return setErro('Escolha o curso.');
+    if (!Number(v.horas)) return setErro('Informe as horas ofertadas.');
+    if (!valor) return setErro('Informe o valor.');
+    if (!Number(v.meses)) return setErro('Informe a vigência em meses.');
+    acao.mutate(
+      {
+        caminho: '/ofertas',
+        json: { curso: v.curso, horas: Number(v.horas), valor, meses: Number(v.meses), mercado: v.mercado },
+      },
+      {
+        onSuccess: (r) => {
+          aoFechar();
+          aoSalvo(r.msg);
+        },
+        onError: (e) => setErro(e.message),
+      },
+    );
+  };
+  return (
+    <Dialog open={aberto} onOpenChange={(x) => !x && aoFechar()}>
+      <DialogContent tamanho="sm">
+        <DialogHead titulo="Nova oferta" descricao="o pacote que o comercial vende" />
+        <DialogBody className="grid gap-4 sm:grid-cols-2">
+          <div className="grid content-start gap-1.5 sm:col-span-2">
+            <Label>
+              Curso<span className="text-vermelho">*</span>
+            </Label>
+            <Escolha
+              rotulo="Curso"
+              todos="Selecione…"
+              destacar={false}
+              valor={v.curso}
+              aoMudar={(x) => setV((o) => ({ ...o, curso: x }))}
+              opcoes={cursos.map((c) => ({ v: c, l: c }))}
+            />
+          </div>
+          <div className="grid content-start gap-1.5">
+            <Label htmlFor="of-horas">
+              Horas ofertadas<span className="text-vermelho">*</span>
+            </Label>
+            <Input
+              id="of-horas"
+              inputMode="numeric"
+              value={v.horas}
+              onChange={(e) => setV((o) => ({ ...o, horas: dig(e.target.value, 4) }))}
+            />
+          </div>
+          <div className="grid content-start gap-1.5">
+            <Label htmlFor="of-valor">
+              Valor (R$)<span className="text-vermelho">*</span>
+            </Label>
+            <Input
+              id="of-valor"
+              inputMode="numeric"
+              placeholder="0,00"
+              value={v.valor}
+              onChange={(e) => setV((o) => ({ ...o, valor: moeda(e.target.value) }))}
+            />
+          </div>
+          <div className="grid content-start gap-1.5">
+            <Label htmlFor="of-meses">
+              Vigência em meses<span className="text-vermelho">*</span>
+            </Label>
+            <Input
+              id="of-meses"
+              inputMode="numeric"
+              value={v.meses}
+              onChange={(e) => setV((o) => ({ ...o, meses: dig(e.target.value, 2) }))}
+            />
+          </div>
+          <div className="grid content-start gap-1.5">
+            <Label>Mercado</Label>
+            <Escolha
+              rotulo="Mercado"
+              destacar={false}
+              valor={v.mercado}
+              aoMudar={(x) => setV((o) => ({ ...o, mercado: x }))}
+              opcoes={['B2C', 'B2B2C', 'B2B'].map((x) => ({ v: x, l: x }))}
+            />
+          </div>
+        </DialogBody>
+        <DialogFoot>
+          {erro && (
+            <span role="alert" className="mr-auto font-medium text-vermelho">
+              {erro}
+            </span>
+          )}
+          <Button onClick={aoFechar}>Cancelar</Button>
+          <Button variant="primary" disabled={acao.isPending} onClick={salvar}>
+            Criar oferta
+          </Button>
+        </DialogFoot>
+      </DialogContent>
+    </Dialog>
   );
 }

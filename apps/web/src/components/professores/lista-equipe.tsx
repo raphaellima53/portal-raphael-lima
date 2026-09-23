@@ -51,7 +51,7 @@ type Pessoa =
   | { k: string; id: string; tipo: 'Colaborador'; nome: string; email: string; ativo: boolean; colab: ColabLinha };
 
 /**
- * Equipe: professores e colaboradores numa lista só, em ordem alfabética (pedido de 21/09/2026).
+ * Time (antes Equipe, 24/09/2026): professores, colaboradores e prestadores numa lista só, em ordem alfabética (pedido de 21/09/2026).
  * Professor abre a ficha; colaborador abre o cadastro. Colaboradores só aparecem para quem tem Configurações.
  */
 export function ListaEquipe() {
@@ -67,10 +67,10 @@ export function ListaEquipe() {
   const [sit, setSit] = useState('Ativos');
   const [msg, setMsg] = useState<Msg>(null);
   const [form, setForm] = useState<{ id: string | null } | null>(null);
-  const [colab, setColab] = useState<{ linha: ColabLinha | null } | null>(null);
+  const [colab, setColab] = useState<{ linha: ColabLinha | null; vinculo?: 'Colaborador' | 'Prestador' } | null>(null);
 
   useEffect(() => {
-    document.title = 'Equipe · Portal Raphael Lima';
+    document.title = 'Time · Portal Raphael Lima';
   }, []);
 
   const todos = useMemo<Pessoa[]>(
@@ -150,8 +150,13 @@ export function ListaEquipe() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setColab({ linha: null, vinculo: 'Colaborador' })}>
+            Colaborador
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setColab({ linha: null, vinculo: 'Prestador' })}>
+            Prestador
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setForm({ id: null })}>Professor</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setColab({ linha: null })}>Colaborador</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     ) : pode?.criar ? (
@@ -159,9 +164,21 @@ export function ListaEquipe() {
         <PlusIcon /> Novo professor
       </Button>
     ) : veColab ? (
-      <Button variant="primary" onClick={() => setColab({ linha: null })}>
-        <PlusIcon /> Novo colaborador
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="primary">
+            <PlusIcon /> Novo <ChevronDownIcon />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setColab({ linha: null, vinculo: 'Colaborador' })}>
+            Colaborador
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setColab({ linha: null, vinculo: 'Prestador' })}>
+            Prestador
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     ) : null;
 
   const abre = (p: Pessoa) => {
@@ -171,7 +188,7 @@ export function ListaEquipe() {
 
   return (
     <>
-      <PageHead titulo="Equipe" acoes={novo} />
+      <PageHead titulo="Time" acoes={novo} />
       <AbasDoMenu />
       {(q.isError || qc.isError) && (
         <Aviso tom="red" icone="alerta">
@@ -233,7 +250,7 @@ export function ListaEquipe() {
         </div>
       </div>
       <Card className="overflow-hidden">
-        <Table aria-label="Equipe">
+        <Table aria-label="Time">
           <THead>
             <Tr>
               <Th>ID</Th>
@@ -272,7 +289,9 @@ export function ListaEquipe() {
                       <div className="font-normal text-apagado">{p.email}</div>
                     </Td>
                     <Td>
-                      <Badge tom={p.tipo === 'Professor' ? 'blue' : 'gray'}>{p.tipo}</Badge>
+                      <Badge tom={p.tipo === 'Professor' ? 'blue' : 'gray'}>
+                        {p.tipo === 'Colaborador' ? (p.colab.vinculo ?? 'Colaborador') : p.tipo}
+                      </Badge>
                     </Td>
                     <Td>
                       {p.tipo === 'Colaborador' ? (

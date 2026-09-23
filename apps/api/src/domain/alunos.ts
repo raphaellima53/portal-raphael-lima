@@ -491,7 +491,9 @@ export function alAgenda(b: Base, a: AlunoB, dias: number, ofs: Oferta[], agora 
   const ls = fxProximas(b, (x) => x.alunos.includes(a.name), dias, ofs, agora);
   const limite = (x: Aula) => {
     const c = b.cursos.find((y) => y.name === x.prod);
-    const h = c ? crsRegras(c).cancelamento : 6;
+    /* o módulo com regra própria (Novo curso, 24/09/2026, em minutos) vale antes da do curso */
+    const min = c && x.mod ? c.modInfo[x.mod]?.cancelamentoMin : null;
+    const h = min != null ? min / 60 : c ? crsRegras(c).cancelamento : 6;
     const d = new Date(x.quando.getTime() - h * 36e5);
     return h ? `${dm(d)} · ${agHH(d.getHours())}` : 'até o início';
   };

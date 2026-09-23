@@ -207,6 +207,25 @@ export function agOfertas(b: Base): Oferta[] {
             });
             return;
           }
+          /* 24/09/2026: módulo com grade cadastrada (Novo curso › Grade) usa os horários e professores dela */
+          const hs = c.modInfo[m]?.horarios ?? [];
+          if (hs.length) {
+            hs.forEach((h, j) => {
+              out.push({
+                prod: c.name,
+                mod: m,
+                quem: 'Turma aberta',
+                prof: h.prof ?? um(profsDe(c.name, m), k + j),
+                sala: salasGrupo[(k + j) % 3],
+                vagas: c.modInfo[m]?.vagas ?? rg.vagas,
+                duracao: rg.duracao,
+                dias: [h.dia],
+                hora: Number.parseInt(h.hora, 10),
+                alunos: alunosDe(c.name, m).map((a) => a.name),
+              });
+            });
+            return;
+          }
           out.push({
             prod: c.name,
             mod: m,

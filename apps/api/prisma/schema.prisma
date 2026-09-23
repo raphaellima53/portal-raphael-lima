@@ -199,20 +199,24 @@ model Cargo {
 
 /// Time interno (CAD.employees)
 model Colaborador {
-  id           Int       @id @default(autoincrement())
-  nome         String
-  email        String    @unique
-  departamento String
-  cargo        String
-  cpf          String    @default("")
-  telefone     String    @default("")
-  nascimento   DateTime? @db.Date
-  admissao     DateTime? @db.Date
-  genero       String?
+  id              Int       @id @default(autoincrement())
+  nome            String
+  email           String    @unique
+  departamento    String
+  cargo           String
+  cpf             String    @default("")
+  /// 24/09/2026: Colaborador ou Prestador (este com CNPJ) e o e-mail secundário
+  vinculo         String    @default("Colaborador")
+  cnpj            String    @default("")
+  emailSecundario String    @default("")
+  telefone        String    @default("")
+  nascimento      DateTime? @db.Date
+  admissao        DateTime? @db.Date
+  genero          String?
   /// { cep, rua, numero, complemento, bairro, cidade, uf }
-  endereco     Json?
-  ativo        Boolean   @default(true)
-  ordem        Int       @default(0)
+  endereco        Json?
+  ativo           Boolean   @default(true)
+  ordem           Int       @default(0)
 }
 
 model Segmento {
@@ -285,6 +289,7 @@ model Curso {
 
   modulos    Modulo[]
   turmas     Turma[]
+  alocacoes  CursoAlocacao[]
   matriculas Matricula[]
   ofertas    Oferta[]
   servicos   Servico[]
@@ -292,18 +297,47 @@ model Curso {
 }
 
 model Modulo {
-  id        Int    @id @default(autoincrement())
-  cursoId   Int
-  curso     Curso  @relation(fields: [cursoId], references: [id], onDelete: Cascade)
-  nome      String
-  cor       String
-  sigla     String @default("")
-  descricao String @default("")
+  id              Int             @id @default(autoincrement())
+  cursoId         Int
+  curso           Curso           @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  nome            String
+  cor             String
+  sigla           String          @default("")
+  descricao       String          @default("")
   /// vagas por aula em grupo; nulo = as do curso
-  vagas     Int?
-  ordem     Int    @default(0)
+  vagas           Int?
+  ordem           Int             @default(0)
+  /// 24/09/2026 (Novo curso · Grupo Open-Entry): nível CEFR e as regras de agenda do módulo, em minutos
+  cefr            String          @default("")
+  agendamentoMin  Int?
+  cancelamentoMin Int?
+  horarios        ModuloHorario[]
 
   @@unique([cursoId, nome])
+}
+
+/// Grade do módulo Open-Entry: cada horário da semana com o professor (alimenta a Agenda)
+model ModuloHorario {
+  id          Int     @id @default(autoincrement())
+  moduloId    Int
+  modulo      Modulo  @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+  /// 0 domingo … 6 sábado
+  dia         Int
+  /// HH:MM
+  hora        String
+  professorId String?
+
+  @@index([moduloId])
+}
+
+/// Curso Particular: as alocações (o responsável, aluno 1, e as vagas)
+model CursoAlocacao {
+  id          Int    @id @default(autoincrement())
+  cursoId     Int
+  curso       Curso  @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  responsavel String
+  vagas       Int    @default(1)
+  ordem       Int    @default(0)
 }
 
 /// Turma dedicada (FAAP, Palmares): a turma ocupa o lugar do módulo
@@ -331,6 +365,10 @@ model Turma {
   empresaId   String?
   empresa     Empresa?   @relation(fields: [empresaId], references: [id])
   ordem       Int        @default(0)
+  /// 24/09/2026 (Novo curso · Grupo Regular)
+  cor         String     @default("")
+  cefr        String     @default("")
+  descricao   String     @default("")
 
   @@unique([cursoId, nome])
 }
@@ -351,6 +389,10 @@ model Professor {
   disponibilidade String[]
   dispDefinida    Boolean   @default(false)
   cpf             String    @default("")
+  /// 24/09/2026 (Novo professor): CNPJ, e-mail secundário e admissão
+  cnpj            String    @default("")
+  emailSecundario String    @default("")
+  admissao        DateTime? @db.Date
   telefone        String    @default("")
   nascimento      DateTime? @db.Date
   genero          String?
@@ -502,6 +544,8 @@ model Aluno {
   email                 String
   cpf                   String
   emailPlaceholder      Boolean   @default(false)
+  /// 24/09/2026: e-mail secundário do Novo aluno
+  emailSecundario       String    @default("")
   /// Ativo · Suspenso · Congelado · Inadimplente · Cancelado · Inativo
   status                String    @default("Ativo")
   desativadoEm          DateTime?

@@ -194,6 +194,12 @@ export type OpcoesAluno = {
   empresas: string[];
   cursos: { nome: string; estrutura: string; itens: string[]; modalidades: string[]; pacote: number }[];
   fb: { tipos: [string, Tom][]; areas: string[]; canais: string[]; situacoes: [string, Tom][] };
+  /* Novo aluno (24/09/2026): Matrícula e Nivelamento */
+  ofertas: { id: number; nome: string; curso: string; aulas: number; parcelasMax: number; mercado: string }[];
+  contratos: { id: number; nome: string; empresa: string }[];
+  formas: { id: number; nome: string }[];
+  cefr: string[];
+  generos: string[];
 };
 export type AlunoForm = PessoaExtra & {
   responsavelFinanceiro: string;
