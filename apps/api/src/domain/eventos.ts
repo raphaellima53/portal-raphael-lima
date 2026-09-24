@@ -81,10 +81,13 @@ export async function agEvEntre(ini: Date, fim: Date, f: FiltroEv): Promise<Even
   const es = (await prisma.evento.findMany({ where: { inicio: { gte: a, lte: z } }, orderBy: { inicio: 'asc' } })).map(
     deBanco,
   );
+  /* vários alunos e usuários, separados por | (24/09/2026) */
+  const alunos = f.aluno ? f.aluno.split('|') : [];
+  const profs = f.prof ? f.prof.split('|') : [];
   return es.filter(
     (e) =>
-      (!f.aluno || e.part.some((x) => x.g === 'aluno' && x.n === f.aluno)) &&
-      (!f.prof || e.part.some((x) => x.g !== 'aluno' && x.n === f.prof)),
+      (!alunos.length || e.part.some((x) => x.g === 'aluno' && alunos.includes(x.n))) &&
+      (!profs.length || e.part.some((x) => x.g !== 'aluno' && profs.includes(x.n))),
   );
 }
 

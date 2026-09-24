@@ -56,14 +56,22 @@ const agCap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const mesNome = (d: Date) => d.toLocaleDateString('pt-BR', { month: 'long' });
 const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
-export const agFiltra = (l: Aula[], f: Filtros) =>
-  l.filter(
+/** 24/09/2026: Alunos, Usuários e Módulos e turmas aceitam vários valores, separados por | */
+export const SEP = '|';
+export const lista = (s: string) => (s ? s.split(SEP).filter(Boolean) : []);
+
+export const agFiltra = (l: Aula[], f: Filtros) => {
+  const alunos = lista(f.aluno);
+  const profs = lista(f.prof);
+  const mods = lista(f.mod);
+  return l.filter(
     (a) =>
-      (!f.aluno || a.alunos.includes(f.aluno)) &&
-      (!f.prof || a.prof === f.prof) &&
+      (!alunos.length || a.alunos.some((n) => alunos.includes(n))) &&
+      (!profs.length || profs.includes(a.prof)) &&
       (!f.prod || a.prod === f.prod) &&
-      (!f.mod || `${a.prod} · ${a.mod}` === f.mod),
+      (!mods.length || mods.includes(`${a.prod} · ${a.mod}`)),
   );
+};
 const agAtivo = (f: Filtros) => !!(f.aluno || f.prof || f.prod || f.mod || f.tipo);
 
 export function agRegua(b: Base, evs: EventoB[] = []) {
@@ -278,6 +286,8 @@ export function intervalo(r: Date, p: string): [Date, Date] {
   return [s, f];
 }
 
+const abc = (x: string, y: string) => x.localeCompare(y, 'pt-BR', { sensitivity: 'base', numeric: true });
+
 /** opções dos filtros do cabeçalho */
 export function opcoesFiltros(b: Base, f: Filtros, c: Contexto) {
   /* pirâmide do aluno: filtros Produtos e Módulos, sempre com os dele */
@@ -298,9 +308,15 @@ export function opcoesFiltros(b: Base, f: Filtros, c: Contexto) {
       .sort((x, y) => x.localeCompare(y, 'pt-BR')),
     colaboradores: ps.colaborador,
     prestadores: ps.prestador,
-    produtos: ativos.map((x) => x.name),
+    /* 24/09/2026: cursos em ordem alfabética; módulos e turmas agrupados por curso, também em ordem alfabética */
+    produtos: ativos.map((x) => x.name).sort(abc),
     modulos: ativos
       .filter((x) => !f.prod || x.name === f.prod)
-      .flatMap((x) => crsItens(x).map((i) => `${x.name} · ${i}`)),
+      .sort((x, y) => abc(x.name, y.name))
+      .map((x) => ({
+        curso: x.name,
+        itens: [...crsItens(x)].sort(abc).map((i) => ({ v: `${x.name} · ${i}`, l: i })),
+      }))
+      .filter((g) => g.itens.length),
   };
 }

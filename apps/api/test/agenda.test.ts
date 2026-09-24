@@ -78,6 +78,39 @@ describe('visões e filtros', () => {
     assert.ok(d.aulas.every((a: { prof: string }) => a.prof === 'Marina Pallotta'));
     assert.deepEqual(d.opcoes.produtos, ['Community live classes', 'Palmares Paulista']);
   });
+
+  test('filtros com vários valores (|) e opções em ordem alfabética, módulos por curso', async () => {
+    const h = await entra('admin@alumni.teste', 'alumni-admin');
+    const abc = (l: string[]) =>
+      [...l].sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base', numeric: true }));
+    const tudo = await get(h, '/agenda?vista=semanal&data=2026-09-17');
+    assert.deepEqual(tudo.opcoes.produtos, abc(tudo.opcoes.produtos));
+    const grupos = tudo.opcoes.modulos as { curso: string; itens: { v: string; l: string }[] }[];
+    assert.deepEqual(
+      grupos.map((g) => g.curso),
+      abc(grupos.map((g) => g.curso)),
+    );
+    for (const g of grupos) {
+      assert.deepEqual(
+        g.itens.map((i) => i.l),
+        abc(g.itens.map((i) => i.l)),
+      );
+      assert.ok(g.itens.every((i) => i.v === `${g.curso} · ${i.l}`));
+    }
+    /* dois professores: só aulas deles, e as de ambos aparecem */
+    const profs = [...new Set((tudo.aulas as { prof: string }[]).map((a) => a.prof).filter((p) => p !== '—'))].slice(
+      0,
+      2,
+    );
+    assert.equal(profs.length, 2);
+    const dois = await get(h, `/agenda?vista=semanal&data=2026-09-17&prof=${encodeURIComponent(profs.join('|'))}`);
+    const vistos = new Set((dois.aulas as { prof: string }[]).map((a) => a.prof));
+    assert.deepEqual([...vistos].sort(), [...profs].sort());
+    /* dois módulos de cursos diferentes */
+    const mods = grupos.slice(0, 2).map((g) => g.itens[0].v);
+    const dm = await get(h, `/agenda?vista=semanal&data=2026-09-17&mod=${encodeURIComponent(mods.join('|'))}`);
+    assert.ok((dm.aulas as { prod: string; mod: string }[]).every((a) => mods.includes(`${a.prod} · ${a.mod}`)));
+  });
 });
 
 describe('ações na aula', () => {

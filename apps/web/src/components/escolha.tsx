@@ -1,8 +1,9 @@
 'use client';
 
 import { CheckIcon, ChevronDownIcon } from 'lucide-react';
-import { useId, useMemo, useRef, useState } from 'react';
-import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -233,6 +234,184 @@ function Combo({
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * Seleção de vários (24/09/2026): lista com checkbox, em grupos opcionais (o grupo tem checkbox que marca todos),
+ * busca a partir de 8 opções e "Limpar". Vazio = `todos`; com algo marcado, o campo fica azul (filtro ativo).
+ */
+export function EscolhaVarias({
+  valor,
+  aoMudar,
+  todos,
+  opcoes,
+  grupos,
+  rotulo,
+  resumo,
+  className,
+  disabled,
+}: {
+  valor: string[];
+  aoMudar: (v: string[]) => void;
+  todos: string;
+  opcoes?: Opcao[];
+  grupos?: Grupo[];
+  rotulo: string;
+  /** texto do campo com 2 ou mais marcados, ex.: (n) => `${n} alunos` */
+  resumo: (n: number) => string;
+  className?: string;
+  disabled?: boolean;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const [q, setQ] = useState('');
+  /* a marcação vale na hora: cliques seguidos não esperam o valor de fora (endereço) voltar */
+  const [local, setLocal] = useState(valor);
+  const ultimo = useRef(valor);
+  const chave = valor.join('\n');
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sincroniza quando o valor de fora muda
+  useEffect(() => {
+    ultimo.current = valor;
+    setLocal(valor);
+  }, [chave]);
+  const gs: Grupo[] = grupos ?? [{ rot: '', opcoes: opcoes ?? [] }];
+  const todas = gs.flatMap((g) => g.opcoes);
+  const marcados = new Set(local);
+  const filtrados = useMemo(() => {
+    const n = norm(q);
+    return gs
+      .map((g) => ({ ...g, opcoes: g.opcoes.filter((o) => !n || norm(o.l).includes(n) || norm(g.rot).includes(n)) }))
+      .filter((g) => g.opcoes.length);
+  }, [gs, q]);
+  const muda = (l: string[]) => {
+    ultimo.current = l;
+    setLocal(l);
+    aoMudar(l);
+  };
+  const troca = (vs: string[], on: boolean) => {
+    const s = new Set(ultimo.current);
+    for (const v of vs) on ? s.add(v) : s.delete(v);
+    /* mantém a ordem das opções */
+    muda(todas.map((o) => o.v).filter((v) => s.has(v)));
+  };
+  const texto = !local.length
+    ? todos
+    : local.length === 1
+      ? (todas.find((o) => o.v === local[0])?.l ?? local[0])
+      : resumo(local.length);
+
+  return (
+    <Popover
+      open={aberto}
+      onOpenChange={(v) => {
+        setAberto(v);
+        if (!v) setQ('');
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`${rotulo}: ${texto}`}
+          disabled={disabled}
+          className={cn(
+            'relative flex h-10 min-w-[180px] cursor-pointer items-center rounded-md border border-borda-forte bg-card pr-9 pl-3 text-left text-sm text-texto transition-[border-color,box-shadow] duration-150 hover:border-[#b7c1d1] focus-visible:border-azul focus-visible:shadow-anel focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+            local.length > 0 && 'border-azul-linha bg-azul-suave font-semibold text-azul',
+            className,
+          )}
+        >
+          <span className="truncate">{texto}</span>
+          <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-apagado" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="flex max-h-[420px] w-[300px] flex-col p-1.5">
+        {todas.length >= 8 && (
+          <input
+            type="search"
+            aria-label={`Buscar em ${rotulo.toLowerCase()}`}
+            placeholder="Buscar…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="mb-1.5 h-9 w-full rounded-md border border-borda-forte bg-card px-3 text-sm text-texto placeholder:text-apagado-2 focus:border-azul focus:shadow-anel focus-visible:outline-none"
+          />
+        )}
+        <div className="flex items-center justify-between px-2 pb-1.5 text-sm">
+          <span className="text-apagado">
+            {local.length ? `${local.length} de ${todas.length} marcados` : `${todas.length} opções`}
+          </span>
+          {local.length > 0 && (
+            <button
+              type="button"
+              className="cursor-pointer font-medium text-azul hover:underline"
+              onClick={() => muda([])}
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto border-t border-borda-suave pt-1" aria-label={rotulo} role="group">
+          {filtrados.map((g) => {
+            const vs = g.opcoes.map((o) => o.v);
+            const n = vs.filter((v) => marcados.has(v)).length;
+            return (
+              <div key={g.rot || 'g'} role="group" aria-label={g.rot || undefined}>
+                {g.rot && (
+                  <CheckLinha
+                    marcado={n === 0 ? false : n === vs.length ? true : 'indeterminate'}
+                    aoMudar={(on) => troca(vs, on)}
+                    forte
+                  >
+                    {g.rot}
+                  </CheckLinha>
+                )}
+                {g.opcoes.map((o) => (
+                  <CheckLinha
+                    key={o.v}
+                    marcado={marcados.has(o.v)}
+                    aoMudar={(on) => troca([o.v], on)}
+                    recuo={!!g.rot}
+                    off={o.off}
+                  >
+                    {o.l}
+                  </CheckLinha>
+                ))}
+              </div>
+            );
+          })}
+          {!filtrados.length && <div className="p-3 text-apagado">nada encontrado</div>}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function CheckLinha({
+  marcado,
+  aoMudar,
+  forte,
+  recuo,
+  off,
+  children,
+}: {
+  marcado: boolean | 'indeterminate';
+  aoMudar: (on: boolean) => void;
+  forte?: boolean;
+  recuo?: boolean;
+  off?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: o Checkbox (botão) dentro do label é o controle
+    <label
+      className={cn(
+        'flex min-h-9 cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-texto-2 hover:bg-hover',
+        forte && 'mt-1 font-semibold text-texto',
+        recuo && 'pl-7',
+        off && 'cursor-not-allowed opacity-50',
+      )}
+    >
+      <Checkbox checked={marcado} disabled={off} onCheckedChange={(v) => aoMudar(v === true)} />
+      <span className="flex-1">{children}</span>
+    </label>
   );
 }
 

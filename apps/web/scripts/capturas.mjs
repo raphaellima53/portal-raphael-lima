@@ -52,7 +52,7 @@ for (const r of rotas) {
       .getByRole('button', { name: /Reunião pedagógica|Alinhamento/ })
       .first()
       .click();
-  if (acao === 'novoevento') await pg.getByRole('button', { name: 'Novo evento' }).click();
+  if (acao === 'novoevento') await pg.getByRole('button', { name: 'Novo', exact: true }).click();
   if (acao === 'gaveta') await pg.getByRole('button', { name: 'Abrir menu' }).click();
   /* botao:<nome> clica no primeiro botão com esse nome (abre formulários) */
   if (acao?.startsWith('botao:'))

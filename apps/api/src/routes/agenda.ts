@@ -126,10 +126,11 @@ const Filtros = z.object({
     .optional()
     .catch(undefined),
   periodo: z.enum(PERIODOS.map((p) => p[0]) as [string, ...string[]]).catch('semana'),
-  aluno: z.string().max(200).catch(''),
-  prof: z.string().max(200).catch(''),
+  /* vários valores separados por | (24/09/2026) */
+  aluno: z.string().max(20000).catch(''),
+  prof: z.string().max(5000).catch(''),
   prod: z.string().max(200).catch(''),
-  mod: z.string().max(300).catch(''),
+  mod: z.string().max(20000).catch(''),
   tipo: z.enum(['', 'aulas', 'eventos']).catch(''),
   qual: z.enum(['', ...AG_QUAL.map((q) => q[0])] as [string, ...string[]]).catch(''),
   minha: z.string().optional(),

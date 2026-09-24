@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
@@ -12,14 +13,15 @@ import {
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Aviso } from '@/components/ds';
-import { Escolha } from '@/components/escolha';
+import { Escolha, EscolhaVarias } from '@/components/escolha';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Dica } from '@/components/ui/tooltip';
 import {
   FILTROS_VAZIOS,
   type Filtros,
+  junta,
   type Layout,
+  lista,
   passo,
   somaMeses,
   useAgenda,
@@ -81,7 +83,9 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
     const s = n.toString();
     return `${caminho}${s ? `?${s}` : ''}`;
   };
-  const vai = (p: Record<string, string | undefined>) => router.push(url(p), { scroll: false });
+  /* `trocar`: marcar vários checkboxes seguidos não empilha o histórico do navegador */
+  const vai = (p: Record<string, string | undefined>, trocar = false) =>
+    trocar ? router.replace(url(p), { scroll: false }) : router.push(url(p), { scroll: false });
 
   /* ao entrar na Agenda sem recorte no endereço, aplica o layout salvo de quem está logado */
   const aplicou = useRef(false);
@@ -142,33 +146,36 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
     </>
   ) : (
     <>
-      {/* pirâmide do professor: Alunos, Usuários, Produtos e Módulos (sem Aulas e eventos) */}
+      {/* 24/09/2026: Tipo · Alunos · Usuários · Cursos · Módulos e turmas; Alunos, Usuários e Módulos com checkbox
+          (vários de uma vez), tudo em ordem alfabética. Pirâmide do professor: sem Tipo e com o usuário preso. */}
       {!presaProf && (
         <Escolha
-          rotulo="Aulas e eventos"
+          rotulo="Tipo"
           valor={filtros.tipo}
-          todos="Aulas e eventos"
+          todos="Tudo"
           aoMudar={(v) => vai({ tipo: v })}
           opcoes={[
             { v: 'aulas', l: 'Só aulas' },
-            { v: 'eventos', l: 'Só eventos e reuniões' },
+            { v: 'eventos', l: 'Só reuniões' },
           ]}
-          className="w-[172px]"
+          className="w-[140px]"
         />
       )}
-      <Escolha
-        rotulo="Todos os alunos"
+      <EscolhaVarias
+        rotulo="Alunos"
         todos="Todos os alunos"
-        valor={filtros.aluno}
-        aoMudar={(v) => vai({ aluno: v })}
+        resumo={(n) => `${n} alunos`}
+        valor={lista(filtros.aluno)}
+        aoMudar={(v) => vai({ aluno: junta(v) }, true)}
         opcoes={o.alunos.map((n) => ({ v: n, l: n }))}
         className="w-[180px]"
       />
-      <Escolha
-        rotulo="Todos os usuários"
+      <EscolhaVarias
+        rotulo="Usuários"
         todos="Todos os usuários"
-        valor={presaProf ?? filtros.prof}
-        aoMudar={(v) => vai({ prof: v })}
+        resumo={(n) => `${n} usuários`}
+        valor={presaProf ? [presaProf] : lista(filtros.prof)}
+        aoMudar={(v) => vai({ prof: junta(v) }, true)}
         disabled={!!presaProf}
         /* uma lista só, em ordem alfabética: colaborador e prestador não se separam (21/09/2026) */
         opcoes={[...new Set([...o.colaboradores, ...o.prestadores])]
@@ -177,28 +184,37 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
         className="w-[180px]"
       />
       <Escolha
-        rotulo="Todos os produtos"
-        todos="Todos os produtos"
+        rotulo="Cursos"
+        todos="Todos os cursos"
         valor={filtros.prod}
-        aoMudar={(v) =>
-          vai({ prod: v, mod: filtros.mod && v && !filtros.mod.startsWith(`${v} · `) ? undefined : filtros.mod })
-        }
+        /* trocar de curso tira os módulos marcados de outros cursos */
+        aoMudar={(v) => vai({ prod: v, mod: junta(lista(filtros.mod).filter((m) => !v || m.startsWith(`${v} · `))) })}
         opcoes={o.produtos.map((n) => ({ v: n, l: n }))}
         className="w-[180px]"
       />
-      <Escolha
-        rotulo="Todos os módulos e turmas"
+      <EscolhaVarias
+        rotulo="Módulos e turmas"
         todos="Todos os módulos e turmas"
-        valor={filtros.mod}
-        aoMudar={(v) => vai({ mod: v })}
-        opcoes={o.modulos.map((n) => ({ v: n, l: n }))}
+        resumo={(n) => `${n} módulos e turmas`}
+        valor={lista(filtros.mod)}
+        aoMudar={(v) => vai({ mod: junta(v) }, true)}
+        grupos={o.modulos.map((g) => ({ rot: g.curso, opcoes: g.itens }))}
         className="w-[210px]"
       />
-      <div role="group" aria-label="Layout da agenda" className="flex items-center gap-1.5">
-        <Dica texto={salvoIgual ? 'Layout salvo' : 'Salvar layout da agenda'} lado="bottom">
+    </>
+  );
+
+  /* botões: Salvar (layout: visão, período e filtros), Resetar e + Novo */
+  const botoes = (
+    <div role="group" aria-label="Ações da agenda" className="flex flex-wrap items-center gap-2">
+      {layoutMsg && (
+        <span role="status" className="text-apagado">
+          {layoutMsg}
+        </span>
+      )}
+      {o && !o.soAluno && (
+        <>
           <Button
-            size="icon"
-            aria-label={salvoIgual ? 'Layout salvo' : 'Salvar layout da agenda'}
             aria-pressed={salvoIgual}
             className={cn(salvoIgual && 'border-azul-linha bg-azul-suave text-azul')}
             onClick={() =>
@@ -208,13 +224,9 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
               })
             }
           >
-            <SaveIcon />
+            {salvoIgual ? <CheckIcon /> : <SaveIcon />} {salvoIgual ? 'Salvo' : 'Salvar'}
           </Button>
-        </Dica>
-        <Dica texto="Resetar filtros" lado="bottom">
           <Button
-            size="icon"
-            aria-label="Resetar filtros"
             onClick={() =>
               salvarLayout.mutate(null, {
                 onSuccess: () => {
@@ -224,16 +236,19 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
               })
             }
           >
-            <RotateCcwIcon />
+            <RotateCcwIcon /> Resetar
           </Button>
-        </Dica>
-        {layoutMsg && (
-          <span role="status" className="text-apagado">
-            {layoutMsg}
-          </span>
-        )}
-      </div>
-    </>
+        </>
+      )}
+      {d?.podeCriarEvento && (
+        <Button
+          variant="primary"
+          onClick={() => setEvento({ novo: vista === 'mensal' || !d ? (data ?? d?.hoje ?? '') : d.ref })}
+        >
+          <PlusIcon /> Novo
+        </Button>
+      )}
+    </div>
   );
 
   const nav = d && (
@@ -344,14 +359,7 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
                 </button>
               ))}
             </div>
-            {vista !== 'kanban' && d?.podeCriarEvento && (
-              <Button
-                variant="primary"
-                onClick={() => setEvento({ novo: vista === 'mensal' || !d ? (data ?? d?.hoje ?? '') : d.ref })}
-              >
-                <PlusIcon /> Novo evento
-              </Button>
-            )}
+            {botoes}
           </div>
         </div>
       </div>

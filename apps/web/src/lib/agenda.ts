@@ -7,6 +7,10 @@ import type { Tom } from './tipos';
 export type Vista = 'mensal' | 'semanal' | 'diaria' | 'kanban';
 export type Filtros = { aluno: string; prof: string; prod: string; mod: string; tipo: string; qual: string };
 export const FILTROS_VAZIOS: Filtros = { aluno: '', prof: '', prod: '', mod: '', tipo: '', qual: '' };
+/** Alunos, Usuários e Módulos e turmas guardam vários valores num texto só, separados por | */
+export const SEP = '|';
+export const lista = (s: string) => (s ? s.split(SEP).filter(Boolean) : []);
+export const junta = (l: string[]) => l.join(SEP);
 
 export type AulaItem = {
   k: string;
@@ -47,7 +51,8 @@ export type OpcoesAgenda =
       colaboradores: string[];
       prestadores: string[];
       produtos: string[];
-      modulos: string[];
+      /** módulos e turmas por curso; `v` = "Curso · Módulo" */
+      modulos: { curso: string; itens: { v: string; l: string }[] }[];
     };
 export type AgendaResp = {
   vista: Vista;

@@ -61,7 +61,7 @@ await passo('‹ › andam um mês e Hoje volta', async () => {
 
 await passo('filtro de produto restringe as aulas e o campo fica destacado', async () => {
   await pg.goto(`${BASE}/agenda?vista=semanal`);
-  await pg.getByRole('combobox', { name: 'Todos os produtos' }).click();
+  await pg.getByRole('combobox', { name: 'Cursos' }).click();
   await pg.getByRole('option', { name: 'FAAP' }).click();
   await pg.waitForURL(/prod=FAAP/);
   await pg.waitForTimeout(800);
@@ -70,6 +70,50 @@ await passo('filtro de produto restringe as aulas e o campo fica destacado', asy
   assert.ok(
     blocos.every((t) => t.startsWith('FAAP')),
     `aula de outro produto: ${blocos.find((t) => !t.startsWith('FAAP'))}`,
+  );
+});
+
+await passo('filtros com checkbox: vários alunos e os módulos de um curso de uma vez', async () => {
+  await pg.goto(`${BASE}/agenda?vista=semanal`);
+  /* Tipo: Tudo · Só aulas · Só reuniões */
+  await pg.getByRole('combobox', { name: 'Tipo' }).click();
+  assert.deepEqual(
+    (await pg.getByRole('option').allInnerTexts()).map((t) => t.trim()),
+    ['Tudo', 'Só aulas', 'Só reuniões'],
+  );
+  await pg.keyboard.press('Escape');
+  /* Alunos: em ordem alfabética; marcar dois junta no endereço */
+  await pg.getByRole('button', { name: /^Alunos: / }).click();
+  const nomes = (await pg.getByRole('group', { name: 'Alunos' }).locator('label').allInnerTexts()).map((t) => t.trim());
+  assert.deepEqual(
+    nomes,
+    [...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+  );
+  await pg.getByRole('checkbox', { name: nomes[0] }).click();
+  await pg.getByRole('checkbox', { name: nomes[1] }).click();
+  await pg.waitForURL((u) => u.searchParams.get('aluno') === `${nomes[0]}|${nomes[1]}`);
+  await pg.getByRole('button', { name: 'Alunos: 2 alunos' }).waitFor();
+  await pg.getByRole('button', { name: 'Limpar' }).click();
+  await pg.waitForURL((u) => !u.searchParams.get('aluno'));
+  await pg.keyboard.press('Escape');
+  /* Módulos e turmas: agrupados por curso; o checkbox do curso marca todos os módulos dele */
+  await pg.getByRole('button', { name: /^Módulos e turmas: / }).click();
+  const grupo = pg.getByRole('group', { name: 'Módulos e turmas' }).getByRole('group').first();
+  const curso = await grupo.getAttribute('aria-label');
+  await grupo.getByRole('checkbox', { name: curso }).click();
+  await pg.waitForURL((u) => (u.searchParams.get('mod') ?? '').startsWith(`${curso} · `));
+  await pg.keyboard.press('Escape');
+  await pg
+    .getByRole('button', { name: /^Módulos e turmas: / })
+    .and(pg.locator('.bg-azul-suave'))
+    .waitFor();
+  /* a mesma consulta na API: só aulas do curso marcado */
+  const mod = new URL(pg.url()).searchParams.get('mod');
+  const r = await pg.request.get(`http://localhost:3333/agenda?vista=semanal&mod=${encodeURIComponent(mod)}`);
+  const aulas = (await r.json()).aulas;
+  assert.ok(
+    aulas.every((a) => a.prod === curso),
+    `aula de outro curso: ${aulas.find((a) => a.prod !== curso)?.prod}`,
   );
 });
 
@@ -144,7 +188,7 @@ await passo('modo apresentação: slides andam pelas setas do teclado', async ()
 
 await passo('evento: criar com participante, ver na agenda, editar e excluir', async () => {
   await pg.goto(`${BASE}/agenda?vista=semanal`);
-  await pg.getByRole('button', { name: 'Novo evento' }).click();
+  await pg.getByRole('button', { name: 'Novo', exact: true }).click();
   await dialogo(pg).getByRole('button', { name: 'Criar' }).click();
   await dialogo(pg).getByText('Informe o título.').waitFor();
   await pg.fill('#evTitulo', 'Reunião de teste e2e');
@@ -163,14 +207,14 @@ await passo('evento: criar com participante, ver na agenda, editar e excluir', a
   await dialogo(pg).waitFor({ state: 'detached' });
 });
 
-await passo('layout: salvar acende o ícone e é aplicado ao voltar para /agenda; resetar apaga', async () => {
+await passo('layout: Salvar vira Salvo e é aplicado ao voltar para /agenda; Resetar apaga', async () => {
   await pg.goto(`${BASE}/agenda?vista=kanban&periodo=mes`);
-  await pg.getByRole('button', { name: 'Salvar layout da agenda' }).click();
-  await pg.getByRole('button', { name: 'Layout salvo' }).waitFor();
+  await pg.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await pg.getByRole('button', { name: 'Salvo', exact: true }).waitFor();
   await pg.goto(`${BASE}/inicio`);
   await pg.getByRole('link', { name: 'Agenda' }).click();
   await pg.waitForURL(/vista=kanban/);
-  await pg.getByRole('button', { name: 'Resetar filtros' }).click();
+  await pg.getByRole('button', { name: 'Resetar', exact: true }).click();
   await pg.waitForURL((u) => u.pathname === '/agenda' && !u.search);
 });
 
@@ -182,11 +226,11 @@ await passo('Diária: ação em massa sem marcar pede a marcação', async () =>
 });
 
 const aluno = await entra('persona.a@alumni.teste', 'alumni-a');
-await passo('aluno: Minha agenda sem Kanban, sem Novo evento e presa nas próprias aulas', async () => {
+await passo('aluno: Minha agenda sem Kanban, sem Novo e presa nas próprias aulas', async () => {
   await aluno.getByRole('link', { name: 'Agenda', exact: true }).click();
   await aluno.getByRole('heading', { name: 'Agenda' }).waitFor();
   assert.equal(await aluno.getByRole('tab', { name: 'Kanban' }).count(), 0);
-  assert.equal(await aluno.getByRole('button', { name: 'Novo evento' }).count(), 0);
+  assert.equal(await aluno.getByRole('button', { name: 'Novo', exact: true }).count(), 0);
   await aluno.goto(`${BASE}/minha-agenda?vista=semanal&prof=John%20Whitaker`);
   await aluno.waitForTimeout(800);
   const blocos = await aluno.locator('main button[style*="background"]').allInnerTexts();
@@ -204,7 +248,7 @@ await passo('aluno: histórico de aulas com presença', async () => {
 const prof = await entra('persona.i@alumni.teste', 'alumni-i');
 await passo('Professora: agenda presa nela (campo de usuário travado)', async () => {
   await prof.goto(`${BASE}/agenda?vista=semanal`);
-  const campo = prof.getByRole('combobox', { name: 'Todos os usuários' });
+  const campo = prof.getByRole('button', { name: 'Usuários: Marina Pallotta' });
   await campo.waitFor();
   assert.equal(await campo.isDisabled(), true);
   await prof.waitForTimeout(600);
