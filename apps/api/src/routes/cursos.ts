@@ -58,6 +58,83 @@ const tempoDe = (m: number | null | undefined) =>
       ? { valor: m / 60, unidade: 'h' as const }
       : { valor: m, unidade: 'min' as const };
 
+const ItemForm = z.object({
+  nome: z.string().trim(),
+  /* 24/09/2026: nome com que o módulo já está gravado ('' se ainda não foi salvo) — renomear mantém o módulo */
+  salvoComo: z.string().trim().max(120).default(''),
+  cor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  /* adequação ao Portal Alumni: sigla, descrição e vagas do módulo */
+  sigla: z.string().trim().max(20).default(''),
+  descricao: z.string().trim().max(300).default(''),
+  vagas: z.coerce.number().int().min(1).max(500).nullable().default(null),
+  /* 24/09/2026 (Novo curso): CEFR do módulo ou da turma; no Open-Entry, regras de agenda e grade */
+  cefr: z.string().trim().max(10).default(''),
+  agendamento: Tempo.nullable().default(null),
+  cancelamento: Tempo.nullable().default(null),
+  horarios: z
+    .array(
+      z.object({
+        dia: z.coerce.number().int().min(0).max(6),
+        hora: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Horário da grade inválido (HH:MM).'),
+        /* 24/09/2026: o professor pode ficar para depois; a grade e a agenda avisam o que falta */
+        professorId: z.string().default(''),
+      }),
+    )
+    .max(120)
+    .default([]),
+});
+type Item = z.infer<typeof ItemForm>;
+type Grade = { nome: string; horarios: { dia: number; hora: string; professorId: string }[] };
+
+/** obrigatórios do módulo ou da turma (Novo curso, 24/09/2026) */
+const faltaNoItem = (m: Item, estrutura: string) =>
+  !CEFR.includes(m.cefr)
+    ? `Escolha o CEFR de ${m.nome}.`
+    : !m.vagas
+      ? `Informe as vagas de ${m.nome}.`
+      : estrutura === 'modulos' && (!m.agendamento || !m.cancelamento)
+        ? `Informe as regras de agendamento e cancelamento de ${m.nome}.`
+        : null;
+/** grade do Open-Entry: só dentro do funcionamento e uma aula por hora no módulo */
+const foraDaGrade = (m: Grade, fn: Awaited<ReturnType<typeof funcionamento>>) => {
+  const vistos = new Set<string>();
+  for (const h of m.horarios) {
+    const d = fn.find((x) => x.dia === h.dia);
+    if (!d?.aberto || h.hora < d.inicio || h.hora >= d.fim)
+      return `${m.nome}: ${DIAS_CURTO[h.dia]} ${h.hora} está fora do horário de funcionamento.`;
+    const k = `${h.dia}|${h.hora}`;
+    if (vistos.has(k)) return `${m.nome}: ${DIAS_CURTO[h.dia]} ${h.hora} aparece duas vezes na grade.`;
+    vistos.add(k);
+  }
+  return null;
+};
+/** o professor fica em um módulo só na mesma hora */
+const choqueDeProfessor = (mods: Grade[]) => {
+  const ocupado = new Map<string, string>();
+  for (const m of mods)
+    for (const h of m.horarios) {
+      if (!h.professorId) continue;
+      const kp = `${h.dia}|${h.hora}|${h.professorId}`;
+      const outroMod = ocupado.get(kp);
+      if (outroMod) return `O mesmo professor está em ${outroMod} e ${m.nome} na ${DIAS_CURTO[h.dia]} às ${h.hora}.`;
+      ocupado.set(kp, m.nome);
+    }
+  return null;
+};
+const avisoSemProfessor = (n: number) =>
+  n
+    ? ` Atenção: ${n} ${n === 1 ? 'horário da grade está' : 'horários da grade estão'} sem professor; as aulas aparecem na Agenda como sem professor.`
+    : '';
+const dadosModulo = (m: Item) => ({
+  cor: m.cor,
+  sigla: m.sigla,
+  descricao: m.descricao,
+  vagas: m.vagas,
+  cefr: m.cefr,
+  agendamentoMin: minutos(m.agendamento),
+  cancelamentoMin: minutos(m.cancelamento),
+});
+
 const CursoForm = z.object({
   nome: z.string().trim().min(1, 'Informe o nome do curso.').max(120),
   descricao: z.string().trim().max(500).default(''),
@@ -65,34 +142,7 @@ const CursoForm = z.object({
   tipo: z.string().max(80).default(''),
   estrutura: z.enum(['modulos', 'turmas', 'nenhuma']).default('modulos'),
   cor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Cor inválida.'),
-  itens: z
-    .array(
-      z.object({
-        nome: z.string().trim(),
-        cor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-        /* adequação ao Portal Alumni: sigla, descrição e vagas do módulo */
-        sigla: z.string().trim().max(20).default(''),
-        descricao: z.string().trim().max(300).default(''),
-        vagas: z.coerce.number().int().min(1).max(500).nullable().default(null),
-        /* 24/09/2026 (Novo curso): CEFR do módulo ou da turma; no Open-Entry, regras de agenda e grade */
-        cefr: z.string().trim().max(10).default(''),
-        agendamento: Tempo.nullable().default(null),
-        cancelamento: Tempo.nullable().default(null),
-        horarios: z
-          .array(
-            z.object({
-              dia: z.coerce.number().int().min(0).max(6),
-              hora: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Horário da grade inválido (HH:MM).'),
-              /* 24/09/2026: o professor pode ficar para depois; a grade e a agenda avisam o que falta */
-              professorId: z.string().default(''),
-            }),
-          )
-          .max(120)
-          .default([]),
-      }),
-    )
-    .max(80)
-    .default([]),
+  itens: z.array(ItemForm).max(80).default([]),
   /* curso Particular: as alocações (responsável e vagas) */
   alocacoes: z
     .array(
@@ -206,6 +256,7 @@ export default async function rotasCursos(app: FastifyInstance) {
         cor: c.color,
         itens: crsItens(c).map((n) => ({
           nome: n,
+          salvoComo: c.estrutura === 'modulos' ? n : '',
           cor: c.cores[n] || b.corModulo[n] || c.color,
           sigla: c.modInfo[n]?.sigla ?? '',
           descricao: c.modInfo[n]?.descricao ?? '',
@@ -292,40 +343,15 @@ export default async function rotasCursos(app: FastifyInstance) {
     /* obrigatórios do Novo curso (24/09/2026) */
     if (!v.idioma) return rep.code(400).send({ erro: 'Escolha o idioma do curso.' });
     for (const m of itens) {
-      if (!CEFR.includes(m.cefr)) return rep.code(400).send({ erro: `Escolha o CEFR de ${m.nome}.` });
-      if (!m.vagas) return rep.code(400).send({ erro: `Informe as vagas de ${m.nome}.` });
-      if (estrutura === 'modulos' && (!m.agendamento || !m.cancelamento))
-        return rep.code(400).send({ erro: `Informe as regras de agendamento e cancelamento de ${m.nome}.` });
+      const falta = faltaNoItem(m, estrutura);
+      if (falta) return rep.code(400).send({ erro: falta });
     }
     /* grade do Open-Entry (24/09/2026): só dentro do funcionamento, uma aula por hora no módulo e o professor
        em um módulo só na mesma hora */
     if (estrutura === 'modulos') {
       const fn = await funcionamento();
-      const ocupado = new Map<string, string>();
-      for (const m of itens) {
-        const vistos = new Set<string>();
-        for (const h of m.horarios) {
-          const d = fn.find((x) => x.dia === h.dia);
-          if (!d?.aberto || h.hora < d.inicio || h.hora >= d.fim)
-            return rep.code(400).send({
-              erro: `${m.nome}: ${DIAS_CURTO[h.dia]} ${h.hora} está fora do horário de funcionamento.`,
-            });
-          const k = `${h.dia}|${h.hora}`;
-          if (vistos.has(k))
-            return rep
-              .code(400)
-              .send({ erro: `${m.nome}: ${DIAS_CURTO[h.dia]} ${h.hora} aparece duas vezes na grade.` });
-          vistos.add(k);
-          if (!h.professorId) continue;
-          const kp = `${k}|${h.professorId}`;
-          const outroMod = ocupado.get(kp);
-          if (outroMod)
-            return rep.code(400).send({
-              erro: `O mesmo professor está em ${outroMod} e ${m.nome} na ${DIAS_CURTO[h.dia]} às ${h.hora}.`,
-            });
-          ocupado.set(kp, m.nome);
-        }
-      }
+      const problema = itens.map((m) => foraDaGrade(m, fn)).find(Boolean) ?? choqueDeProfessor(itens);
+      if (problema) return rep.code(400).send({ erro: problema });
     }
     const alocacoes = estrutura === 'nenhuma' ? v.alocacoes.filter((x) => x.responsavel || x.vagas) : [];
     const tipo = await prisma.catalogo.findFirst({ where: { tipo: 'courseTypes', nome: v.tipo } });
@@ -357,20 +383,16 @@ export default async function rotasCursos(app: FastifyInstance) {
               ordem: ((await tx.curso.aggregate({ _max: { ordem: true } }))._max.ordem ?? -1) + 1,
             },
           });
-      /* módulos: o que continua mantém o id (e a grade é regravada); o que saiu da lista é apagado */
+      /* módulos: o que continua mantém o id (e a grade é regravada); o que saiu da lista é apagado; o renomeado
+         (salvoComo ≠ nome) troca de nome antes */
       const mods = estrutura === 'modulos' ? itens : [];
-      await tx.modulo.deleteMany({ where: { cursoId: curso.id, nome: { notIn: mods.map((m) => m.nome) } } });
+      const ficam = mods.flatMap((m) => [m.nome, m.salvoComo]).filter(Boolean);
+      await tx.modulo.deleteMany({ where: { cursoId: curso.id, nome: { notIn: ficam } } });
+      for (const m of mods)
+        if (m.salvoComo && m.salvoComo !== m.nome)
+          await tx.modulo.updateMany({ where: { cursoId: curso.id, nome: m.salvoComo }, data: { nome: m.nome } });
       for (const [k, m] of mods.entries()) {
-        const dadosMod = {
-          cor: m.cor,
-          sigla: m.sigla,
-          descricao: m.descricao,
-          vagas: m.vagas,
-          ordem: k,
-          cefr: m.cefr,
-          agendamentoMin: minutos(m.agendamento),
-          cancelamentoMin: minutos(m.cancelamento),
-        };
+        const dadosMod = { ...dadosModulo(m), ordem: k };
         const mod = await tx.modulo.upsert({
           where: { cursoId_nome: { cursoId: curso.id, nome: m.nome } },
           update: dadosMod,
@@ -443,12 +465,9 @@ export default async function rotasCursos(app: FastifyInstance) {
     });
     invalidaBase();
     const semProf = estrutura === 'modulos' ? itens.flatMap((m) => m.horarios).filter((h) => !h.professorId).length : 0;
-    const aviso = semProf
-      ? ` Atenção: ${semProf} ${semProf === 1 ? 'horário da grade está' : 'horários da grade estão'} sem professor; as aulas aparecem na Agenda como sem professor.`
-      : '';
     return {
       id: salvo.id,
-      msg: (antigo ? 'Curso salvo.' : 'Curso criado. Confira as regras dele.') + aviso,
+      msg: (antigo ? 'Curso salvo.' : 'Curso criado. Confira as regras dele.') + avisoSemProfessor(semProf),
       semProfessor: semProf,
     };
   };
@@ -456,6 +475,61 @@ export default async function rotasCursos(app: FastifyInstance) {
   app.put('/cursos/:id', { preHandler: exigeCatalogo }, (req, rep) =>
     salvaCurso(req, rep, Number((req.params as { id: string }).id)),
   );
+
+  /** 24/09/2026: salvar um módulo Open-Entry por vez (dados, regras de agenda e grade), sem mexer nos outros */
+  app.put('/cursos/:id/modulo', { preHandler: exigeCatalogo }, async (req, rep) => {
+    const u = req.usuario!;
+    if (!podeAcao(u.nivel, 'editar')) return rep.code(403).send({ erro: 'Seu acesso não permite esta ação.' });
+    const r = ItemForm.safeParse(req.body);
+    if (!r.success) return erro400(rep, r.error);
+    const m = r.data;
+    if (!m.nome) return rep.code(400).send({ erro: 'Informe o nome do módulo.' });
+    const curso = await prisma.curso.findUnique({
+      where: { id: Number((req.params as { id: string }).id) },
+      include: { modulos: { include: { horarios: true } } },
+    });
+    if (!curso) return rep.code(404).send({ erro: 'Curso não encontrado.' });
+    if (curso.estrutura === 'turmas')
+      return rep.code(400).send({ erro: 'Este curso é de turmas; troque o tipo e salve o curso antes.' });
+    const antigo = m.salvoComo ? curso.modulos.find((x) => x.nome === m.salvoComo) : undefined;
+    if (curso.modulos.some((x) => x.id !== antigo?.id && x.nome.toLowerCase() === m.nome.toLowerCase()))
+      return rep.code(400).send({ erro: `Já existe um módulo chamado ${m.nome} neste curso.` });
+    const falta = faltaNoItem(m, 'modulos');
+    if (falta) return rep.code(400).send({ erro: falta });
+    const outros = curso.modulos
+      .filter((x) => x.id !== antigo?.id)
+      .map((x) => ({ nome: x.nome, horarios: x.horarios.map((h) => ({ ...h, professorId: h.professorId ?? '' })) }));
+    const problema = foraDaGrade(m, await funcionamento()) ?? choqueDeProfessor([...outros, m]);
+    if (problema) return rep.code(400).send({ erro: problema });
+
+    await prisma.$transaction(async (tx) => {
+      const mod = antigo
+        ? await tx.modulo.update({ where: { id: antigo.id }, data: { nome: m.nome, ...dadosModulo(m) } })
+        : await tx.modulo.create({
+            data: {
+              cursoId: curso.id,
+              nome: m.nome,
+              ...dadosModulo(m),
+              ordem: Math.max(-1, ...curso.modulos.map((x) => x.ordem)) + 1,
+            },
+          });
+      await tx.moduloHorario.deleteMany({ where: { moduloId: mod.id } });
+      if (m.horarios.length)
+        await tx.moduloHorario.createMany({
+          data: m.horarios.map((h) => ({ moduloId: mod.id, ...h, professorId: h.professorId || null })),
+        });
+      /* curso gravado sem módulos (ou Particular) passa a ser Open-Entry */
+      if (curso.estrutura !== 'modulos') {
+        await tx.curso.update({ where: { id: curso.id }, data: { estrutura: 'modulos' } });
+        await tx.cursoAlocacao.deleteMany({ where: { cursoId: curso.id } });
+      }
+    });
+    invalidaBase();
+    return {
+      nome: m.nome,
+      msg: `${m.nome} salvo.${avisoSemProfessor(m.horarios.filter((h) => !h.professorId).length)}`,
+    };
+  });
 
   app.put('/cursos/:id/regras', { preHandler: (req, rep) => exige(req, rep, ['curso.regras']) }, async (req, rep) => {
     const u = req.usuario!;

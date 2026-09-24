@@ -149,11 +149,58 @@ await passo(
     await pg.getByRole('list', { name: 'Professores' }).getByRole('button').first().click();
     assert.equal(await d.getByText('1 horário sem professor:').count(), 0);
     await d.getByRole('button', { name: 'Remover módulo 2' }).click();
-    await d.getByRole('button', { name: 'Salvar' }).click();
+    await d.getByRole('button', { name: 'Salvar curso' }).click();
     await pg.getByText('Módulos — 1 níveis').waitFor();
     assert.equal(await pg.getByText('horário da grade sem professor').count(), 0);
   },
 );
+
+await passo('Novo curso: salvar módulo por módulo (o 1º cria o curso; cada um mostra se está salvo)', async () => {
+  const d = dialogo(pg);
+  const escolhe = async (nome, opcao) => {
+    await d.getByRole('combobox', { name: nome }).click();
+    await pg.getByRole('option', { name: opcao, exact: true }).click();
+  };
+  const preenche = async (k, nome, dia) => {
+    await d.getByRole('button', { name: 'Novo módulo' }).click();
+    await pg.fill(`#cf-it-nome-${k}`, nome);
+    await escolhe(`CEFR do módulo ${k + 1}`, 'B1');
+    await pg.fill(`#cf-it-vagas-${k}`, '8');
+    await pg.fill(`#cf-agendamento-${k}`, '2');
+    await pg.fill(`#cf-cancelamento-${k}`, '2');
+    const grade = d.getByRole('table', { name: `Grade de Módulo ${k + 1}` });
+    await grade.getByRole('button', { name: `${dia} 09:00: livre, marcar o horário` }).click();
+    await pg.getByRole('list', { name: 'Professores' }).getByRole('button').first().click();
+  };
+  const selo = (k) => d.getByRole('group', { name: `Módulo ${k + 1}`, exact: true }).locator('[data-slot=badge]');
+  await pg.goto(`${BASE}/cursos`);
+  await pg.getByRole('button', { name: 'Novo curso' }).click();
+  await preenche(0, 'Etapa 1', 'Seg');
+  assert.equal(await selo(0).innerText(), 'Não salvo');
+  /* sem os dados do curso o 1º módulo não salva */
+  await d.getByRole('button', { name: 'Salvar módulo 1' }).click();
+  await d.getByText('Informe o nome do curso.').waitFor();
+  await pg.fill('#cf-nome', 'Curso de teste e2e por módulo');
+  await escolhe('Idioma', 'Inglês');
+  await d.getByRole('button', { name: 'Salvar módulo 1' }).click();
+  await d.getByText('Curso criado com Etapa 1. Siga com os outros módulos.').waitFor();
+  assert.match(await selo(0).innerText(), /Salvo/);
+  assert.equal(await d.getByRole('button', { name: 'Salvar módulo 1' }).isDisabled(), true);
+  /* o 2º módulo entra sozinho; mexer no 1º marca alterações não salvas */
+  await preenche(1, 'Etapa 2', 'Ter');
+  await d.getByText('1 módulo não salvo').waitFor();
+  await d.getByRole('button', { name: 'Salvar módulo 2' }).click();
+  await d.getByText('Etapa 2 salvo.').waitFor();
+  await pg.fill('#cf-it-vagas-0', '10');
+  assert.equal(await selo(0).innerText(), 'Alterações não salvas');
+  await d.getByRole('button', { name: 'Salvar módulo 1' }).click();
+  await d.getByText('Etapa 1 salvo.').waitFor();
+  assert.equal(await d.getByText(/módulos? não salvos?/).count(), 0);
+  /* fechar leva ao curso criado, com os dois módulos */
+  await d.locator('[data-slot=button]', { hasText: 'Fechar' }).click();
+  await pg.waitForURL(/\/cursos\/\d+\/regras/);
+  await pg.getByText('Módulos — 2 níveis').waitFor();
+});
 
 await passo('currículo: novo currículo, conteúdo, publicar, nova versão, subir e descartar', async () => {
   await pg.goto(`${BASE}/cursos/${novoId}/curriculo`);

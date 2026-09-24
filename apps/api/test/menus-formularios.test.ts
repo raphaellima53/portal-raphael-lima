@@ -224,6 +224,91 @@ describe('menus e formulários (24/09/2026)', () => {
     assert.ok(futuras.every((a) => a.estado === 'semProfessor'));
   });
 
+  test('salvar módulo por módulo: um de cada vez, sem mexer nos outros, e renomear mantém o módulo', async () => {
+    const h = await adm();
+    const prof = await prisma.professor.findFirstOrThrow({ where: { ativo: true }, orderBy: { ordem: 'asc' } });
+    const nome = `${NOME} por módulo`;
+    const mod = (n: string, dia: number, extra: object = {}) => ({
+      nome: n,
+      cor: '#123456',
+      cefr: 'A1',
+      vagas: 6,
+      agendamento: { valor: 2, unidade: 'h' },
+      cancelamento: { valor: 2, unidade: 'h' },
+      horarios: [{ dia, hora: '09:00', professorId: prof.id }],
+      ...extra,
+    });
+    /* o 1º módulo salvo cria o curso com ele só */
+    const r = await req(h, 'POST', '/cursos', {
+      nome,
+      cor: '#123456',
+      idioma: 'Inglês',
+      estrutura: 'modulos',
+      itens: [mod('Módulo A', 1)],
+    });
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    const cid = r.json.id;
+    const a = await prisma.modulo.findFirstOrThrow({ where: { cursoId: cid, nome: 'Módulo A' } });
+    const salva = (m: object) => req(h, 'PUT', `/cursos/${cid}/modulo`, m);
+
+    const b = await salva(mod('Módulo B', 2, { horarios: [{ dia: 2, hora: '09:00', professorId: '' }] }));
+    assert.equal(b.status, 200, JSON.stringify(b.json));
+    assert.match(b.json.msg, /^Módulo B salvo\. Atenção: 1 horário/);
+    const mods = await prisma.modulo.findMany({ where: { cursoId: cid }, include: { horarios: true } });
+    assert.deepEqual(mods.map((m) => [m.nome, m.ordem, m.horarios.length]).sort(), [
+      ['Módulo A', 0, 1],
+      ['Módulo B', 1, 1],
+    ]);
+    assert.equal(mods.find((m) => m.nome === 'Módulo A')?.id, a.id);
+
+    /* validações olham os módulos já gravados */
+    assert.match((await salva(mod('Módulo C', 1))).json.erro, /mesmo professor está em Módulo A e Módulo C/);
+    assert.match((await salva(mod('módulo a', 3))).json.erro, /Já existe um módulo/);
+    assert.match((await salva(mod('Módulo C', 0))).json.erro, /fora do horário/);
+    assert.match((await salva(mod('Módulo C', 3, { cefr: '' }))).json.erro, /CEFR/);
+
+    /* renomear pelo módulo mantém o id e troca a grade */
+    const idB = mods.find((m) => m.nome === 'Módulo B')!.id;
+    const ren = await salva(mod('Módulo B2', 4, { salvoComo: 'Módulo B' }));
+    assert.equal(ren.status, 200, JSON.stringify(ren.json));
+    const b2 = await prisma.modulo.findFirstOrThrow({
+      where: { cursoId: cid, nome: 'Módulo B2' },
+      include: { horarios: true },
+    });
+    assert.equal(b2.id, idB);
+    assert.deepEqual([b2.horarios[0].dia, b2.horarios[0].professorId], [4, prof.id]);
+    const form = (await req(h, 'GET', `/cursos/${cid}`)).json.form;
+    assert.deepEqual(
+      form.itens.map((x: { nome: string; salvoComo: string }) => [x.nome, x.salvoComo]),
+      [
+        ['Módulo A', 'Módulo A'],
+        ['Módulo B2', 'Módulo B2'],
+      ],
+    );
+
+    /* salvar o curso inteiro também respeita o renomear (salvoComo) */
+    const tudo = await req(h, 'PUT', `/cursos/${cid}`, {
+      nome,
+      cor: '#123456',
+      idioma: 'Inglês',
+      estrutura: 'modulos',
+      itens: [mod('Módulo A1', 1, { salvoComo: 'Módulo A' }), mod('Módulo B2', 4, { salvoComo: 'Módulo B2' })],
+    });
+    assert.equal(tudo.status, 200, JSON.stringify(tudo.json));
+    assert.equal((await prisma.modulo.findFirstOrThrow({ where: { cursoId: cid, nome: 'Módulo A1' } })).id, a.id);
+
+    /* curso gravado sem módulos passa a Open-Entry no 1º módulo salvo */
+    const vazio = await req(h, 'POST', '/cursos', {
+      nome: `${nome} vazio`,
+      cor: '#123456',
+      idioma: 'Inglês',
+      estrutura: 'modulos',
+    });
+    assert.equal((await prisma.curso.findUniqueOrThrow({ where: { id: vazio.json.id } })).estrutura, 'nenhuma');
+    assert.equal((await req(h, 'PUT', `/cursos/${vazio.json.id}/modulo`, mod('Módulo X', 5))).status, 200);
+    assert.equal((await prisma.curso.findUniqueOrThrow({ where: { id: vazio.json.id } })).estrutura, 'modulos');
+  });
+
   test('base sem funcionamento: vale o padrão e salvar em Configurações cria os dias', async () => {
     const h = await adm();
     const antes = await prisma.funcionamento.findMany();

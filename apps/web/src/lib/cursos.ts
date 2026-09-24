@@ -113,6 +113,8 @@ export type Tempo = { valor: number; unidade: 'min' | 'h' };
 /** módulo (Open-Entry) ou turma (Regular) do Novo curso */
 export type ItemCurso = {
   nome: string;
+  /** nome com que o módulo já está gravado ('' = ainda não salvo) */
+  salvoComo: string;
   cor: string;
   sigla: string;
   descricao: string;
@@ -192,6 +194,16 @@ export function useSalvarCurso() {
         method: id == null ? 'POST' : 'PUT',
         json: d,
       }),
+    onSuccess: () => invalidaCursos(qc),
+  });
+}
+
+/** salva um módulo Open-Entry só (dados, regras de agenda e grade) */
+export function useSalvarModulo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cursoId, ...d }: ItemCurso & { cursoId: number }) =>
+      api<{ nome: string; msg: string }>(`/cursos/${cursoId}/modulo`, { method: 'PUT', json: d }),
     onSuccess: () => invalidaCursos(qc),
   });
 }

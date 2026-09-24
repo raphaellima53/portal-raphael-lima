@@ -1,20 +1,27 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ExternalLinkIcon, PlusIcon, XIcon } from 'lucide-react';
+import { CheckIcon, ExternalLinkIcon, PlusIcon, XIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { type Control, Controller, type UseFormRegister, useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { GradeModulo } from '@/components/cursos/grade-modulo';
 import { Escolha } from '@/components/escolha';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { type CursoForm as Form, type OpcoesCurso, useOpcoesCurso, useSalvarCurso } from '@/lib/cursos';
+import {
+  type CursoForm as Form,
+  type OpcoesCurso,
+  useOpcoesCurso,
+  useSalvarCurso,
+  useSalvarModulo,
+} from '@/lib/cursos';
 
 /*
  * Novo curso (24/09/2026): Nome, Cor, Idioma e Tipo de curso obrigatórios; o tipo abre o cadastro próprio:
@@ -39,6 +46,7 @@ const Esquema = z
     itens: z.array(
       z.object({
         nome: z.string(),
+        salvoComo: z.string(),
         cor: z.string(),
         sigla: z.string(),
         descricao: z.string(),
@@ -93,6 +101,7 @@ const VAZIO: Form = {
 };
 const novoItem = (cor: string): Form['itens'][number] => ({
   nome: '',
+  salvoComo: '',
   cor,
   sigla: '',
   descricao: '',
@@ -121,6 +130,21 @@ const numero = (v: string, max = 4) => {
   const d = v.replace(/\D/g, '').slice(0, max);
   return d ? Number(d) : null;
 };
+type Item = Form['itens'][number];
+/** o que o módulo tem de dado, para saber se mudou desde que foi salvo */
+const assina = (it: Item) =>
+  JSON.stringify([
+    it.nome.trim(),
+    it.cor,
+    it.sigla,
+    it.descricao,
+    it.vagas,
+    it.cefr,
+    it.agendamento,
+    it.cancelamento,
+    it.horarios,
+  ]);
+type EstadoModulo = 'novo' | 'alterado' | 'salvo';
 
 /** Novo curso e Editar curso: cada curso é um produto com regras fechadas. */
 export function CursoFormDialog({
@@ -139,22 +163,71 @@ export function CursoFormDialog({
   const router = useRouter();
   const opcoes = useOpcoesCurso(aberto);
   const salvar = useSalvarCurso();
+  const criar = useSalvarCurso();
+  const salvarModulo = useSalvarModulo();
   const f = useForm<Form>({ resolver: zodResolver(Esquema), defaultValues: inicial ?? VAZIO });
   const itens = useFieldArray({ control: f.control, name: 'itens' });
   const alocs = useFieldArray({ control: f.control, name: 'alocacoes' });
+  /* salvar módulo por módulo (24/09/2026): no Novo curso, o 1º módulo salvo já cria o curso */
+  const [cursoId, setCursoId] = useState<number | null>(id);
+  /* assinatura de cada módulo como está gravado, pelo nome gravado */
+  const [salvos, setSalvos] = useState<Record<string, string>>({});
+  const [salvando, setSalvando] = useState<number | null>(null);
+  const [msgModulo, setMsgModulo] = useState<{ k: number; ok: boolean; txt: string } | null>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: reinicia ao abrir
   useEffect(() => {
     if (aberto) {
       f.reset(inicial ? { ...VAZIO, ...inicial } : VAZIO);
       salvar.reset();
+      setCursoId(id);
+      setSalvos(
+        Object.fromEntries((inicial?.itens ?? []).filter((it) => it.salvoComo).map((it) => [it.salvoComo, assina(it)])),
+      );
+      setMsgModulo(null);
     }
   }, [aberto]);
   const estrutura = f.watch('estrutura');
+  const valoresItens = f.watch('itens');
   const e = f.formState.errors;
+  const estadoDe = (it: Item | undefined): EstadoModulo =>
+    !it?.salvoComo ? 'novo' : salvos[it.salvoComo] === assina(it) ? 'salvo' : 'alterado';
+  const pendentes = estrutura === 'modulos' ? valoresItens.filter((it) => estadoDe(it) !== 'salvo').length : 0;
+  const criado = id == null && cursoId != null;
+
+  /** fechar um Novo curso que já foi criado pelo 1º módulo leva à página dele */
+  const fechar = () => {
+    aoFechar();
+    if (criado) router.push(`/cursos/${cursoId}/regras`);
+  };
+
+  const salvaModulo = async (k: number) => {
+    const campos = cursoId == null ? (['nome', 'idioma', `itens.${k}`] as const) : ([`itens.${k}`] as const);
+    if (!(await f.trigger(campos))) return;
+    const it = f.getValues(`itens.${k}`);
+    setSalvando(k);
+    setMsgModulo(null);
+    try {
+      let txt: string;
+      if (cursoId == null) {
+        /* o curso nasce só com este módulo; os outros seguem para salvar depois */
+        const r = await criar.mutateAsync({ ...f.getValues(), itens: [it], id: null });
+        setCursoId(r.id);
+        txt = `Curso criado com ${it.nome.trim()}. Siga com os outros módulos.`;
+      } else txt = (await salvarModulo.mutateAsync({ ...it, cursoId })).msg;
+      const nome = it.nome.trim();
+      f.setValue(`itens.${k}.salvoComo`, nome);
+      setSalvos((s) => ({ ...s, [nome]: assina(it) }));
+      setMsgModulo({ k, ok: true, txt });
+    } catch (err) {
+      setMsgModulo({ k, ok: false, txt: (err as Error).message });
+    } finally {
+      setSalvando(null);
+    }
+  };
 
   const enviar = f.handleSubmit((d) =>
     salvar.mutate(
-      { ...d, id },
+      { ...d, id: cursoId },
       {
         onSuccess: (r) => {
           aoFechar();
@@ -167,12 +240,16 @@ export function CursoFormDialog({
   const op = opcoes.data;
 
   return (
-    <Dialog open={aberto} onOpenChange={(v) => !v && aoFechar()}>
+    <Dialog open={aberto} onOpenChange={(v) => !v && fechar()}>
       <DialogContent tamanho="lg">
         <form onSubmit={enviar} noValidate className="flex min-h-0 flex-col">
           <DialogHead
             titulo={id == null ? 'Novo curso' : 'Editar curso'}
-            descricao="cada curso é um produto com regras fechadas"
+            descricao={
+              criado
+                ? 'curso criado; salve cada módulo quando terminar a grade dele'
+                : 'cada curso é um produto com regras fechadas'
+            }
           />
           <DialogBody className="grid gap-4 sm:grid-cols-2">
             <div className="grid content-start gap-1.5 sm:col-span-2">
@@ -276,7 +353,15 @@ export function CursoFormDialog({
                     register={f.register}
                     op={op}
                     erros={e.itens?.[k] as Record<string, { message?: string }> | undefined}
-                    remover={() => itens.remove(k)}
+                    remover={() => {
+                      itens.remove(k);
+                      setMsgModulo(null);
+                    }}
+                    estado={estadoDe(valoresItens[k])}
+                    salvando={salvando === k}
+                    ocupado={salvando != null || salvar.isPending}
+                    aoSalvar={() => salvaModulo(k)}
+                    msg={msgModulo?.k === k ? msgModulo : null}
                   />
                 ))}
                 <Button
@@ -468,11 +553,16 @@ export function CursoFormDialog({
                 Confira os campos marcados.
               </span>
             )}
-            <Button type="button" onClick={aoFechar}>
-              Cancelar
+            {!salvar.isError && !Object.keys(e).length && pendentes > 0 && cursoId != null && (
+              <span className="mr-auto text-apagado">
+                {pendentes} {pendentes === 1 ? 'módulo não salvo' : 'módulos não salvos'}
+              </span>
+            )}
+            <Button type="button" onClick={fechar}>
+              {criado ? 'Fechar' : 'Cancelar'}
             </Button>
-            <Button type="submit" variant="primary" disabled={salvar.isPending}>
-              {id == null ? 'Criar curso' : 'Salvar'}
+            <Button type="submit" variant="primary" disabled={salvar.isPending || salvando != null}>
+              {cursoId == null ? 'Criar curso' : 'Salvar curso'}
             </Button>
           </DialogFoot>
         </form>
@@ -490,6 +580,11 @@ function ItemCard({
   op,
   erros,
   remover,
+  estado,
+  salvando,
+  ocupado,
+  aoSalvar,
+  msg,
 }: {
   k: number;
   modulo: boolean;
@@ -498,12 +593,33 @@ function ItemCard({
   op: OpcoesCurso | undefined;
   erros?: Record<string, { message?: string }>;
   remover: () => void;
+  estado: EstadoModulo;
+  salvando: boolean;
+  ocupado: boolean;
+  aoSalvar: () => void;
+  msg: { ok: boolean; txt: string } | null;
 }) {
   const qual = modulo ? 'módulo' : 'turma';
   return (
-    <div className="grid gap-3 rounded-md border border-borda bg-bg p-4 sm:grid-cols-2">
-      <div className="flex items-center justify-between sm:col-span-2">
-        <b className="text-texto">{modulo ? `Módulo ${k + 1}` : `Turma ${k + 1}`}</b>
+    <div
+      role="group"
+      aria-label={modulo ? `Módulo ${k + 1}` : `Turma ${k + 1}`}
+      className="grid gap-3 rounded-md border border-borda bg-bg p-4 sm:grid-cols-2"
+    >
+      <div className="flex items-center justify-between gap-2 sm:col-span-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <b className="text-texto">{modulo ? `Módulo ${k + 1}` : `Turma ${k + 1}`}</b>
+          {modulo &&
+            (estado === 'salvo' ? (
+              <Badge tom="green">
+                <CheckIcon className="size-3.5" aria-hidden /> Salvo
+              </Badge>
+            ) : estado === 'alterado' ? (
+              <Badge tom="amber">Alterações não salvas</Badge>
+            ) : (
+              <Badge>Não salvo</Badge>
+            ))}
+        </div>
         <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remover ${qual} ${k + 1}`} onClick={remover}>
           <XIcon />
         </Button>
@@ -608,6 +724,19 @@ function ItemCard({
                 />
               )}
             />
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-3 sm:col-span-2">
+            {msg && (
+              <span
+                role={msg.ok ? 'status' : 'alert'}
+                className={msg.ok ? 'mr-auto text-verde' : 'mr-auto font-medium text-vermelho'}
+              >
+                {msg.txt}
+              </span>
+            )}
+            <Button type="button" onClick={aoSalvar} disabled={ocupado || estado === 'salvo'}>
+              {salvando ? 'Salvando…' : `Salvar módulo ${k + 1}`}
+            </Button>
           </div>
         </>
       )}
