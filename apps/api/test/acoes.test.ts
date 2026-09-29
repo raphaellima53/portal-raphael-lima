@@ -43,8 +43,10 @@ const adm = () => entra('admin@alumni.teste', 'alumni-admin');
 describe('ações', () => {
   test('alocação e acesso por setor', async () => {
     const r = (await req(await adm(), 'GET', '/acoes/alocacao')).json;
-    assert.equal(r.itens.length, 1);
-    assert.equal(r.itens[0].tipo, 'conflitoAluno');
+    /* grade do módulo sem professor: um item por módulo, não um por horário (Community live classes, 24/09/2026) */
+    const semProf = r.itens.filter((x: { tipo: string }) => x.tipo === 'semProf');
+    assert.equal(new Set(semProf.map((x: { oque: string }) => x.oque)).size, semProf.length);
+    assert.ok(semProf.every((x: { quando: string }) => /horários? da grade|·/.test(x.quando)));
     const l = await entra('persona.l@alumni.teste', 'alumni-l');
     assert.equal((await req(l, 'GET', '/acoes/alocacao')).status, 403);
     assert.equal((await req(l, 'GET', '/acoes/funil')).status, 200);

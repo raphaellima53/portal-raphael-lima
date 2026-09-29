@@ -142,7 +142,25 @@ export type CursoForm = {
   visibilidadeOferta: string;
   tipoSala: string;
 };
-export type Aba = 'geral' | 'regras' | 'curriculo' | 'grade';
+export type Aba = 'geral' | 'modulos' | 'regras' | 'curriculo' | 'grade';
+/** aba Módulos (24/09/2026) */
+export type ModulosAba = {
+  stats: { valor: string; rotulo: string; tom?: 'amber' }[];
+  modulos: {
+    nome: string;
+    cor: string;
+    sigla: string;
+    descricao: string;
+    cefr: string;
+    vagas: number | null;
+    /** null = sem regra no módulo (vale a do curso) */
+    agendamento: string | null;
+    cancelamento: string | null;
+    horarios: { txt: string; prof: string | null }[];
+    alunos: number;
+    curriculo: CurRef;
+  }[];
+};
 export type OpcoesCurso = {
   idiomas: string[];
   tipos: string[];
@@ -160,10 +178,11 @@ export type CursoResp = {
   sub: string;
   abas: Aba[];
   aba: Aba;
-  dados: Geral | Regras | CurriculoAba | Grade;
+  dados: Geral | ModulosAba | Regras | CurriculoAba | Grade;
   form: CursoForm;
   opcoes: OpcoesCurso;
-  pode: { agenda: boolean; editar: boolean; criar: boolean; curriculo: boolean };
+  /** excluir: só o Admin (curso e módulo vão para a Lixeira) */
+  pode: { agenda: boolean; editar: boolean; criar: boolean; curriculo: boolean; excluir: boolean };
 };
 
 export const useCatalogo = () =>
@@ -204,6 +223,24 @@ export function useSalvarModulo() {
   return useMutation({
     mutationFn: ({ cursoId, ...d }: ItemCurso & { cursoId: number }) =>
       api<{ nome: string; msg: string }>(`/cursos/${cursoId}/modulo`, { method: 'PUT', json: d }),
+    onSuccess: () => invalidaCursos(qc),
+  });
+}
+
+export function useExcluirModulo(cursoId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (nome: string) =>
+      api<{ msg: string }>(`/cursos/${cursoId}/modulo?nome=${encodeURIComponent(nome)}`, { method: 'DELETE' }),
+    onSuccess: () => invalidaCursos(qc),
+  });
+}
+
+export function useOrdemModulos(cursoId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (nomes: string[]) =>
+      api<{ msg: string }>(`/cursos/${cursoId}/modulos/ordem`, { method: 'PUT', json: { nomes } }),
     onSuccess: () => invalidaCursos(qc),
   });
 }

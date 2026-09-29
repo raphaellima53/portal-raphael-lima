@@ -8,6 +8,7 @@ import type { Msg } from '@/components/alunos/comum';
 import { CampoData } from '@/components/campos-data';
 import { Aviso, PageHead, Trilho } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { Excluir } from '@/components/excluir';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
@@ -15,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { type PedidoL, type Sit, type StatD, useDeal, useDealAcao } from '@/lib/deal';
 import { idCadastro } from '@/lib/ids';
+import { useEhAdmin } from '@/lib/lixeira';
 import { Lk, Nada, SitB, Stats, Sub, TabelaDeal } from './comum';
 
 const Erro = ({ e }: { e: Error | null }) =>
@@ -468,6 +470,7 @@ export function TelaDescontos({ abas }: { abas: React.ReactNode }) {
   const q = useDeal<Desc>('/descontos');
   const [novo, setNovo] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
+  const ehAdmin = useEhAdmin();
   const d = q.data;
   return (
     <>
@@ -498,6 +501,17 @@ export function TelaDescontos({ abas }: { abas: React.ReactNode }) {
           { t: 'Usos', num: true, r: (c) => c.usos },
           { t: 'Ofertas', num: true, r: (c) => c.ofertas },
           { t: 'Situação', r: (c) => <SitB s={c.situacao} /> },
+          ...(ehAdmin
+            ? [
+                {
+                  t: 'Ações',
+                  cls: 'text-right',
+                  r: (c: Desc['itens'][number]) => (
+                    <Excluir tipo="cupom" id={c.codigo} nome={c.codigo} icone aoExcluido={(txt) => setMsg({ txt })} />
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
       <NovoCupom aberto={novo} aoFechar={() => setNovo(false)} aoSalvo={(txt) => setMsg({ txt })} />
@@ -627,10 +641,13 @@ type Bolsas = {
 };
 export function TelaBolsas({ abas }: { abas: React.ReactNode }) {
   const q = useDeal<Bolsas>('/bolsas');
+  const [msg, setMsg] = useState<Msg>(null);
+  const ehAdmin = useEhAdmin();
   return (
     <>
       <PageHead titulo="Bolsas" />
       {abas}
+      <MsgAviso m={msg} />
       <Erro e={q.error} />
       {q.data && <Stats itens={q.data.stats} />}
       <TabelaDeal
@@ -647,6 +664,23 @@ export function TelaBolsas({ abas }: { abas: React.ReactNode }) {
           { t: 'Custo', num: true, r: (b) => b.custo },
           { t: 'Motivo', r: (b) => <span className="text-apagado">{b.motivo}</span> },
           { t: 'Situação', r: (b) => <SitB s={b.situacao} /> },
+          ...(ehAdmin
+            ? [
+                {
+                  t: 'Ações',
+                  cls: 'text-right',
+                  r: (b: Bolsas['itens'][number]) => (
+                    <Excluir
+                      tipo="bolsa"
+                      id={b.id}
+                      nome={`bolsa de ${b.nome}`}
+                      icone
+                      aoExcluido={(txt) => setMsg({ txt })}
+                    />
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
     </>

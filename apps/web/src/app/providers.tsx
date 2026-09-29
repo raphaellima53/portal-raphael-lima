@@ -3,9 +3,21 @@
 import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
 import type * as React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DicaProvider } from '@/components/ui/tooltip';
 import { ErroApi } from '@/lib/api';
+import { useMe } from '@/lib/consultas';
+
+/** tema da sub-marca (24/09/2026): o aluno do Alumni Black vê o portal em Onyx e ouro (data-marca no <html>) */
+function MarcaTema() {
+  const marca = useMe().data?.usuario?.marca ?? null;
+  useEffect(() => {
+    const html = document.documentElement;
+    if (marca) html.dataset.marca = marca;
+    else delete html.dataset.marca;
+  }, [marca]);
+  return null;
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [qc] = useState(() => {
@@ -31,6 +43,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     /* tema claro por padrão, sempre — o escuro fica disponível, mas não segue o sistema */
     <ThemeProvider attribute="data-theme" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
       <QueryClientProvider client={qc}>
+        <MarcaTema />
         <DicaProvider>{children}</DicaProvider>
       </QueryClientProvider>
     </ThemeProvider>

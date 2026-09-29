@@ -6,6 +6,7 @@ import { Busca, normaliza } from '@/components/acoes/alocacao';
 import type { Msg } from '@/components/alunos/comum';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { Excluir } from '@/components/excluir';
 import { usePaginacao } from '@/components/paginacao';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -110,7 +111,11 @@ export function TelaCatalogo({ abas }: { abas: React.ReactNode }) {
               <Th>Responsável padrão</Th>
               <Th className="text-right">Abertas</Th>
               <Th>Situação</Th>
-              {d?.podeEditar && <Th className="w-12" />}
+              {d?.podeEditar && (
+                <Th className="w-24">
+                  <span className="sr-only">Ações</span>
+                </Th>
+              )}
             </Tr>
           </THead>
           <TBody>
@@ -134,7 +139,7 @@ export function TelaCatalogo({ abas }: { abas: React.ReactNode }) {
                     <Badge tom={m.ativo ? 'green' : 'gray'}>{m.ativo ? 'Ativa' : 'Inativa'}</Badge>
                   </Td>
                   {d?.podeEditar && (
-                    <Td>
+                    <Td className="text-right whitespace-nowrap">
                       <Button
                         variant="ghost"
                         size="icon-sm"
@@ -143,6 +148,13 @@ export function TelaCatalogo({ abas }: { abas: React.ReactNode }) {
                       >
                         <PencilIcon />
                       </Button>
+                      <Excluir
+                        tipo="atividadeModelo"
+                        id={m.id}
+                        nome={m.nome}
+                        icone
+                        aoExcluido={(txt) => setMsg({ txt })}
+                      />
                     </Td>
                   )}
                 </Tr>

@@ -6,7 +6,13 @@ import { corLegivel } from '@/lib/cor';
 import { cn } from '@/lib/utils';
 
 type Item = { q: string; ev?: EventoItem; aula?: AulaItem };
-type Abre = { aula: (k: string) => void; evento: (id: string) => void; dia: (iso: string) => void };
+type Abre = {
+  aula: (k: string) => void;
+  evento: (id: string) => void;
+  dia: (iso: string) => void;
+  /** 25/09/2026: agenda do aluno — clicar num dia ou horário abre o menu Agendar aula */
+  agendar?: (iso: string, hora?: number) => void;
+};
 const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
 const DOW = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const tecla = (f: () => void) => (e: React.KeyboardEvent) => {
@@ -63,14 +69,17 @@ export function Mensal({ d, abre }: { d: AgendaResp; abre: Abre }) {
           ];
           /* no mês cabem 3 itens por dia: eventos e reuniões vêm antes das aulas */
           itens.sort((x, y) => (y.ev ? 1 : 0) - (x.ev ? 1 : 0) || x.q.localeCompare(y.q));
+          /* na agenda do aluno, o dia com aula da grade (não domingo nem feriado) abre Agendar aula */
+          const agendar = abre.agendar && dia.dow && !dia.feriado ? abre.agendar : null;
+          const clica = () => (agendar ? agendar(dia.iso) : abre.dia(dia.iso));
           return (
             <div
               key={dia.iso}
               role="button"
               tabIndex={0}
-              aria-label={`Abrir ${dia.dia} na visão diária`}
-              onClick={() => abre.dia(dia.iso)}
-              onKeyDown={tecla(() => abre.dia(dia.iso))}
+              aria-label={agendar ? `Agendar aula no dia ${dia.dia}` : `Abrir ${dia.dia} na visão diária`}
+              onClick={clica}
+              onKeyDown={tecla(clica)}
               className={cn(
                 'flex min-h-[122px] cursor-pointer flex-col gap-1 border-b border-borda-suave p-1.5 transition-colors hover:bg-hover',
                 i % 7 && 'border-l',
@@ -169,11 +178,20 @@ function Linha({ h, dias, d, abre }: { h: number; dias: NonNullable<AgendaResp['
           ...(d.eventos ?? []).filter((e) => e.iso === dia.iso && e.hora === h).map((e) => ({ q: e.ini, ev: e })),
         ].sort((x, y) => x.q.localeCompare(y.q));
         const fora = !dia.dow || dia.feriado;
+        const agendar = abre.agendar && !fora ? () => abre.agendar!(dia.iso, h) : undefined;
         return (
           <div
             key={dia.iso}
+            {...(agendar && {
+              role: 'button',
+              tabIndex: 0,
+              'aria-label': `Agendar aula em ${dia.rot} ${dia.dia} às ${hh(h)}`,
+              onClick: agendar,
+              onKeyDown: tecla(agendar),
+            })}
             className={cn(
               'flex min-h-[152px] min-w-0 flex-col gap-1 border-b border-l border-borda-suave p-1',
+              agendar && 'cursor-pointer transition-colors hover:bg-hover',
               dia.hoje && 'bg-azul-suave/40',
               fora && 'bg-[#fafbfd] dark:bg-hover',
             )}
@@ -185,7 +203,10 @@ function Linha({ h, dias, d, abre }: { h: number; dias: NonNullable<AgendaResp['
                 <button
                   key={x.ev!.id}
                   type="button"
-                  onClick={() => abre.evento(x.ev!.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    abre.evento(x.ev!.id);
+                  }}
                   className="min-w-0 cursor-pointer rounded-[6px] border border-borda-forte bg-card px-2 py-1 text-left shadow-el-1 hover:shadow-el-2"
                 >
                   <span className="flex items-center gap-1.5 truncate">
@@ -201,7 +222,10 @@ function Linha({ h, dias, d, abre }: { h: number; dias: NonNullable<AgendaResp['
             {itens.length > AG_SEM_MAX && (
               <button
                 type="button"
-                onClick={() => abre.dia(dia.iso)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  abre.dia(dia.iso);
+                }}
                 className="cursor-pointer px-1 text-left text-azul hover:underline"
               >
                 +{itens.length - AG_SEM_MAX} na visão diária
@@ -218,7 +242,10 @@ function BlocoAula({ a, abre, mini }: { a: AulaItem; abre: Abre; mini?: boolean 
   return (
     <button
       type="button"
-      onClick={() => abre.aula(a.k)}
+      onClick={(e) => {
+        e.stopPropagation();
+        abre.aula(a.k);
+      }}
       className={cn(
         'min-w-0 cursor-pointer rounded-[6px] text-left text-white hover:brightness-110',
         mini ? 'px-2 py-1' : 'flex-[1_1_300px] rounded-md px-3 py-2',
@@ -274,39 +301,53 @@ export function Diaria({ d, abre }: { d: AgendaResp; abre: Abre }) {
             .join(' · ')}
         </small>
       </div>
-      {(d.regua ?? []).map((h) => (
-        <div key={h} className="contents">
-          <div className="border-b border-borda-suave px-2 pt-3 text-right text-apagado">{hh(h)}</div>
-          <div
-            className={cn(
-              'flex min-h-[62px] flex-wrap gap-1.5 border-b border-l border-borda-suave p-1.5',
-              dia.hoje && h === d.horaAgora && 'bg-azul-suave/50',
-            )}
-          >
-            {evs
-              .filter((e) => e.hora === h)
-              .map((e) => (
-                <button
-                  key={e.id}
-                  type="button"
-                  onClick={() => abre.evento(e.id)}
-                  className="min-w-0 flex-[1_1_300px] cursor-pointer rounded-md border border-borda-forte bg-card px-3 py-2 text-left shadow-el-1 hover:shadow-el-2"
-                >
-                  <span>{e.titulo}</span> <Badge tom={e.tipo === 'Reunião' ? 'blue' : 'purple'}>{e.tipo}</Badge>
-                  <span className="block text-apagado">
-                    {e.ini}–{e.fim} · {e.pessoas}
-                  </span>
-                  <span className="block text-apagado">{e.local}</span>
-                </button>
-              ))}
-            {aulas
-              .filter((a) => a.hora === h)
-              .map((a) => (
-                <BlocoAula key={a.k} a={a} abre={abre} />
-              ))}
+      {(d.regua ?? []).map((h) => {
+        const agendar = abre.agendar && dia.dow && !dia.feriado ? () => abre.agendar!(dia.iso, h) : undefined;
+        return (
+          <div key={h} className="contents">
+            <div className="border-b border-borda-suave px-2 pt-3 text-right text-apagado">{hh(h)}</div>
+            <div
+              {...(agendar && {
+                role: 'button',
+                tabIndex: 0,
+                'aria-label': `Agendar aula às ${hh(h)}`,
+                onClick: agendar,
+                onKeyDown: tecla(agendar),
+              })}
+              className={cn(
+                'flex min-h-[62px] flex-wrap gap-1.5 border-b border-l border-borda-suave p-1.5',
+                agendar && 'cursor-pointer transition-colors hover:bg-hover',
+                dia.hoje && h === d.horaAgora && 'bg-azul-suave/50',
+              )}
+            >
+              {evs
+                .filter((e) => e.hora === h)
+                .map((e) => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      abre.evento(e.id);
+                    }}
+                    className="min-w-0 flex-[1_1_300px] cursor-pointer rounded-md border border-borda-forte bg-card px-3 py-2 text-left shadow-el-1 hover:shadow-el-2"
+                  >
+                    <span>{e.titulo}</span> <Badge tom={e.tipo === 'Reunião' ? 'blue' : 'purple'}>{e.tipo}</Badge>
+                    <span className="block text-apagado">
+                      {e.ini}–{e.fim} · {e.pessoas}
+                    </span>
+                    <span className="block text-apagado">{e.local}</span>
+                  </button>
+                ))}
+              {aulas
+                .filter((a) => a.hora === h)
+                .map((a) => (
+                  <BlocoAula key={a.k} a={a} abre={abre} />
+                ))}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

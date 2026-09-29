@@ -337,16 +337,16 @@ export function ListaAlunos() {
         aberto={!!excluir}
         titulo="Excluir aluno"
         descricao={excluir?.nome}
-        rotulo="Excluir"
+        rotulo="Mover para a Lixeira"
         ocupado={acao.isPending}
         texto={
           <>
-            O aluno sai da base com{' '}
+            O aluno sai das telas com{' '}
             {excluir?.matriculas.length
               ? `${excluir.matriculas.length} ${excluir.matriculas.length === 1 ? 'matrícula ativa' : 'matrículas ativas'}`
               : 'o cadastro'}
-            , a disponibilidade e o log. Não dá para desfazer. Se a ideia é só tirar da operação, use Desativar: dá para
-            reativar depois.
+            , os feedbacks e as datas bloqueadas, e vai para Configurações › Lixeira, de onde dá para restaurar tudo
+            igual. Se a ideia é só tirar da operação, use Desativar.
           </>
         }
         aoFechar={() => setExcluir(null)}

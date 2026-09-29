@@ -17,6 +17,10 @@ const Env = z.object({
   OPENAI_MODEL: z.string().default(''),
   GEMINI_API_KEY: z.string().default(''),
   GEMINI_MODEL: z.string().default(''),
+  /* 24/09/2026: app Server-to-Server OAuth do Zoom (transcrição das aulas gravadas); vazio = não conectado */
+  ZOOM_ACCOUNT_ID: z.string().default(''),
+  ZOOM_CLIENT_ID: z.string().default(''),
+  ZOOM_CLIENT_SECRET: z.string().default(''),
 });
 
 export const env = Env.parse(process.env);

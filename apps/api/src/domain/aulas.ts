@@ -4,11 +4,32 @@
  */
 import { fmt } from '../lib/fmt.ts';
 import type { AcessoArea, Areas, TipoPerfil } from './acesso.ts';
-import { type Aula, agAulasEntre, agHabilitado, agHM, agRotulo, fxPresenca } from './agenda.ts';
+import {
+  type Aula,
+  agAulasEntre,
+  agHabilitado,
+  agHM,
+  agRotulo,
+  fxPresenca,
+  MOD_FLOW,
+  prazoAte,
+  prazoHoras,
+  prazoTxt,
+} from './agenda.ts';
 import type { AjusteAula, Base, ConteudoCur, CurriculoB, Suporte } from './base.ts';
 
-export type QuemAula = { nome: string; nivel: number; areas: Areas; tipoPerfil: TipoPerfil | null; ehAluno: boolean };
+export type QuemAula = {
+  nome: string;
+  nivel: number;
+  areas: Areas;
+  tipoPerfil: TipoPerfil | null;
+  ehAluno: boolean;
+  /** o aluno da sessão (o nome no cadastro de aluno pode diferir do nome do usuário) */
+  alunoId?: number | null;
+};
 export const aulaNivel = (p: QuemAula) => (p.ehAluno ? 9 : p.nivel);
+/** 25/09/2026: na visão do aluno, os outros alunos aparecem só pelo primeiro nome (sem sobrenome nem e-mail) */
+export const primeiroNome = (nome: string) => nome.trim().split(/\s+/)[0] ?? '';
 
 export const fxHash = (s: string) => {
   let h = 0;
@@ -42,11 +63,20 @@ export function aulaCur(b: Base, a: Aula): { c: CurriculoB; x: ConteudoCur; troc
     const c = b.curriculos.find((x) => x.id === tr.cur);
     if (c?.conteudos[tr.i]) return { c, x: c.conteudos[tr.i], trocado: true };
   }
+  /* aula avulsa: o tópico escolhido na criação (conteúdo do currículo) ou tópico livre (sem currículo) */
+  if (a.avulsa) {
+    const v = avulsaDe(b, a);
+    const [cur, i] = (v?.conteudo ?? '').split('|');
+    const c = cur ? b.curriculos.find((x) => x.id === cur) : undefined;
+    return c?.conteudos[Number(i)] ? { c, x: c.conteudos[Number(i)] } : null;
+  }
   const cs = b.curriculos.filter((x) => x.grupo === a.prod && (!a.mod || x.aplicado.includes(a.mod)));
   const c = cs[0] || b.curriculos.find((x) => x.grupo === a.prod);
   if (!c?.conteudos.length) return null;
   return { c, x: c.conteudos[Math.floor(a.quando.getTime() / 864e5) % c.conteudos.length] };
 }
+
+export const avulsaDe = (b: Base, a: Aula) => (a.avulsa ? b.avulsas.find((v) => v.id === a.avulsa) : undefined);
 
 export const aulaFim = (a: Aula) => {
   const m = a.quando.getHours() * 60 + a.quando.getMinutes() + (a.duracao || 50);
@@ -54,6 +84,8 @@ export const aulaFim = (a: Aula) => {
 };
 export const aulaDataTxt = (d: Date) => `${agCap(d.toLocaleDateString('pt-BR', { weekday: 'long' }))}, ${fmt.data(d)}`;
 export const aulaSala = (b: Base, a: { sala: string }) => {
+  /* aula avulsa com link no Local: o link é a sala */
+  if (/^https?:\/\//i.test(a.sala)) return { zoom: /zoom\.us/i.test(a.sala), nome: 'Link da aula', url: a.sala };
   const r = b.salas.find((x) => x.name === a.sala);
   if (!r?.zoom) return { zoom: false, nome: a.sala, url: '' };
   return { zoom: true, nome: a.sala, url: `https://zoom.us/j/9${String(fxHash(`${a.sala}|sala`)).padStart(9, '0')}` };
@@ -68,7 +100,14 @@ export const aulaRot = (a: Aula) => `${agRotulo(a)} · ${fmt.data(a.quando)} ${a
 export const aulaAlunos = (b: Base, a: Aula) =>
   a.alunos.map((n) => {
     const al = b.alunos.find((x) => x.name === n);
-    return { nome: n, email: al?.email ?? '—', alunoId: al?.id ?? null, fora: !!b.ajustes[a.k]?.fora?.[n] };
+    return {
+      nome: n,
+      email: al?.email ?? '—',
+      alunoId: al?.id ?? null,
+      fora: !!b.ajustes[a.k]?.fora?.[n],
+      /* incluído só nesta aula (Gerenciar alunos › Adicionar) */
+      incluido: !!b.ajustes[a.k]?.extras?.includes(n),
+    };
   });
 
 /* ---------------- folha do professor ---------------- */
@@ -273,11 +312,21 @@ export function aulaModelo(b: Base, a: Aula, p: QuemAula, agora = new Date()) {
   const cancelada = a.estado === 'cancelada';
   const passou = aulaPassou(a, agora);
   const hoje = aulaHojeOuAntes(a, agora);
-  const est =
-    ov.iniciada && !ov.concluida && !cancelada ? (['Em andamento', 'blue'] as [string, string]) : AULA_EST[a.estado];
+  const est = a.bloqueada
+    ? (['Horário bloqueado', 'gray'] as [string, string])
+    : ov.iniciada && !ov.concluida && !cancelada
+      ? (['Em andamento', 'blue'] as [string, string])
+      : AULA_EST[a.estado];
   const cur = aulaCur(b, a);
   const sala = aulaSala(b, a);
-  const al = aulaAlunos(b, a);
+  /* 25/09/2026: na aula do Community Flow o aluno não vê quem mais agendou, só ele mesmo */
+  const meuNome = (p.alunoId != null && b.alunos.find((x) => x.id === p.alunoId)?.name) || p.nome;
+  /* o aluno vê o próprio nome inteiro; dos colegas, só o primeiro nome e nenhum e-mail */
+  const verNome = (x: { nome: string; email: string }) =>
+    !aluno || x.nome === meuNome ? { nome: x.nome, email: x.email } : { nome: primeiroNome(x.nome), email: '' };
+  const soEu = aluno && a.mod === MOD_FLOW;
+  const al = aulaAlunos(b, a).filter((x) => !soEu || x.nome === meuNome);
+  const n = soEu ? al.length : a.n;
   const podeGer = !aluno && nv <= 3 && !cancelada && !passou;
   const concluidaPg = !!ov.concluida || ['executada', 'substituida'].includes(a.estado);
   const podePres = nv <= 4 && hoje && !cancelada && !ov.concluida;
@@ -302,6 +351,30 @@ export function aulaModelo(b: Base, a: Aula, p: QuemAula, agora = new Date()) {
           ? ['Aguardando início', 'amber']
           : ['Agendada', 'gray'];
   const presApr = presentesDaLista.filter((x) => ov.pres?.[x.nome] === 'presente').length;
+  const v = avulsaDe(b, a);
+  const c = b.cursos.find((x) => x.name === a.prod);
+  /* 24/09/2026: a grade do módulo tem este horário? (Encerrar disponibilidade na grade) */
+  const hm = agHM(a.quando);
+  const naGrade =
+    !a.avulsa &&
+    !!a.mod &&
+    !!c?.modInfo[a.mod]?.horarios.some((h) => h.dia === a.quando.getDay() && h.hora === hm && !h.ate);
+  /* 25/09/2026: o aluno cancela a própria aula até o prazo de cancelamento do módulo (ou do curso) */
+  const eu = aluno ? al.find((x) => x.nome === meuNome && !x.fora) : undefined;
+  const cancelarAte = prazoAte(c, a.mod, 'cancelamento', a.quando);
+  const meuCancelamento =
+    eu && !cancelada && !passou && !a.bloqueada
+      ? {
+          pode: agora < cancelarAte,
+          ate: `${fmt.data(cancelarAte)} às ${agHM(cancelarAte)}`,
+          regra: prazoTxt(prazoHoras(c, a.mod, 'cancelamento')),
+          flow: a.mod === MOD_FLOW,
+        }
+      : null;
+  const candidatos = b.alunos
+    .filter((x) => !a.alunos.includes(x.name) && x.matriculas.some((e) => !e.desativadoEm && e.curso === a.prod))
+    .map((x) => x.name)
+    .sort((x, y) => x.localeCompare(y, 'pt-BR'));
 
   return {
     k: a.k,
@@ -313,11 +386,29 @@ export function aulaModelo(b: Base, a: Aula, p: QuemAula, agora = new Date()) {
     mod: a.mod,
     modRot: a.mod ? (/^Turma /.test(a.mod) ? 'Turma' : 'Módulo') : null,
     corCurso: b.corCurso[a.prod] || '#1a4fd6',
-    trava: cancelada ? 'aula cancelada' : passou ? 'aula já aconteceu' : '',
-    titulo: cur ? cur.x.titulo : agRotulo(a),
+    trava: a.bloqueada ? 'horário bloqueado' : cancelada ? 'aula cancelada' : passou ? 'aula já aconteceu' : '',
+    titulo: cur ? cur.x.titulo : (v?.topico ?? agRotulo(a)),
+    /* campos da aula (24/09/2026): Tópico, Início e Término separados */
+    topico: cur ? cur.x.titulo : (v?.topico ?? ''),
+    inicio: hm,
+    termino: aulaFim(a),
+    avulsa: v ? { local: v.local, descricao: v.descricao } : null,
+    bloqueada: !!a.bloqueada,
+    podeBloquear: !aluno && nv <= 3 && !passou && (!cancelada || !!a.bloqueada),
+    encerrarGrade: {
+      pode: !aluno && nv <= 2 && !passou && naGrade,
+      motivo: naGrade
+        ? ''
+        : a.avulsa
+          ? 'aula avulsa não é horário da grade'
+          : 'só horários da grade de um módulo (Cursos › Módulos) podem ser encerrados',
+    },
+    candidatos: !aluno && nv <= 3 ? candidatos : [],
+    meuCancelamento,
+    transcricao: sala.zoom && passou && !cancelada,
     rotulo: agRotulo(a),
     dataTxt: aulaDataTxt(a.quando),
-    horario: `${agHM(a.quando)} – ${aulaFim(a)}`,
+    horario: `${hm} – ${aulaFim(a)}`,
     iso: fmt.iso(a.quando),
     prof: a.prof,
     sub: a.sub,
@@ -327,13 +418,13 @@ export function aulaModelo(b: Base, a: Aula, p: QuemAula, agora = new Date()) {
     ehAluno: aluno,
     materiais: { pre: cur?.x.links.pre ?? '', in: cur?.x.links.in ?? '', post: cur?.x.links.post ?? '' },
     gravacao: sala.zoom && passou && !cancelada ? 'sem coleta' : 'sem gravação',
-    n: a.n,
-    alunos: al.map((x) => ({ nome: x.nome, email: x.email, fora: x.fora })),
-    extra: Math.max(0, (a.n || 0) - al.filter((x) => !x.fora).length),
+    n,
+    alunos: al.map((x) => ({ ...verNome(x), fora: x.fora, incluido: x.incluido })),
+    extra: Math.max(0, (n || 0) - al.filter((x) => !x.fora).length),
     podeGerenciar: podeGer,
     cancelada,
     podeCancelar: !aluno && nv <= 2 && !passou && !cancelada,
-    podeReabrir: !aluno && nv <= 2 && !passou && cancelada,
+    podeReabrir: !aluno && nv <= 2 && !passou && cancelada && !a.bloqueada,
     folha: folhaModelo(b, p, a, agora),
     /* página da aula */
     pagina: {
@@ -349,11 +440,10 @@ export function aulaModelo(b: Base, a: Aula, p: QuemAula, agora = new Date()) {
             ? 'Aula concluída: a presença está registrada.'
             : '',
       lista: presentesDaLista.map((x) => ({
-        nome: x.nome,
-        email: x.email,
+        ...verNome(x),
         p: ov.pres?.[x.nome] ?? (concluidaPg ? fxPresenca(b, x.nome, a) : null),
       })),
-      semCadastro: Math.max(0, (a.n || 0) - presentesDaLista.length),
+      semCadastro: Math.max(0, (n || 0) - presentesDaLista.length),
     },
     /* modo apresentação */
     apresentacao: {

@@ -7,6 +7,7 @@ import {
   PencilIcon,
   PlusIcon,
   SearchIcon,
+  Trash2Icon,
   UserCheckIcon,
   UserXIcon,
 } from 'lucide-react';
@@ -17,6 +18,7 @@ import { ItemBadge } from '@/components/alunos/comum';
 import { type ColabLinha, ColaboradorFormDialog } from '@/components/config/pessoas';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { ConfirmaExcluir, Excluir } from '@/components/excluir';
 import { usePaginacao } from '@/components/paginacao';
 import { AbasDoMenu } from '@/components/secao-abas';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +37,7 @@ import { ErroApi } from '@/lib/api';
 import { type Colaboradores, useCfg } from '@/lib/config';
 import { useMe } from '@/lib/consultas';
 import { idCadastro } from '@/lib/ids';
+import { useEhAdmin } from '@/lib/lixeira';
 import { type PodeProfLista, type ProfLinha, useAcaoProf, useProfessores } from '@/lib/professores';
 import { ProfessorFormDialog } from './professor-form';
 
@@ -68,6 +71,9 @@ export function ListaEquipe() {
   const [msg, setMsg] = useState<Msg>(null);
   const [form, setForm] = useState<{ id: string | null } | null>(null);
   const [colab, setColab] = useState<{ linha: ColabLinha | null; vinculo?: 'Colaborador' | 'Prestador' } | null>(null);
+  /* 24/09/2026: Excluir professor (só o Admin; vai para a Lixeira) */
+  const [excluirProf, setExcluirProf] = useState<string | null>(null);
+  const admin = useEhAdmin();
 
   useEffect(() => {
     document.title = 'Time · Portal Raphael Lima';
@@ -328,16 +334,27 @@ export function ListaEquipe() {
                     <Td>
                       <Badge tom={p.ativo ? 'green' : 'gray'}>{p.ativo ? 'Ativo' : 'Inativo'}</Badge>
                     </Td>
-                    <Td className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <Td className="text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       {p.tipo === 'Colaborador' ? (
-                        <Button size="sm" aria-label={`Editar ${p.nome}`} onClick={() => abre(p)}>
-                          Editar
-                        </Button>
+                        <>
+                          <Button size="sm" aria-label={`Editar ${p.nome}`} onClick={() => abre(p)}>
+                            Editar
+                          </Button>
+                          <Excluir
+                            tipo="colaborador"
+                            id={p.colab.id}
+                            nome={p.nome}
+                            icone
+                            className="ml-1"
+                            aoExcluido={(txt) => setMsg({ txt })}
+                          />
+                        </>
                       ) : (
                         pode && (
                           <MenuProf
                             t={p.prof}
                             pode={pode}
+                            excluir={admin ? () => setExcluirProf(p.prof.id) : undefined}
                             editar={() => setForm({ id: p.prof.id })}
                             como={() => executa(`/${p.prof.id}/acessar-como`, { volta: '/equipe' })}
                             ativo={() => executa(`/${p.prof.id}/${p.ativo ? 'desativar' : 'reativar'}`)}
@@ -364,6 +381,12 @@ export function ListaEquipe() {
         aoFechar={() => setForm(null)}
         aoSalvo={(r, novo) => (novo && r.id ? router.push(`/professores/${r.id}/cursos`) : setMsg({ txt: r.msg }))}
       />
+      <ConfirmaExcluir
+        tipo="professor"
+        id={excluirProf}
+        aoFechar={() => setExcluirProf(null)}
+        aoExcluido={(txt) => setMsg({ txt })}
+      />
       {veColab && (
         <ColaboradorFormDialog
           abre={colab}
@@ -382,14 +405,17 @@ function MenuProf({
   editar,
   como,
   ativo,
+  excluir,
 }: {
   t: ProfLinha;
   pode: PodeProfLista;
   editar: () => void;
   como: () => void;
   ativo: () => void;
+  /** só para o Admin (vai para a Lixeira) */
+  excluir?: () => void;
 }) {
-  if (!pode.editar && !pode.como && !pode.desativar) return null;
+  if (!pode.editar && !pode.como && !pode.desativar && !excluir) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -412,6 +438,11 @@ function MenuProf({
         {pode.desativar && (
           <DropdownMenuItem onSelect={ativo}>
             {t.ativo ? <UserXIcon /> : <UserCheckIcon />} {t.ativo ? 'Desativar' : 'Reativar'}
+          </DropdownMenuItem>
+        )}
+        {excluir && (
+          <DropdownMenuItem perigo onSelect={excluir}>
+            <Trash2Icon /> Excluir
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

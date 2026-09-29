@@ -239,6 +239,8 @@ export const MENUS: Menu[] = [
           },
           { t: 'Salas', tela: 'salas' },
           { t: 'Currículos e acervos', tela: 'curriculo' },
+          /* 24/09/2026: o que o Admin excluiu, para restaurar ou apagar de vez */
+          { t: 'Lixeira', tela: 'lixeira' },
           {
             t: 'Catálogos',
             c: [
@@ -719,6 +721,8 @@ export const NAV_EQUIPE: ItemDef[] = [
         })),
       ),
       sec('Alertas', 'alertas', 'execucoes'),
+      /* 24/09/2026: o que o Admin excluiu, para restaurar ou apagar de vez */
+      sec('Lixeira', 'lixeira'),
       sec('Documentação', 'docPersonas', 'docTelas', 'docDesign'),
     ],
   },

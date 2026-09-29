@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { Excluir } from '@/components/excluir';
 import { usePaginacao } from '@/components/paginacao';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -242,12 +243,21 @@ export function TelaUsuarios({ abas, msgInicial }: { abas: React.ReactNode; msgI
                       <Td>
                         <Badge tom={u.statusTom}>{u.status}</Badge>
                       </Td>
-                      <Td className="text-right">
+                      <Td className="text-right whitespace-nowrap">
                         <Button asChild size="sm">
                           <Link href={`/configuracoes/usuarios/${u.id}`} aria-label={`Editar ${u.nome}`}>
                             Editar
                           </Link>
                         </Button>
+                        {/* 24/09/2026: só o Admin vê; vai para Configurações › Lixeira */}
+                        <Excluir
+                          tipo="usuario"
+                          id={u.id}
+                          nome={u.nome}
+                          icone
+                          className="ml-1"
+                          aoExcluido={(t) => setMsg({ txt: t })}
+                        />
                       </Td>
                     </Tr>
                   ))

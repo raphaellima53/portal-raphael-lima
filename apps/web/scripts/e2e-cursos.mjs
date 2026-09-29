@@ -202,6 +202,61 @@ await passo('Novo curso: salvar módulo por módulo (o 1º cria o curso; cada um
   await pg.getByText('Módulos — 2 níveis').waitFor();
 });
 
+await passo('aba Módulos: novo módulo, subir na ordem, renomear e excluir', async () => {
+  const d = dialogo(pg);
+  await pg.goto(`${BASE}/cursos/${novoId}/modulos`);
+  await pg.getByRole('tab', { name: 'Módulos', exact: true, selected: true }).waitFor();
+  await pg.getByRole('button', { name: 'Editar Nível A' }).waitFor();
+  await pg.getByRole('button', { name: 'Novo módulo' }).click();
+  await d.getByRole('button', { name: 'Criar módulo' }).click();
+  await d.getByText('Informe o nome do módulo.').waitFor();
+  await pg.fill('#cf-it-nome-0', 'Nível C');
+  await d.getByRole('combobox', { name: 'CEFR do módulo 1' }).click();
+  await pg.getByRole('option', { name: 'B1', exact: true }).click();
+  await pg.fill('#cf-it-vagas-0', '4');
+  await pg.fill('#cf-agendamento-0', '1');
+  await pg.fill('#cf-cancelamento-0', '1');
+  await d
+    .getByRole('table', { name: 'Grade de Módulo 1' })
+    .getByRole('button', { name: 'Ter 10:00: livre, marcar o horário' })
+    .click();
+  await pg.getByRole('button', { name: 'Sem professor (vincular depois)' }).click();
+  await d.getByRole('button', { name: 'Criar módulo' }).click();
+  await pg.getByText(/^Nível C salvo\. Atenção: 1 horário/).waitFor();
+  await pg.getByText('Ter 10:00 · sem professor').waitFor();
+  /* subir: Nível C passa para a 1ª posição */
+  await pg.getByRole('button', { name: 'Subir Nível C' }).click();
+  await pg.getByText('Nível C foi para a posição 1.').waitFor();
+  assert.equal((await pg.locator('main tbody tr').first().innerText()).includes('Nível C'), true);
+  /* renomear pelo Editar */
+  await pg.getByRole('button', { name: 'Editar Nível C' }).click();
+  await pg.fill('#cf-it-nome-0', 'Nível C2');
+  await d.getByRole('button', { name: 'Salvar módulo' }).click();
+  await pg.getByText(/^Nível C2 salvo\./).waitFor();
+  /* excluir */
+  await pg.getByRole('button', { name: 'Excluir Nível C2' }).click();
+  await d.getByRole('button', { name: 'Mover para a Lixeira' }).click();
+  await pg.getByText(/^Nível C2 foi para a Lixeira/).waitFor();
+  assert.equal(await pg.getByRole('button', { name: 'Editar Nível C2' }).count(), 0);
+});
+
+await passo('Excluir curso (Admin): vai para a Lixeira com o que depende dele e Restaurar devolve', async () => {
+  const d = dialogo(pg);
+  await pg.goto(`${BASE}/cursos/${novoId}/geral`);
+  await pg.getByRole('button', { name: 'Excluir curso' }).click();
+  await d.getByText('Vai junto:').waitFor();
+  await d.getByText(/^\d+ módulos?$/).waitFor();
+  await d.getByRole('button', { name: 'Mover para a Lixeira' }).click();
+  await pg.waitForURL((u) => u.pathname === '/cursos');
+  await pg.goto(`${BASE}/configuracoes/lixeira`);
+  const linha = pg.getByRole('row', { name: /Curso de teste e2e\b.*Curso/ }).first();
+  await linha.waitFor();
+  await linha.getByRole('button', { name: 'Restaurar' }).click();
+  await pg.getByText(/Curso de teste e2e foi restaurado/).waitFor();
+  await pg.goto(`${BASE}/cursos/${novoId}/geral`);
+  await pg.getByRole('heading', { name: 'Curso de teste e2e' }).waitFor();
+});
+
 await passo('currículo: novo currículo, conteúdo, publicar, nova versão, subir e descartar', async () => {
   await pg.goto(`${BASE}/cursos/${novoId}/curriculo`);
   await pg.getByRole('button', { name: 'Novo currículo' }).click();

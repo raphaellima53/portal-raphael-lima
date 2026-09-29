@@ -162,8 +162,9 @@ await passo('cancelar aula tira da agenda e desfazer devolve', async () => {
 await passo('página da aula de hoje: presença obrigatória para concluir, depois conclui', async () => {
   const r = await pg.request.get(`http://localhost:3333/agenda?vista=diaria`);
   const d = await r.json();
-  const aula = d.aulas.find((a) => a.n > 0 && a.estado !== 'cancelada' && /Private FLOW|Alumni Black/.test(a.rotulo));
-  assert.ok(aula, 'sem aula individual hoje');
+  /* 24/09/2026: o Community Flow virou aula agendada com crédito; vale qualquer aula de hoje com aluno e professor */
+  const aula = d.aulas.find((a) => a.n > 0 && a.estado !== 'cancelada' && a.prof !== '—');
+  assert.ok(aula, 'sem aula com aluno hoje');
   await pg.goto(`${BASE}/agenda/aula?k=${encodeURIComponent(aula.k)}`);
   await pg.getByText('Lista de presença').waitFor();
   const concluir = pg.getByRole('button', { name: 'Concluir aula' });
@@ -205,6 +206,52 @@ await passo('evento: criar com participante, ver na agenda, editar e excluir', a
   await dialogo(pg).getByRole('button', { name: 'Excluir' }).click();
   await dialogo(pg).getByRole('button', { name: 'Excluir' }).click();
   await dialogo(pg).waitFor({ state: 'detached' });
+});
+
+await passo('+ Novo › Aula: cria aula avulsa com tópico e abre o detalhe com os campos da aula', async () => {
+  const d = dialogo(pg);
+  await pg.goto(`${BASE}/agenda?vista=semanal`);
+  await pg.getByRole('button', { name: 'Novo', exact: true }).click();
+  await d.getByRole('button', { name: 'Aula', exact: true }).click();
+  await d.getByRole('heading', { name: 'Nova aula' }).waitFor();
+  await d.getByRole('button', { name: 'Criar aula' }).click();
+  await d.getByText('Escolha o curso.').waitFor();
+  await d.getByRole('combobox', { name: 'Curso' }).click();
+  await pg.getByRole('option', { name: 'Community live classes', exact: true }).click();
+  await d.getByRole('combobox', { name: 'Módulo ou turma' }).click();
+  await pg.getByRole('option').nth(1).click();
+  const livre = d.locator('#avTopico');
+  if (await livre.count()) await livre.fill('Revisão e2e');
+  else {
+    await d.getByRole('combobox', { name: 'Tópico do currículo' }).click();
+    await pg.getByRole('option').nth(1).click();
+  }
+  await d.getByRole('button', { name: 'Criar aula' }).click();
+  /* a agenda abre o detalhe da aula nova */
+  await d.getByRole('heading', { name: 'Detalhes da aula' }).waitFor();
+  for (const c of ['Curso', 'Tópico', 'Dia', 'Início', 'Término'])
+    await d.getByText(c, { exact: true }).first().waitFor();
+  const link = await d.getByRole('link', { name: /Detalhes da aula/ }).getAttribute('href');
+  await d.getByRole('button', { name: 'Fechar', exact: true }).last().click();
+  /* limpa: a aula avulsa vai para a Lixeira e sai de vez */
+  const k = new URL(link, BASE).searchParams.get('k');
+  const id = /Aula avulsa (av-[\w-]+)/.exec(k)?.[1];
+  assert.ok(id, k);
+  const ex = await (await pg.request.delete(`http://localhost:3333/lixeira/aulaAvulsa/${id}`)).json();
+  await pg.request.delete(`http://localhost:3333/lixeira/${ex.lixeiraId}`);
+});
+
+await passo('aula: Bloquear horário devolve o crédito e Desbloquear volta', async () => {
+  /* "Com alunos" do Kanban só tem aula futura: dá para bloquear */
+  await pg.goto(`${BASE}/agenda?vista=kanban&periodo=mes`);
+  const d = dialogo(pg);
+  await pg.getByRole('region', { name: 'Com alunos' }).locator('button').first().click();
+  await d.getByRole('button', { name: 'Bloquear horário' }).click();
+  await d.getByText(/Horário bloqueado\./).waitFor();
+  await d.getByText('Horário bloqueado', { exact: true }).first().waitFor();
+  await d.getByRole('button', { name: 'Desbloquear horário' }).click();
+  await d.getByText('Horário desbloqueado: a aula voltou para a agenda.').waitFor();
+  await d.getByRole('button', { name: 'Fechar', exact: true }).last().click();
 });
 
 await passo('layout: Salvar vira Salvo e é aplicado ao voltar para /agenda; Resetar apaga', async () => {

@@ -1,7 +1,7 @@
 /**
  * Agenda: uma lista de aulas gerada do cadastro — porte fiel de agOfertas/agAulasEntre do artefato.
  * Turmas (FAAP, Palmares) pela grade da turma; módulos em grupo por uma grade fixa de cada módulo;
- * Private FLOW e Alumni Black por aluno. Sem domingo e feriado. O estado de cada aula é estável
+ * Alumni Black por aluno; Community Flow é aula particular agendada pelo aluno com crédito (domain/flow.ts). Sem domingo e feriado. O estado de cada aula é estável
  * (mesma data, mesmo estado) e os ajustes feitos numa aula (AulaAjuste) valem por cima.
  */
 import type { AlunoB, Base, CursoB, MatriculaB, ProfessorB } from './base.ts';
@@ -95,7 +95,19 @@ export type Oferta = {
   aluno?: number;
   alocada?: boolean;
   valor?: number;
+  /** 24/09/2026: primeiro e último dia da oferta (AAAA-MM-DD); o horário encerrado na grade tem `ate` */
+  desde?: string;
+  ate?: string;
+  /** aula avulsa (Agenda › + Novo › Aula): id da AulaAvulsa */
+  avulsa?: string;
+  /** professor escolhido pelo cadastro (habilitação + disponibilidade), não vinculado na grade */
+  profAuto?: boolean;
+  /** horário da grade do módulo (Novo curso › Grade): o aluno escolhe entre os horários, não está em todos */
+  grade?: boolean;
 };
+
+/** módulo de aulas particulares com crédito do Community live classes (antes "Private FLOW") */
+export const MOD_FLOW = 'Community Flow';
 
 export type Aula = {
   k: string;
@@ -112,6 +124,9 @@ export type Aula = {
   estado: Estado;
   duracao: number;
   valorAloc?: number;
+  avulsa?: string;
+  /** horário bloqueado (vale como cancelada, com o rótulo próprio) */
+  bloqueada?: boolean;
 };
 
 /* ---- leitura do aluno ---- */
@@ -131,15 +146,74 @@ export const crsRegras = (c: CursoB) =>
   };
 export const crsItens = (c: CursoB) => (c.estrutura === 'turmas' ? c.turmas.map((t) => t.name) : c.modulos);
 
+/**
+ * Horas de antecedência para o aluno agendar ou cancelar uma aula: a regra do módulo (em minutos, Cursos › Módulos)
+ * vale antes da do curso (Regras: cancelamento e antecedência, em horas).
+ */
+export function prazoHoras(c: CursoB | undefined, mod: string | null, regra: 'agendamento' | 'cancelamento') {
+  const min = c && mod ? c.modInfo[mod]?.[`${regra}Min`] : null;
+  if (min != null) return min / 60;
+  const rg = c ? crsRegras(c) : null;
+  return regra === 'cancelamento' ? (rg?.cancelamento ?? 6) : (rg?.antecedencia ?? 0);
+}
+/** último instante para agendar ou cancelar a aula que começa em `quando` */
+export const prazoAte = (
+  c: CursoB | undefined,
+  mod: string | null,
+  regra: 'agendamento' | 'cancelamento',
+  quando: Date,
+) => new Date(+quando - prazoHoras(c, mod, regra) * 36e5);
+/** "até 3 horas antes", "até 30 minutos antes" */
+export function prazoTxt(h: number) {
+  if (!h) return 'até o início da aula';
+  const [n, um, varios] = Number.isInteger(h) ? [h, 'hora', 'horas'] : [Math.round(h * 60), 'minuto', 'minutos'];
+  return `até ${n} ${n === 1 ? um : varios} antes`;
+}
+
 /** professor habilitado no curso e, se a habilitação for recortada, no módulo ou turma */
 export const agHabilitado = (t: ProfessorB, curso: string, item: string | null) =>
   t.active &&
   t.cursos.includes(curso) &&
   (item == null || !t.habil || !t.habil[curso] || t.habil[curso].includes(item));
 
+const hashTxt = (s: string) => {
+  let h = 0;
+  for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) % 9973;
+  return h;
+};
+/** quantos horários da grade do módulo cada aluno frequenta por semana */
+export const GRADE_POR_ALUNO = 2;
+/**
+ * a grade do módulo são opções de horário (24/09/2026): cada aluno fica, estável, em até 2 horários em dias
+ * diferentes, de preferência dentro da disponibilidade dele; os demais horários ficam abertos. Devolve os alunos
+ * de cada horário, na ordem de `hs`.
+ */
+function gradeDoAluno(alunos: AlunoB[], mod: string, hs: { dia: number; hora: string }[]) {
+  const out = hs.map((): string[] => []);
+  for (const a of alunos) {
+    const disp = a.disp ? new Set(a.disp) : null;
+    const todos = hs.map((_, i) => i);
+    const dentro = disp ? todos.filter((i) => disp.has(dispK(hs[i].dia, agHoraNum(hs[i].hora)))) : todos;
+    const cand = dentro.length ? dentro : todos;
+    const ini = hashTxt(`${a.name}|${mod}`) % cand.length;
+    const dias = new Set<number>();
+    /* passo 7 espalha pela semana (primo com o total, senão de 1 em 1) */
+    const passo = cand.length % 7 ? 7 : 1;
+    for (let n = 0; n < cand.length && dias.size < GRADE_POR_ALUNO; n++) {
+      const i = cand[(ini + n * passo) % cand.length];
+      if (dias.has(hs[i].dia) || out[i].includes(a.name)) continue;
+      dias.add(hs[i].dia);
+      out[i].push(a.name);
+    }
+  }
+  return out;
+}
+
 /** ofertas: o que se repete toda semana — produto, módulo ou turma, dias, hora, professor, sala e alunos */
 export function agOfertas(b: Base): Oferta[] {
   const out: Oferta[] = [];
+  /* índices das ofertas da grade sem professor vinculado */
+  const semProf = new Set<number>();
   const salasGrupo = ['Zoom 01', 'Zoom 02', 'Sala 12 — Paulista'];
   const salasPart = ['Zoom 03', 'Zoom 04'];
   const HORAS = [7, 8, 10, 12, 17, 18, 19, 20];
@@ -212,28 +286,34 @@ export function agOfertas(b: Base): Oferta[] {
         }
       } else if (c.estrutura === 'modulos') {
         c.modulos.forEach((m, k) => {
-          if (m === 'Private FLOW') {
+          /* Community Flow (24/09/2026): a grade do módulo é só a disponibilidade para o aluno agendar com crédito;
+             a aula agendada é uma aula avulsa. Fica a aula fixa de quem tem alocação gravada na ficha. */
+          if (m === MOD_FLOW) {
             alunosDe(c.name, m).forEach((a, j) => {
-              individual(c, m, a, j, um(profsDe(c.name, m), k + j), PARES[(j + 1) % 5], HORAS[(j * 3 + 5) % 8]);
+              if (alocDe(a, c.name, m)?.prof) individual(c, m, a, j, '—', PARES[(j + 1) % 5], HORAS[(j * 3 + 5) % 8]);
             });
             return;
           }
           /* 24/09/2026: módulo com grade cadastrada (Novo curso › Grade) usa os horários e professores dela */
           const hs = c.modInfo[m]?.horarios ?? [];
           if (hs.length) {
+            const lugares = gradeDoAluno(alunosDe(c.name, m), m, hs);
             hs.forEach((h, j) => {
+              if (!h.professorId) semProf.add(out.length);
               out.push({
                 prod: c.name,
                 mod: m,
                 quem: 'Turma aberta',
-                /* horário da grade sem professor vinculado vira aula sem professor na Agenda */
+                grade: true,
+                /* horário da grade sem professor vinculado: o professor sai do cadastro (fim da função) */
                 prof: h.professorId ? (h.prof ?? um(profsDe(c.name, m), k + j)) : '—',
                 sala: salasGrupo[(k + j) % 3],
                 vagas: c.modInfo[m]?.vagas ?? rg.vagas,
                 duracao: rg.duracao,
                 dias: [h.dia],
                 hora: agHoraNum(h.hora),
-                alunos: alunosDe(c.name, m).map((a) => a.name),
+                alunos: lugares[j],
+                ...(h.ate ? { ate: h.ate } : {}),
               });
             });
             return;
@@ -257,6 +337,66 @@ export function agOfertas(b: Base): Oferta[] {
         });
       }
     });
+  /* 24/09/2026: aulas avulsas (Agenda › + Novo › Aula) — uma oferta de um dia só, com a duração do início ao término */
+  for (const v of b.avulsas ?? []) {
+    const c = b.cursos.find((x) => x.name === v.curso);
+    const dia = agISO(v.inicio);
+    out.push({
+      prod: v.curso,
+      mod: v.mod,
+      quem: `Aula avulsa ${v.id}`,
+      prof: v.prof ?? '—',
+      sala: v.local || '—',
+      vagas: Math.max(v.alunos.length, (c && crsRegras(c).vagas) || 1),
+      duracao: Math.max(5, Math.round((+v.fim - +v.inicio) / 6e4)),
+      dias: [v.inicio.getDay()],
+      hora: v.inicio.getHours() + v.inicio.getMinutes() / 60,
+      alunos: v.alunos,
+      desde: dia,
+      ate: dia,
+      avulsa: v.id,
+    });
+  }
+  /* 24/09/2026: horário da grade sem professor vinculado recebe o professor habilitado no curso e no módulo que
+     marcou disponibilidade nesse dia e hora e está livre (o menos carregado); sem nenhum, fica sem professor */
+  if (semProf.size) {
+    /* aulas de cada professor na semana: [dia, início e fim em minutos] */
+    const ocupado: Record<string, [number, number, number][]> = {};
+    const carga: Record<string, number> = {};
+    const marca = (o: Oferta) => {
+      if (o.prof === '—' || o.avulsa) return;
+      carga[o.prof] = (carga[o.prof] ?? 0) + o.dias.length;
+      const ini = Math.round(o.hora * 60);
+      ocupado[o.prof] = [
+        ...(ocupado[o.prof] ?? []),
+        ...o.dias.map((d): [number, number, number] => [d, ini, ini + (o.duracao || 50)]),
+      ];
+    };
+    const choca = (nome: string, d: number, o: Oferta) => {
+      const ini = Math.round(o.hora * 60);
+      const fim = ini + (o.duracao || 50);
+      return (ocupado[nome] ?? []).some(([x, a, z]) => x === d && a < fim && z > ini);
+    };
+    out.forEach((o, i) => {
+      if (!semProf.has(i)) marca(o);
+    });
+    const disp = new Map(b.professores.filter((t) => t.disp).map((t) => [t.name, new Set(t.disp)]));
+    for (const i of semProf) {
+      const o = out[i];
+      /* horário sem aluno não prende professor: fica livre para outras aulas (e para o Community Flow) */
+      if (!o.alunos.length) continue;
+      const d = o.dias[0];
+      const livre = b.professores
+        .filter(
+          (t) => agHabilitado(t, o.prod, o.mod) && disp.get(t.name)?.has(dispK(d, o.hora)) && !choca(t.name, d, o),
+        )
+        .sort((x, y) => (carga[x.name] ?? 0) - (carga[y.name] ?? 0));
+      if (!livre.length) continue;
+      o.prof = livre[0].name;
+      o.profAuto = true;
+      marca(o);
+    }
+  }
   return out;
 }
 
@@ -269,20 +409,43 @@ export function agAulasEntre(b: Base, ini: Date, fim: Date, agora = new Date(), 
   f.setHours(23, 59, 59, 999);
   for (; d <= f; d.setDate(d.getDate() + 1)) {
     const dow = d.getDay();
-    if (!dow || b.feriados.has(agISO(d))) continue;
+    const dia = agISO(d);
+    /* domingo e feriado não têm aula da grade; a aula avulsa marcada no dia vale */
+    const fechado = !dow || b.feriados.has(dia);
     ofertas.forEach((o, i) => {
-      if (!o.dias.includes(dow)) return;
+      if (!o.dias.includes(dow) || (fechado && !o.avulsa)) return;
+      if ((o.desde && dia < o.desde) || (o.ate && dia > o.ate)) return;
       const quando = new Date(d);
       quando.setHours(0, Math.round(o.hora * 60), 0, 0);
       const h = (i * 31 + d.getDate() * 7 + d.getMonth() * 13) % 11;
-      const n = o.ocupadas != null ? o.ocupadas : o.alunos.length;
+      const k = [o.prod, o.mod || '', o.quem, dia, o.hora].join('|');
+      const ov = b.ajustes[k];
+      /* alunos incluídos só nesta aula (Gerenciar alunos › Adicionar) */
+      const extras = (ov?.extras ?? []).filter((x) => !o.alunos.includes(x));
+      const alunos = extras.length ? [...o.alunos, ...extras] : o.alunos;
+      const n = (o.ocupadas != null ? o.ocupadas : o.alunos.length) + extras.length;
       let estado: Estado;
       let prof = o.prof;
       let sub: string | null = null;
-      if (quando > agora)
+      if (o.avulsa)
+        /* aula avulsa: sem o sorteio de estados da grade; sem professor fica em Sem professor, antes ou depois */
         estado =
           o.prof === '—'
             ? 'semProfessor'
+            : quando > agora
+              ? !n
+                ? 'semAlunos'
+                : 'comAlunos'
+              : !n
+                ? 'cancelada'
+                : 'naoFinalizada';
+      else if (quando > agora)
+        estado =
+          o.prof === '—'
+            ? /* horário da grade ainda sem aluno: aberto, o professor sai do cadastro quando alguém entrar */
+              o.grade && !n
+              ? 'semAlunos'
+              : 'semProfessor'
             : !n
               ? 'semAlunos'
               : h === 2
@@ -307,11 +470,9 @@ export function agAulasEntre(b: Base, ini: Date, fim: Date, agora = new Date(), 
           prof = ps[(i + d.getDate()) % ps.length].name;
         } else estado = 'executada';
       }
-      const k = [o.prod, o.mod || '', o.quem, agISO(d), o.hora].join('|');
-      const ov = b.ajustes[k];
       let nn = n;
       if (ov) {
-        if (ov.fora) nn = Math.max(0, n - o.alunos.filter((x) => ov.fora![x]).length);
+        if (ov.fora) nn = Math.max(0, n - alunos.filter((x) => ov.fora![x]).length);
         if (ov.prof && ov.prof !== prof) {
           if (quando > agora) {
             if (estado === 'semProfessor') estado = nn ? 'comAlunos' : 'semAlunos';
@@ -325,6 +486,11 @@ export function agAulasEntre(b: Base, ini: Date, fim: Date, agora = new Date(), 
         if (quando > agora && estado === 'comAlunos' && !nn) estado = 'semAlunos';
         if (ov.concluida && estado !== 'cancelada') estado = sub ? 'substituida' : 'executada';
         if (ov.cancelada) estado = 'cancelada';
+        /* horário bloqueado: sai da agenda dos alunos, o professor fica livre e o crédito volta (como cancelada) */
+        if (ov.bloqueada) {
+          estado = 'cancelada';
+          nn = 0;
+        }
       }
       out.push({
         k,
@@ -335,12 +501,14 @@ export function agAulasEntre(b: Base, ini: Date, fim: Date, agora = new Date(), 
         prof,
         sub,
         sala: o.sala,
-        alunos: o.alunos,
+        alunos,
         n: nn,
         vagas: o.vagas,
         estado,
         duracao: o.duracao || 50,
         valorAloc: o.valor,
+        ...(o.avulsa ? { avulsa: o.avulsa } : {}),
+        ...(ov?.bloqueada ? { bloqueada: true } : {}),
       });
     });
   }
@@ -359,14 +527,14 @@ export const agFaixa = (o: { hora: number; duracao?: number }) => {
   const fim = Math.round(o.hora * 60) + (o.duracao || 50);
   return `${agHH(o.hora)}–${String(Math.floor(fim / 60)).padStart(2, '0')}:${String(fim % 60).padStart(2, '0')}`;
 };
-/** aula individual: professor, dias e hora são da matrícula (Alumni Black e Private FLOW) */
-export const agIndividual = (c: CursoB, mod: string | null) => c.estrutura === 'nenhuma' || mod === 'Private FLOW';
+/** aula individual: professor, dias e hora são da matrícula (Alumni Black) */
+export const agIndividual = (c: CursoB, _mod?: string | null) => c.estrutura === 'nenhuma';
 
 /* ---- disponibilidade: grade dia × hora ---- */
 export const dispK = (d: number, h: number) => `${d}-${Math.floor(h)}`;
 const dispDe = (ofs: Oferta[], padrao: [number[], number[]]) => {
   const s = new Set<string>();
-  for (const o of ofs)
+  for (const o of ofs.filter((x) => !x.avulsa))
     for (const d of o.dias) for (const h of [o.hora - 1, o.hora, o.hora + 1]) if (h >= 7 && h <= 21) s.add(dispK(d, h));
   if (!s.size) for (const d of padrao[0]) for (const h of padrao[1]) s.add(dispK(d, h));
   return [...s];

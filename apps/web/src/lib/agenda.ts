@@ -91,6 +91,19 @@ export type AulaModelo = {
   corCurso: string;
   trava: string;
   titulo: string;
+  /* campos da aula (24/09/2026) */
+  topico: string;
+  inicio: string;
+  termino: string;
+  avulsa: { local: string; descricao: string } | null;
+  bloqueada: boolean;
+  podeBloquear: boolean;
+  encerrarGrade: { pode: boolean; motivo: string };
+  /** alunos com matrícula no curso que ainda não estão na aula (Gerenciar alunos › Adicionar) */
+  candidatos: string[];
+  /** 25/09/2026: o aluno cancela a própria aula até o prazo do módulo (ou do curso) */
+  meuCancelamento: null | { pode: boolean; ate: string; regra: string; flow: boolean };
+  transcricao: boolean;
   rotulo: string;
   dataTxt: string;
   horario: string;
@@ -104,7 +117,7 @@ export type AulaModelo = {
   materiais: { pre: string; in: string; post: string };
   gravacao: string;
   n: number;
-  alunos: { nome: string; email: string; fora: boolean }[];
+  alunos: { nome: string; email: string; fora: boolean; incluido: boolean }[];
   extra: number;
   podeGerenciar: boolean;
   cancelada: boolean;
@@ -193,7 +206,60 @@ export type AcaoAula =
   | { acao: 'valor'; valor: number; motivo: string }
   | { acao: 'suporte'; motivo: string; detalhe: string }
   | { acao: 'conteudo'; conteudo: string }
-  | { acao: 'notas'; texto: string };
+  | { acao: 'notas'; texto: string }
+  /* 24/09/2026 */
+  | { acao: 'bloquear' | 'encerrarGrade' }
+  | { acao: 'adicionarAluno'; aluno: string }
+  /* 25/09/2026 */
+  | { acao: 'meuCancelamento' };
+
+/** + Novo › Aula: opções do formulário */
+export type OpcoesAvulsa = {
+  cursos: {
+    id: number;
+    nome: string;
+    rotuloItem: 'Módulo' | 'Turma' | null;
+    itens: string[];
+    duracao: number;
+    professores: { v: string; l: string }[];
+    topicos: Record<string, { v: string; l: string; grupo: string }[]>;
+    alunos: string[];
+  }[];
+};
+export type AvulsaForm = {
+  cursoId: number | null;
+  modulo: string;
+  topico: string;
+  conteudo: string;
+  professorId: string;
+  data: string;
+  ini: string;
+  fim: string;
+  local: string;
+  desc: string;
+  alunos: string[];
+  confirmar?: boolean;
+};
+export const useOpcoesAvulsa = (ativo: boolean) =>
+  useQuery({ queryKey: ['avulsa-opcoes'], queryFn: () => api<OpcoesAvulsa>('/aulas/avulsas/opcoes'), enabled: ativo });
+export function useCriarAvulsa() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (d: AvulsaForm) =>
+      api<{ msg: string; k: string; data: string }>('/aulas/avulsas', { method: 'POST', json: d }),
+    onSuccess: () => {
+      for (const key of ['agenda', 'dashboard', 'alertas']) qc.invalidateQueries({ queryKey: [key] });
+    },
+  });
+}
+/** Transcrição da aula (Zoom) */
+export type Transcricao = { ok: true; linhas: { tempo: string; texto: string }[] } | { ok: false; motivo: string };
+export const useTranscricao = (k: string | null) =>
+  useQuery({
+    queryKey: ['transcricao', k],
+    queryFn: () => api<Transcricao>(`/aulas/transcricao?k=${encodeURIComponent(k!)}`),
+    enabled: !!k,
+  });
 
 const qs = (p: Record<string, string | undefined>) =>
   new URLSearchParams(Object.entries(p).filter((e): e is [string, string] => !!e[1])).toString();
@@ -240,7 +306,60 @@ export function useAcaoAula(k: string | null) {
   return useMutation({
     mutationFn: (a: AcaoAula) => api<{ msg: string }>('/aulas/acao', { method: 'POST', json: { k, ...a } }),
     onSuccess: () => {
-      for (const key of ['aula', 'agenda', 'dashboard', 'alertas', 'historico-aulas'])
+      for (const key of [
+        'aula',
+        'agenda',
+        'agenda-agendar',
+        'dashboard',
+        'alertas',
+        'historico-aulas',
+        'flow',
+        'aluno',
+      ])
+        qc.invalidateQueries({ queryKey: [key] });
+    },
+  });
+}
+
+/** 25/09/2026: autoagendamento do aluno nos cursos Open-Entry (menu do dia) */
+export type SlotAgendar = {
+  k: string;
+  topico: string;
+  ini: string;
+  fim: string;
+  prof: string;
+  n: number;
+  vagas: number;
+  /** vazio = dá para agendar; senão, o motivo */
+  trava: string;
+};
+export type AutoAgenda = {
+  data: string;
+  titulo: string;
+  passado: boolean;
+  grupos: {
+    curso: string;
+    mod: string;
+    corCurso: string;
+    corMod: string;
+    creditos: number;
+    flow: boolean;
+    regra: string;
+    aulas: SlotAgendar[];
+  }[];
+};
+export const useAutoAgenda = (dia: string | null) =>
+  useQuery({
+    queryKey: ['agenda-agendar', dia],
+    queryFn: () => api<AutoAgenda>(`/agenda/agendar?data=${dia}`),
+    enabled: !!dia,
+  });
+export function useAgendarAula() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (k: string) => api<{ msg: string; k: string }>('/agenda/agendar', { method: 'POST', json: { k } }),
+    onSuccess: () => {
+      for (const key of ['agenda-agendar', 'agenda', 'aula', 'flow', 'dashboard'])
         qc.invalidateQueries({ queryKey: [key] });
     },
   });

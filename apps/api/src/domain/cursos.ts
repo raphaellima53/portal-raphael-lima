@@ -156,6 +156,48 @@ export function cursoGeral(b: Base, c: CursoB, curriculos: { id: string; nome: s
   };
 }
 
+const DIAS_CURTO = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+/** 120 → "2 h"; 90 → "90 min"; sem regra no módulo → null (vale a do curso) */
+const tempoTxt = (m: number | null | undefined) => (m == null ? null : m && m % 60 === 0 ? `${m / 60} h` : `${m} min`);
+
+/**
+ * Aba Módulos (24/09/2026): gestão dos módulos do Open-Entry — dados, regras de agenda, grade com professor,
+ * alunos com matrícula ativa e o currículo de cada um, na ordem do curso.
+ */
+export function cursoModulos(b: Base, c: CursoB, curriculos: { id: string; nome: string }[]) {
+  const mats = b.alunos.flatMap((a) => alMat(a).filter((e) => e.curso === c.name));
+  const mods = c.modulos.map((m) => {
+    const info = c.modInfo[m];
+    const hs = [...(info?.horarios ?? [])].sort((x, y) => (x.dia || 7) - (y.dia || 7) || x.hora.localeCompare(y.hora));
+    const cur = curriculos.find((y) => y.nome === `${c.name} · ${m}`);
+    return {
+      nome: m,
+      cor: c.cores[m] || b.corModulo[m] || c.color,
+      sigla: info?.sigla ?? '',
+      descricao: info?.descricao ?? '',
+      cefr: info?.cefr ?? '',
+      vagas: info?.vagas ?? null,
+      agendamento: tempoTxt(info?.agendamentoMin),
+      cancelamento: tempoTxt(info?.cancelamentoMin),
+      horarios: hs.map((h) => ({ txt: `${DIAS_CURTO[h.dia]} ${h.hora}`, prof: h.prof })),
+      alunos: mats.filter((e) => e.modulo === m).length,
+      curriculo: cur ? { id: cur.id, nome: cur.nome } : null,
+    };
+  });
+  const horarios = mods.reduce((q, m) => q + m.horarios.length, 0);
+  const semProf = mods.reduce((q, m) => q + m.horarios.filter((h) => !h.prof).length, 0);
+  return {
+    stats: [
+      { valor: String(mods.length), rotulo: mods.length === 1 ? 'módulo' : 'módulos' },
+      { valor: String(horarios), rotulo: 'horários na grade' },
+      { valor: String(semProf), rotulo: 'horários sem professor', tom: semProf ? ('amber' as const) : undefined },
+      { valor: String(mods.filter((m) => !m.curriculo).length), rotulo: 'sem currículo' },
+      { valor: mats.filter((e) => e.modulo).length.toLocaleString('pt-BR'), rotulo: 'alunos nos módulos' },
+    ],
+    modulos: mods,
+  };
+}
+
 /**
  * Configuração da agenda do curso (adequação ao Portal Alumni): como a matrícula entra na agenda, quem agenda,
  * se consome crédito, se congela, quem gere a matrícula, se marca presença e o onboarding.
@@ -227,7 +269,7 @@ export function cursoRegras(b: Base, c: CursoB) {
     autoAgenda: c.autoAgenda,
     exigeDisp: !!rg.exigeDisp,
     valorAula: finValorAula(c),
-    horarios: agOfertas(b).filter((o) => o.prod === c.name).length,
+    horarios: agOfertas(b).filter((o) => o.prod === c.name && !o.avulsa).length,
   };
 }
 
@@ -281,7 +323,8 @@ export function cursoCurriculo(c: CursoB, cs: CurLinha[]) {
 
 export function cursoGrade(b: Base, c: CursoB) {
   const ofs = agOfertas(b)
-    .filter((o) => o.prod === c.name)
+    /* grade semanal: aula avulsa não é horário fixo */
+    .filter((o) => o.prod === c.name && !o.avulsa)
     .sort((x, y) => String(x.mod).localeCompare(String(y.mod), 'pt-BR') || x.hora - y.hora);
   const sem = ofs.filter((o) => o.prof === '—').length;
   const faixa = (h: number, d: number) => {

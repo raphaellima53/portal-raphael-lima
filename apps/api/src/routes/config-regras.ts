@@ -44,6 +44,7 @@ import {
   pessoaParaBanco,
 } from '../lib/pessoa.ts';
 import { cfgLog, erro400, exigeCfg } from './config-acessos.ts';
+import { moveParaLixeira } from './lixeira.ts';
 
 const diaUTC = (iso: string) => new Date(`${iso}T00:00:00Z`);
 const deUTC = (d: Date) => new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
@@ -388,14 +389,14 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
     if (!k) return rep.code(404).send({ erro: 'Catálogo não encontrado.' });
     const x = (await itensCat(k)).find((i) => i.id === Number(id));
     if (!x) return rep.code(404).send({ erro: `${cap(CAT[k].um)} não encontrado.` });
-    if (catUso(k, x.nome, await usoCtx()))
-      return rep.code(400).send({ erro: 'Está em uso: inative em vez de excluir.' });
-    if (k === 'departamentos') await prisma.departamento.delete({ where: { id: x.id } });
-    else if (k === 'cargos') await prisma.cargo.delete({ where: { id: x.id } });
-    else await prisma.catalogo.delete({ where: { id: x.id } });
-    invalidaBase();
-    await cfgLog(req.usuario!, k, `${CAT[k].um} excluído`, x.nome);
-    return { msg: `${x.nome} excluído.` };
+    /* 24/09/2026: vai para a Lixeira mesmo em uso (quem aponta pelo nome volta a bater se restaurar) */
+    await cfgLog(req.usuario!, k, `${CAT[k].um} movido para a Lixeira`, x.nome);
+    return moveParaLixeira(
+      req,
+      rep,
+      k === 'departamentos' ? 'departamento' : k === 'cargos' ? 'cargo' : 'catalogo',
+      String(x.id),
+    );
   });
 
   /* ================= Salas ================= */
@@ -535,11 +536,12 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
   app.delete('/config/feriados/:id', { preHandler: exigeCfg }, async (req, rep) => {
     const f = await prisma.feriado.findUnique({ where: { id: Number((req.params as { id: string }).id) } });
     if (!f) return rep.code(404).send({ erro: 'Feriado não encontrado.' });
-    await prisma.feriado.delete({ where: { id: f.id } });
-    invalidaBase();
     const data = fmt.data(deUTC(f.data));
     await cfgLog(req.usuario!, 'feriados', 'Feriado removido', `${data} · ${f.nome}`);
-    return { msg: `${f.nome} (${data}) removido: a agenda volta a gerar aula nesse dia.` };
+    const r = await moveParaLixeira(req, rep, 'feriado', String(f.id));
+    return r && 'msg' in r
+      ? { msg: `${f.nome} (${data}) foi para a Lixeira: a agenda volta a gerar aula nesse dia.` }
+      : r;
   });
 
   /* ================= Dias e horários ================= */

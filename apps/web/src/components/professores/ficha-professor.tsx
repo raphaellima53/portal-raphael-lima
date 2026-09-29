@@ -10,6 +10,7 @@ import { AbaLog, AbaPerfil } from '@/components/alunos/abas-aluno';
 import type { Msg } from '@/components/alunos/comum';
 import { AbaCadastro } from '@/components/cadastro/cadastro';
 import { Aviso, PageHead } from '@/components/ds';
+import { Excluir } from '@/components/excluir';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -102,6 +103,8 @@ export function FichaProfessor() {
                 <PencilIcon /> Editar dados
               </Button>
             )}
+            {/* 24/09/2026: só o Admin vê; vai para Configurações › Lixeira com extratos, ausências e avaliações */}
+            <Excluir tipo="professor" id={f.id} nome={f.nome} aoExcluido={() => router.push('/equipe')} />
           </>
         }
       />

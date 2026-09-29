@@ -14,9 +14,12 @@ const criados: { cursos: number[]; curriculos: string[] } = { cursos: [], curric
 before(async () => {
   app = await montaApp();
 });
+/* 24/09/2026: o que os testes excluem vai para a Lixeira; no fim, tira o que eles puseram lá */
+const INICIO_LIXEIRA = new Date();
 after(async () => {
   await prisma.curriculo.deleteMany({ where: { id: { in: criados.curriculos } } });
   await prisma.curso.deleteMany({ where: { id: { in: criados.cursos } } });
+  await prisma.lixeira.deleteMany({ where: { em: { gte: INICIO_LIXEIRA } } });
   await app.close();
   await prisma.$disconnect();
 });

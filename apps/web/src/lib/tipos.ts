@@ -34,6 +34,8 @@ export type Me = {
     agendaPresa: Record<string, string> | null;
     /** Acessar como: quem abriu a sessão e a tela de volta */
     como: { quem: string; volta: string } | null;
+    /** 24/09/2026: aluno do Alumni Black vê o portal no tema da sub-marca */
+    marca: 'black' | null;
     /** foto do perfil e troca de senha obrigatória (adequação ao Portal Alumni) */
     foto: string | null;
     trocarSenha: boolean;

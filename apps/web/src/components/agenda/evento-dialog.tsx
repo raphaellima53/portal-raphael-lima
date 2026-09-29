@@ -21,6 +21,7 @@ import {
 import { ErroApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Avatar } from './aula-comum';
+import { FormAula } from './aula-nova';
 
 export type AbreEvento = { id: string } | { novo: string } | null;
 type Grupo = 'colaborador' | 'prestador' | 'aluno';
@@ -38,12 +39,15 @@ export function EventoDialog({
   eu,
   euProfessor,
   aoSalvo,
+  aoAulaCriada,
 }: {
   abre: AbreEvento;
   aoFechar: () => void;
   eu: string | null;
   euProfessor: boolean;
   aoSalvo: (data: string) => void;
+  /** + Novo › Aula criada: a agenda vai para o dia e abre a aula */
+  aoAulaCriada?: (r: { k: string; data: string; msg: string }) => void;
 }) {
   const [modo, setModo] = useState<'ver' | 'form' | 'excluir'>('ver');
   const [id, setId] = useState<string | null>(null);
@@ -79,6 +83,10 @@ export function EventoDialog({
               setMsg(r.msg);
               setModo('ver');
               aoSalvo(r.data);
+            }}
+            aoAula={(r) => {
+              aoFechar();
+              aoAulaCriada?.(r);
             }}
           />
         ) : !e ? (
@@ -176,8 +184,8 @@ function Detalhe({
           </b>
         </div>
         <ul className="grid gap-1">
-          {e.part.map((x) => (
-            <li key={`${x.g}|${x.n}`} className="flex items-center gap-3 py-1">
+          {e.part.map((x, i) => (
+            <li key={`${x.g}|${x.n}|${i}`} className="flex items-center gap-3 py-1">
               <Avatar nome={x.n} />
               <div>
                 <b className="block">{x.n}</b>
@@ -233,6 +241,7 @@ function Formulario({
   euProfessor,
   voltar,
   aoOk,
+  aoAula,
 }: {
   e: EventoDetalhe | null;
   novoData: string;
@@ -240,6 +249,7 @@ function Formulario({
   euProfessor: boolean;
   voltar: () => void;
   aoOk: (r: { id: string; data: string; msg: string }) => void;
+  aoAula: (r: { k: string; data: string; msg: string }) => void;
 }) {
   const pessoas = usePessoasEvento(true);
   const salvar = useSalvarEvento();
@@ -270,6 +280,8 @@ function Formulario({
   );
   const [busca, setBusca] = useState('');
   const [erro, setErro] = useState('');
+  /* 24/09/2026: + Novo › Tipo: Reunião ou Aula (aula avulsa); editar mantém Reunião ou Evento */
+  const [ehAula, setEhAula] = useState(false);
   const muda = (p: Partial<EventoForm>) => {
     setF((x) => ({ ...x, ...p, confirmar: p.part ? false : x.confirmar }));
     setErro('');
@@ -305,32 +317,42 @@ function Formulario({
     );
   };
 
+  const tiposNovo = ed ? (['Reunião', 'Evento'] as const) : (['Reunião', 'Aula'] as const);
+  const atual = ehAula ? 'Aula' : f.tipo;
+  const seletorTipo = (
+    <>
+      <Label>Tipo</Label>
+      <div role="group" aria-label="Tipo" className="inline-flex w-fit gap-1 rounded-md bg-cinza-suave p-1">
+        {tiposNovo.map((t) => (
+          <button
+            key={t}
+            type="button"
+            aria-pressed={atual === t}
+            onClick={() => {
+              setEhAula(t === 'Aula');
+              if (t !== 'Aula') muda({ tipo: t });
+            }}
+            className={cn(
+              'h-8 cursor-pointer rounded-sm px-3.5 text-texto-2',
+              atual === t && 'bg-card font-semibold text-texto shadow-el-1',
+            )}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+  if (ehAula && !ed) return <FormAula novoData={novoData} tipo={seletorTipo} voltar={voltar} aoOk={aoAula} />;
+
   return (
     <>
       <DialogHead
-        titulo={ed ? `Editar ${f.tipo.toLowerCase()}` : 'Novo evento ou reunião'}
+        titulo={ed ? `Editar ${f.tipo.toLowerCase()}` : 'Nova reunião'}
         descricao="vincule a um ou mais colaboradores, prestadores ou alunos"
       />
       <DialogBody className="grid gap-4 sm:grid-cols-2">
-        <div className="grid gap-1.5 sm:col-span-2">
-          <Label>Tipo</Label>
-          <div role="group" aria-label="Tipo" className="inline-flex w-fit gap-1 rounded-md bg-cinza-suave p-1">
-            {(['Reunião', 'Evento'] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                aria-pressed={f.tipo === t}
-                onClick={() => muda({ tipo: t })}
-                className={cn(
-                  'h-8 cursor-pointer rounded-sm px-3.5 text-texto-2',
-                  f.tipo === t && 'bg-card font-semibold text-texto shadow-el-1',
-                )}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
+        <div className="grid gap-1.5 sm:col-span-2">{seletorTipo}</div>
         <div className="grid gap-1.5 sm:col-span-2">
           <Label htmlFor="evTitulo">
             Título<span className="text-vermelho">*</span>

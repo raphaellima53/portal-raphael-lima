@@ -9,6 +9,7 @@ import type { Msg } from '@/components/alunos/comum';
 import { CampoData } from '@/components/campos-data';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { Excluir } from '@/components/excluir';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -194,6 +195,7 @@ export function FichaContrato({ id, aba }: { id: string; aba: string }) {
   const sp = useSearchParams();
   const [msg, setMsg] = useState<Msg>(null);
   const [encerrar, setEncerrar] = useState(false);
+  const router = useRouter();
   const c = q.data;
   const volta = sp.get('volta') || (c?.empresaId ? `/empresas/${c.empresaId}/contratos` : '/empresas');
   const rot = sp.get('rot') || (c?.empresa ?? 'Empresas');
@@ -229,6 +231,13 @@ export function FichaContrato({ id, aba }: { id: string; aba: string }) {
             {c.status === 'Ativo' && c.podeOperar && (
               <Button onClick={() => setEncerrar(true)}>Encerrar contrato</Button>
             )}
+            <Excluir
+              tipo="contrato"
+              id={c.id}
+              nome={c.nome}
+              rotulo="Excluir contrato"
+              aoExcluido={() => router.push(volta)}
+            />
           </>
         }
       />

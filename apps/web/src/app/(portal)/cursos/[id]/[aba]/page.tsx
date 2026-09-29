@@ -5,18 +5,26 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Abas } from '@/components/abas';
+import { AbaModulos } from '@/components/cursos/aba-modulos';
 import { AbaCurriculo, AbaGeral, AbaGrade, AbaRegras } from '@/components/cursos/abas-curso';
 import { CurriculoFormDialog } from '@/components/cursos/curriculo-forms';
 import { CursoFormDialog } from '@/components/cursos/curso-form';
 import { Aviso, PageHead } from '@/components/ds';
+import { Excluir } from '@/components/excluir';
 import { Button } from '@/components/ui/button';
-import { corLegivel } from '@/lib/cor';
-import { type CurriculoAba, type Geral, type Grade, type Regras, useCurso } from '@/lib/cursos';
+import { corDeTexto } from '@/lib/cor';
+import { type CurriculoAba, type Geral, type Grade, type ModulosAba, type Regras, useCurso } from '@/lib/cursos';
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-const ROTULOS = { geral: 'Visão geral', regras: 'Regras', curriculo: 'Currículo', grade: 'Grade semanal' };
+const ROTULOS = {
+  geral: 'Visão geral',
+  modulos: 'Módulos',
+  regras: 'Regras',
+  curriculo: 'Currículo',
+  grade: 'Grade semanal',
+};
 
-/** Cursos › curso: Visão geral · Regras · Currículo · Grade semanal */
+/** Cursos › curso: Visão geral · Módulos (Open-Entry) · Regras · Currículo · Grade semanal */
 export default function CursoPage() {
   const { id, aba } = useParams<{ id: string; aba: string }>();
   const router = useRouter();
@@ -60,7 +68,11 @@ export default function CursoPage() {
   return (
     <>
       <PageHead
-        titulo={<span style={{ color: corLegivel(c.cor) }}>{c.nome}</span>}
+        titulo={
+          <span className="texto-cor" style={corDeTexto(c.cor)}>
+            {c.nome}
+          </span>
+        }
         acoes={
           <>
             {c.pode.agenda && (
@@ -75,6 +87,13 @@ export default function CursoPage() {
                 <PencilIcon /> Editar curso
               </Button>
             )}
+            <Excluir
+              tipo="curso"
+              id={c.id}
+              nome={c.nome}
+              rotulo="Excluir curso"
+              aoExcluido={() => router.push('/cursos')}
+            />
             {c.pode.criar && (
               <Button variant="primary" onClick={() => setNovo(true)}>
                 <PlusIcon /> Novo curso
@@ -111,6 +130,7 @@ export default function CursoPage() {
         </Aviso>
       )}
       {c.aba === 'geral' && <AbaGeral c={c} g={c.dados as Geral} editar={() => setEditar(true)} />}
+      {c.aba === 'modulos' && <AbaModulos c={c} d={c.dados as ModulosAba} aoMsg={setMsg} />}
       {c.aba === 'regras' && <AbaRegras key={JSON.stringify(c.dados)} c={c} r={c.dados as Regras} />}
       {c.aba === 'curriculo' && <AbaCurriculo c={c} d={c.dados as CurriculoAba} novo={() => setNovoCur(true)} />}
       {c.aba === 'grade' && <AbaGrade d={c.dados as Grade} />}

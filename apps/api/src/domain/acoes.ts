@@ -61,7 +61,25 @@ export function acAlocItens(b: Base, ofs: Oferta[] = agOfertas(b)): ItemAloc[] {
   const out: ItemAloc[] = [];
   const cursoId = (nome: string) => b.cursos.find((c) => c.name === nome)?.id ?? b.cursos[0]?.id ?? 0;
   const rot = (o: Oferta) => o.prod + (o.mod ? ` · ${o.mod}` : '');
-  for (const o of ofs.filter((x) => x.prof === '—' && (x.ocupadas != null ? x.ocupadas : x.alunos.length)))
+  const semProf = ofs.filter((x) => x.prof === '—' && (x.ocupadas != null ? x.ocupadas : x.alunos.length));
+  /* grade do módulo (24/09/2026): um item por módulo, com quantos horários estão sem professor */
+  const porModulo = new Map<string, Oferta[]>();
+  for (const o of semProf.filter((x) => x.grade)) {
+    const k = rot(o);
+    porModulo.set(k, [...(porModulo.get(k) ?? []), o]);
+  }
+  for (const [k, os] of porModulo)
+    out.push({
+      tipo: 'semProf',
+      curso: os[0].prod,
+      quem: k,
+      oque: k,
+      quando: `${os.length} ${os.length === 1 ? 'horário' : 'horários'} da grade`,
+      det: `${new Set(os.flatMap((o) => o.alunos)).size} com aluno · professor pelo cadastro (habilitação e disponibilidade)`,
+      href: hrefCurso(cursoId(os[0].prod), 'grade'),
+      rotIr: 'abrir a grade do curso',
+    });
+  for (const o of semProf.filter((x) => !x.grade))
     out.push({
       tipo: 'semProf',
       curso: o.prod,

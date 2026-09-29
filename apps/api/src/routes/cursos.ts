@@ -12,14 +12,40 @@ import {
   cursoCurriculo,
   cursoGeral,
   cursoGrade,
+  cursoModulos,
   cursoRegras,
 } from '../domain/cursos.ts';
 import { funcionamento } from '../domain/funcionamento.ts';
 import { podeChave } from '../domain/mapa.ts';
 import { registra } from '../lib/log.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
+import { ehAdmin, moveParaLixeira } from './lixeira.ts';
 
-const ABAS = ['geral', 'regras', 'curriculo', 'grade'] as const;
+const ABAS = ['geral', 'modulos', 'regras', 'curriculo', 'grade'] as const;
+/* 24/09/2026: a aba Módulos usa a chave de acesso das Regras (quem configura o curso) e só existe no Open-Entry */
+const chaveAba = (a: (typeof ABAS)[number]) => (a === 'modulos' ? 'curso.regras' : `curso.${a}`);
+
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+/**
+ * O nome do módulo é a referência em matrículas, currículos (aplicado) e na habilitação dos professores:
+ * renomear leva junto (para = novo nome) e excluir tira (para = null).
+ */
+async function trocaNomeModulo(tx: Tx, cursoId: number, curso: string, de: string, para: string | null) {
+  if (para) await tx.matricula.updateMany({ where: { cursoId, modulo: de }, data: { modulo: para } });
+  const curs = await tx.curriculo.findMany({ where: { grupo: curso, aplicado: { has: de } } });
+  for (const k of curs)
+    await tx.curriculo.update({
+      where: { id: k.id },
+      data: { aplicado: k.aplicado.flatMap((x) => (x !== de ? [x] : para ? [para] : [])) },
+    });
+  const profs = await tx.professor.findMany({ where: { cursos: { has: curso } } });
+  for (const p of profs) {
+    const habil = (p.habilitacao as Record<string, string[]> | null) ?? null;
+    if (!habil?.[curso]?.includes(de)) continue;
+    habil[curso] = habil[curso].flatMap((x) => (x !== de ? [x] : para ? [para] : []));
+    await tx.professor.update({ where: { id: p.id }, data: { habilitacao: habil } });
+  }
+}
 type Conteudo = {
   titulo: string;
   formato: string;
@@ -222,7 +248,7 @@ export default async function rotasCursos(app: FastifyInstance) {
     const b = await base();
     const c = b.cursos.find((x) => x.id === Number((req.params as { id: string }).id));
     if (!c) return rep.code(404).send({ erro: 'Curso não encontrado.' });
-    const abas = ABAS.filter((a) => podeChave(u, `curso.${a}`));
+    const abas = ABAS.filter((a) => podeChave(u, chaveAba(a)) && (a !== 'modulos' || c.estrutura === 'modulos'));
     if (!abas.length) return rep.code(403).send({ erro: 'Sem acesso a este curso.' });
     const pedida = String((req.query as { aba?: string }).aba ?? '');
     const aba = (abas as readonly string[]).includes(pedida) ? (pedida as (typeof ABAS)[number]) : abas[0];
@@ -234,11 +260,13 @@ export default async function rotasCursos(app: FastifyInstance) {
     const dados =
       aba === 'geral'
         ? cursoGeral(b, c, curs)
-        : aba === 'regras'
-          ? cursoRegras(b, c)
-          : aba === 'curriculo'
-            ? cursoCurriculo(c, curs as never)
-            : cursoGrade(b, c);
+        : aba === 'modulos'
+          ? cursoModulos(b, c, curs)
+          : aba === 'regras'
+            ? cursoRegras(b, c)
+            : aba === 'curriculo'
+              ? cursoCurriculo(c, curs as never)
+              : cursoGrade(b, c);
     return {
       id: c.id,
       nome: c.name,
@@ -298,6 +326,8 @@ export default async function rotasCursos(app: FastifyInstance) {
         editar: podeAcao(u.nivel, 'editar'),
         criar: podeAcao(u.nivel, 'criar'),
         curriculo: curPodeEditar(u),
+        /* 24/09/2026: excluir curso e módulo é só do Admin (vai para a Lixeira) */
+        excluir: ehAdmin(u),
       },
     };
   });
@@ -389,8 +419,13 @@ export default async function rotasCursos(app: FastifyInstance) {
       const ficam = mods.flatMap((m) => [m.nome, m.salvoComo]).filter(Boolean);
       await tx.modulo.deleteMany({ where: { cursoId: curso.id, nome: { notIn: ficam } } });
       for (const m of mods)
-        if (m.salvoComo && m.salvoComo !== m.nome)
-          await tx.modulo.updateMany({ where: { cursoId: curso.id, nome: m.salvoComo }, data: { nome: m.nome } });
+        if (m.salvoComo && m.salvoComo !== m.nome) {
+          const r = await tx.modulo.updateMany({
+            where: { cursoId: curso.id, nome: m.salvoComo },
+            data: { nome: m.nome },
+          });
+          if (r.count) await trocaNomeModulo(tx, curso.id, antigo?.nome ?? v.nome, m.salvoComo, m.nome);
+        }
       for (const [k, m] of mods.entries()) {
         const dadosMod = { ...dadosModulo(m), ordem: k };
         const mod = await tx.modulo.upsert({
@@ -503,6 +538,7 @@ export default async function rotasCursos(app: FastifyInstance) {
     if (problema) return rep.code(400).send({ erro: problema });
 
     await prisma.$transaction(async (tx) => {
+      if (antigo && antigo.nome !== m.nome) await trocaNomeModulo(tx, curso.id, curso.nome, antigo.nome, m.nome);
       const mod = antigo
         ? await tx.modulo.update({ where: { id: antigo.id }, data: { nome: m.nome, ...dadosModulo(m) } })
         : await tx.modulo.create({
@@ -529,6 +565,40 @@ export default async function rotasCursos(app: FastifyInstance) {
       nome: m.nome,
       msg: `${m.nome} salvo.${avisoSemProfessor(m.horarios.filter((h) => !h.professorId).length)}`,
     };
+  });
+
+  /** 24/09/2026 (aba Módulos): excluir um módulo sem alunos; a grade vai junto e currículos/professores o soltam */
+  app.delete('/cursos/:id/modulo', { preHandler: exigeCatalogo }, async (req, rep) => {
+    /* 24/09/2026: excluir é só do Admin e vai para a Lixeira com a grade; matrículas, currículos e professores
+       continuam apontando para o nome e voltam a valer se o módulo for restaurado */
+    if (!ehAdmin(req.usuario!)) return rep.code(403).send({ erro: 'Excluir é só do Admin.' });
+    const nome = String((req.query as { nome?: string }).nome ?? '');
+    const cursoId = Number((req.params as { id: string }).id);
+    const mod = await prisma.modulo.findUnique({ where: { cursoId_nome: { cursoId, nome } } });
+    if (!mod) return rep.code(404).send({ erro: 'Módulo não encontrado.' });
+    return moveParaLixeira(req, rep, 'modulo', String(mod.id));
+  });
+
+  /** 24/09/2026 (aba Módulos): nova ordem dos módulos (a lista precisa ter todos, sem repetir) */
+  app.put('/cursos/:id/modulos/ordem', { preHandler: exigeCatalogo }, async (req, rep) => {
+    const u = req.usuario!;
+    if (!podeAcao(u.nivel, 'editar')) return rep.code(403).send({ erro: 'Seu acesso não permite esta ação.' });
+    const r = z.object({ nomes: z.array(z.string()).max(200) }).safeParse(req.body);
+    if (!r.success) return erro400(rep, r.error);
+    const cursoId = Number((req.params as { id: string }).id);
+    const mods = await prisma.modulo.findMany({ where: { cursoId } });
+    const { nomes } = r.data;
+    if (
+      nomes.length !== mods.length ||
+      new Set(nomes).size !== nomes.length ||
+      !mods.every((m) => nomes.includes(m.nome))
+    )
+      return rep.code(400).send({ erro: 'A lista de módulos mudou. Recarregue a página e tente de novo.' });
+    await prisma.$transaction(
+      nomes.map((nome, ordem) => prisma.modulo.update({ where: { cursoId_nome: { cursoId, nome } }, data: { ordem } })),
+    );
+    invalidaBase();
+    return { msg: 'Ordem dos módulos salva.' };
   });
 
   app.put('/cursos/:id/regras', { preHandler: (req, rep) => exige(req, rep, ['curso.regras']) }, async (req, rep) => {
@@ -603,7 +673,7 @@ export default async function rotasCursos(app: FastifyInstance) {
       })),
       proxima: `v${vs.length + 1}`,
       curso: curso ? { id: curso.id, estrutura: curso.estrutura, itens: crsItens(curso) } : null,
-      pode: { editar: ed, editarItens: ed && podeAcao(u.nivel, 'editar'), excluir: ed && podeAcao(u.nivel, 'excluir') },
+      pode: { editar: ed, editarItens: ed && podeAcao(u.nivel, 'editar'), excluir: ehAdmin(u) },
     };
   });
 
@@ -784,14 +854,12 @@ export default async function rotasCursos(app: FastifyInstance) {
 
   app.delete('/curriculos/:id', { preHandler: exigeCurriculo }, async (req, rep) => {
     const u = req.usuario!;
-    if (!curPodeEditar(u) || !podeAcao(u.nivel, 'excluir'))
-      return rep.code(403).send({ erro: 'Seu acesso não permite excluir o currículo.' });
+    if (!ehAdmin(u)) return rep.code(403).send({ erro: 'Excluir é só do Admin.' });
     const c = await curPor((req.params as { id: string }).id);
     if (!c) return rep.code(404).send({ erro: 'Currículo não encontrado.' });
-    await prisma.curriculo.delete({ where: { id: c.id } });
-    await log(u, c, 'Currículo excluído', c.grupo);
-    invalidaBase();
-    return { msg: `Currículo ${c.nome} excluído.`, grupo: c.grupo };
+    await log(u, c, 'Currículo movido para a Lixeira', c.grupo);
+    const r = await moveParaLixeira(req, rep, 'curriculo', c.id);
+    return r && 'msg' in r ? { ...r, grupo: c.grupo } : r;
   });
 
   /** toda edição cai no rascunho — se não houver, abre a próxima versão copiada da publicada */

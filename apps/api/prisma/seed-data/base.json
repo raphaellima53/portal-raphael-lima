@@ -600,16 +600,16 @@
    "idioma": "Inglês",
    "ativo": true,
    "autoAgenda": true,
-   "descricao": "Aulas ao vivo em grupo, do Confidence ao Apex — com Private FLOW e suporte pedagógico dentro do mesmo produto",
+   "descricao": "Aulas ao vivo em grupo, do Confidence ao Apex — com Community Flow e suporte pedagógico dentro do mesmo produto",
    "regras": {
     "vagas": 8,
-    "duracao": 45,
+    "duracao": 60,
     "modalidades": [
      "Online",
      "Presencial"
     ],
     "pacote": 48,
-    "cancelamento": 6,
+    "cancelamento": 3,
     "exigeDisp": true
    },
    "ordem": 0,
@@ -670,7 +670,7 @@
      "ordem": 10
     },
     {
-     "nome": "Private FLOW",
+     "nome": "Community Flow",
      "cor": "#6d28d9",
      "ordem": 11
     },
@@ -1536,7 +1536,7 @@
     },
     {
      "curso": "Community live classes",
-     "modulo": "Private FLOW",
+     "modulo": "Community Flow",
      "usadas": 9,
      "total": 32,
      "modalidade": "Online",
@@ -1786,7 +1786,7 @@
     },
     {
      "curso": "Community live classes",
-     "modulo": "Private FLOW",
+     "modulo": "Community Flow",
      "usadas": 5,
      "total": 24,
      "modalidade": "Online",
@@ -2036,7 +2036,7 @@
     },
     {
      "curso": "Community live classes",
-     "modulo": "Private FLOW",
+     "modulo": "Community Flow",
      "usadas": 8,
      "total": 16,
      "modalidade": "Online",
@@ -2276,7 +2276,7 @@
     },
     {
      "curso": "Community live classes",
-     "modulo": "Private FLOW",
+     "modulo": "Community Flow",
      "usadas": 5,
      "total": 24,
      "modalidade": "Online",
@@ -11085,12 +11085,12 @@
   },
   {
    "id": "cur12",
-   "nome": "Community live classes · Private FLOW",
+   "nome": "Community live classes · Community Flow",
    "grupo": "Community live classes",
    "tipo": "produto",
    "idioma": "Inglês",
    "aplicado": [
-    "Private FLOW"
+    "Community Flow"
    ],
    "versoes": [
     [

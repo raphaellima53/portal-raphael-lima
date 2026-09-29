@@ -429,7 +429,7 @@ export function AbaRegras({ c, r }: { c: CursoResp; r: Regras }) {
         {r.estrutura === 'modulos' ? (
           <Campo
             rot="Vagas por aula em grupo"
-            onde="Lido pela agenda: o máximo de alunos em cada aula dos módulos em grupo. Private FLOW é sempre 1."
+            onde="Lido pela agenda: o máximo de alunos em cada aula dos módulos em grupo. Community Flow é sempre 1 (aula particular com crédito)."
           >
             {num('vagas', 'alunos por aula')}
           </Campo>

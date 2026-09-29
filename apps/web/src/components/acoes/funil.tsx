@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import type { Msg } from '@/components/alunos/comum';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { Excluir } from '@/components/excluir';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -122,7 +123,17 @@ export function TelaFunil({ abas }: { abas: React.ReactNode }) {
                     key={l.id}
                     className="flex flex-col gap-1 rounded-md border border-borda bg-card p-3 shadow-el-1"
                   >
-                    <b className="text-texto">{l.nome}</b>
+                    <div className="flex items-start justify-between gap-2">
+                      <b className="text-texto">{l.nome}</b>
+                      <Excluir
+                        tipo="lead"
+                        id={l.id}
+                        nome={l.nome}
+                        icone
+                        className="-mt-1.5 -mr-1.5"
+                        aoExcluido={(txt) => setMsg({ txt })}
+                      />
+                    </div>
                     <span className="text-texto-2">{l.curso}</span>
                     <span className="text-apagado">
                       {l.origem} · {l.consultor}

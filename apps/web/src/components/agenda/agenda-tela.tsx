@@ -14,6 +14,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Aviso } from '@/components/ds';
 import { Escolha, EscolhaVarias } from '@/components/escolha';
+import { FlowCartao } from '@/components/flow';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -31,6 +32,7 @@ import {
 } from '@/lib/agenda';
 import { useMe } from '@/lib/consultas';
 import { cn } from '@/lib/utils';
+import { type AbreAgendar, AgendarDialog } from './agendar-dialog';
 import { AulaDialog } from './aula-dialog';
 import { type AbreEvento, EventoDialog } from './evento-dialog';
 import { ListaDia } from './lista-dia';
@@ -73,6 +75,7 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
   const [aula, setAula] = useState<string | null>(null);
   const [evento, setEvento] = useState<AbreEvento>(null);
   const [massa, setMassa] = useState<string[] | null>(null);
+  const [agendar, setAgendar] = useState<AbreAgendar>(null);
 
   const url = (p: Record<string, string | undefined>) => {
     const n = new URLSearchParams(sp.toString());
@@ -120,6 +123,8 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
     aula: setAula,
     evento: (id: string) => setEvento({ id }),
     dia: (iso: string) => vai({ vista: 'diaria', data: iso }),
+    /* 25/09/2026: na agenda do aluno, clicar num dia ou horário abre Agendar aula (cursos Open-Entry) */
+    ...(soAluno && { agendar: (iso: string, hora?: number) => setAgendar({ dia: iso, hora }) }),
   };
   const o = d?.opcoes;
   const presaProf = o && !o.soAluno ? o.presa?.prof : undefined;
@@ -375,6 +380,15 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
         </Aviso>
       )}
       {!d && q.isPending && <p className="text-apagado">Carregando a agenda…</p>}
+      {/* Community Flow: créditos de aula particular e o agendamento pelo próprio aluno */}
+      {soAluno && (
+        <FlowCartao
+          aoAgendada={(r) => {
+            if (d && r.data !== d.ref) vai({ data: r.data });
+            setAula(r.k);
+          }}
+        />
+      )}
 
       {d && (
         <div className={cn('transition-opacity', q.isPlaceholderData && 'opacity-60')} aria-busy={q.isFetching}>
@@ -404,6 +418,7 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
       )}
 
       <AulaDialog k={aula} aoFechar={() => setAula(null)} />
+      {soAluno && <AgendarDialog abre={agendar} aoFechar={() => setAgendar(null)} />}
       <EventoDialog
         abre={evento}
         aoFechar={() => setEvento(null)}
@@ -411,6 +426,11 @@ export function AgendaTela({ minha = false }: { minha?: boolean }) {
         euProfessor={me.data?.usuario.tipoPerfil === 'Prestador'}
         aoSalvo={(iso) => {
           if (d && iso !== d.ref) vai({ data: iso });
+        }}
+        aoAulaCriada={(r) => {
+          setMsg({ txt: r.msg });
+          if (d && r.data !== d.ref) vai({ data: r.data });
+          setAula(r.k);
         }}
       />
       <MassaDialog

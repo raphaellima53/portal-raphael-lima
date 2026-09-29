@@ -68,7 +68,7 @@ export type CursoB = {
       cefr: string;
       agendamentoMin: number | null;
       cancelamentoMin: number | null;
-      horarios: { dia: number; hora: string; professorId: string | null; prof: string | null }[];
+      horarios: { dia: number; hora: string; professorId: string | null; prof: string | null; ate: string | null }[];
     }
   >;
   /** curso Particular: as alocações (responsável e vagas) */
@@ -95,20 +95,25 @@ export type MatriculaB = {
   modalidade: string;
   desativadoEm: Date | null;
   aloc: { prof?: string; dias?: number[]; hora?: number; valor?: number } | null;
+  /** início da vigência (AAAA-MM-DD): a adesão ao Community Flow conta presenças daqui */
+  inicio?: string | null;
 };
-/** cores dos níveis na paleta da marca (Figma, Page 3) */
+/**
+ * cores dos níveis (Manual de Identidade Visual Alumni, 2025 · Brand Colors – Level Support; decisão de 24/09/2026).
+ * Confidence não está no manual: usa o azul primário da marca (#003387).
+ */
 export const COR_NIVEL: Record<string, string> = {
-  Confidence: '#2377FF',
-  'Essential 1': '#0E56D5',
+  Confidence: '#003387',
+  'Essential 1': '#0467D8',
   'Essential 2': '#003FB0',
-  'Essential 3': '#083688',
-  'Essential 4': '#062967',
-  'Rise 1': '#A14F9C',
-  'Rise 2': '#83367E',
-  'Rise 3': '#6E0C6F',
-  'Apex 1': '#D13543',
-  'Apex 2': '#B41624',
-  'Apex 3': '#8E0F1A',
+  'Essential 3': '#062967',
+  'Essential 4': '#000959',
+  'Rise 1': '#BC4AB9',
+  'Rise 2': '#8E1A8B',
+  'Rise 3': '#5D0060',
+  'Apex 1': '#DD0721',
+  'Apex 2': '#AF0015',
+  'Apex 3': '#720013',
 };
 
 export type AlunoB = {
@@ -166,6 +171,25 @@ export type AjusteAula = {
   zoom?: ZoomAula;
   zoomGerado?: string;
   notas?: string;
+  /** 24/09/2026 (Bloquear horário): o professor fica livre, os agendados recebem o crédito de volta e a aula some
+      para os alunos */
+  bloqueada?: boolean;
+  /** 24/09/2026 (Gerenciar alunos › Adicionar): alunos incluídos só nesta aula */
+  extras?: string[];
+};
+/** aula avulsa (Agenda › + Novo › Aula) */
+export type AvulsaB = {
+  id: string;
+  curso: string;
+  mod: string | null;
+  topico: string;
+  conteudo: string;
+  prof: string | null;
+  inicio: Date;
+  fim: Date;
+  local: string;
+  descricao: string;
+  alunos: string[];
 };
 
 export type Base = {
@@ -176,6 +200,7 @@ export type Base = {
   feriados: Set<string>;
   usuarios: UsuarioLinha[];
   ajustes: Record<string, AjusteAula>;
+  avulsas: AvulsaB[];
   salas: SalaB[];
   colaboradores: { nome: string; ativo: boolean }[];
   /** competências fechadas (AAAA-MM) */
@@ -209,36 +234,49 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 const diaLocal = (d: Date | null) => (d ? new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) : null);
 
 async function carrega(): Promise<Base> {
-  const [cursos, tipos, professores, alunos, curriculos, feriados, usuarios, ajustes, salas, colaboradores, fechadas] =
-    await Promise.all([
-      prisma.curso.findMany({
-        orderBy: { ordem: 'asc' },
-        include: {
-          modulos: { orderBy: { ordem: 'asc' }, include: { horarios: { orderBy: [{ dia: 'asc' }, { hora: 'asc' }] } } },
-          alocacoes: { orderBy: { ordem: 'asc' } },
-          turmas: { orderBy: { ordem: 'asc' }, include: { professor: { select: { nome: true } } } },
-        },
-      }),
-      prisma.catalogo.findMany({ where: { tipo: 'courseTypes' } }),
-      prisma.professor.findMany({ orderBy: { ordem: 'asc' } }),
-      prisma.aluno.findMany({
-        orderBy: { id: 'asc' },
-        include: {
-          empresa: { select: { nome: true } },
-          matriculas: { orderBy: { ordem: 'asc' }, include: { curso: { select: { nome: true } } } },
-        },
-      }),
-      prisma.curriculo.findMany({ orderBy: { ordem: 'asc' } }),
-      prisma.feriado.findMany(),
-      prisma.usuario.findMany({
-        orderBy: { ordem: 'asc' },
-        select: { nome: true, email: true, status: true, mfa: true, perfilId: true, perfilLegado: true },
-      }),
-      prisma.aulaAjuste.findMany(),
-      prisma.sala.findMany({ orderBy: { ordem: 'asc' } }),
-      prisma.colaborador.findMany({ orderBy: { ordem: 'asc' }, select: { nome: true, ativo: true } }),
-      prisma.fechamentoCompetencia.findMany({ select: { ym: true } }),
-    ]);
+  const [
+    cursos,
+    tipos,
+    professores,
+    alunos,
+    curriculos,
+    feriados,
+    usuarios,
+    ajustes,
+    salas,
+    colaboradores,
+    fechadas,
+    avulsas,
+  ] = await Promise.all([
+    prisma.curso.findMany({
+      orderBy: { ordem: 'asc' },
+      include: {
+        modulos: { orderBy: { ordem: 'asc' }, include: { horarios: { orderBy: [{ dia: 'asc' }, { hora: 'asc' }] } } },
+        alocacoes: { orderBy: { ordem: 'asc' } },
+        turmas: { orderBy: { ordem: 'asc' }, include: { professor: { select: { nome: true } } } },
+      },
+    }),
+    prisma.catalogo.findMany({ where: { tipo: 'courseTypes' } }),
+    prisma.professor.findMany({ orderBy: { ordem: 'asc' } }),
+    prisma.aluno.findMany({
+      orderBy: { id: 'asc' },
+      include: {
+        empresa: { select: { nome: true } },
+        matriculas: { orderBy: { ordem: 'asc' }, include: { curso: { select: { nome: true } } } },
+      },
+    }),
+    prisma.curriculo.findMany({ orderBy: { ordem: 'asc' } }),
+    prisma.feriado.findMany(),
+    prisma.usuario.findMany({
+      orderBy: { ordem: 'asc' },
+      select: { nome: true, email: true, status: true, mfa: true, perfilId: true, perfilLegado: true },
+    }),
+    prisma.aulaAjuste.findMany(),
+    prisma.sala.findMany({ orderBy: { ordem: 'asc' } }),
+    prisma.colaborador.findMany({ orderBy: { ordem: 'asc' }, select: { nome: true, ativo: true } }),
+    prisma.fechamentoCompetencia.findMany({ select: { ym: true } }),
+    prisma.aulaAvulsa.findMany({ orderBy: { inicio: 'asc' }, include: { curso: { select: { nome: true } } } }),
+  ]);
   const permiteModulos = new Map(
     tipos.map((t) => [t.nome, !!(t.dados as { allowsModules?: boolean } | null)?.allowsModules]),
   );
@@ -292,6 +330,8 @@ async function carrega(): Promise<Base> {
               hora: h.hora,
               professorId: h.professorId,
               prof: professores.find((p) => p.id === h.professorId)?.nome ?? null,
+              /* último dia do horário (Encerrar disponibilidade na grade) */
+              ate: h.ate ? iso(h.ate) : null,
             })),
           },
         ]),
@@ -350,6 +390,7 @@ async function carrega(): Promise<Base> {
         modalidade: m.modalidade,
         desativadoEm: m.desativadoEm,
         aloc: (m.alocacao as MatriculaB['aloc']) ?? null,
+        inicio: m.inicio ? iso(m.inicio) : null,
       })),
     })),
     curriculos: curriculos.map((c) => ({
@@ -373,6 +414,19 @@ async function carrega(): Promise<Base> {
     colaboradores: colaboradores.map((c) => ({ nome: c.nome, ativo: c.ativo })),
     fechadas: new Set(fechadas.map((f) => f.ym)),
     ajustes: Object.fromEntries(ajustes.map((a) => [a.chave, a.dados as AjusteAula])),
+    avulsas: avulsas.map((v) => ({
+      id: v.id,
+      curso: v.curso.nome,
+      mod: v.modulo || null,
+      topico: v.topico,
+      conteudo: v.conteudo,
+      prof: professores.find((p) => p.id === v.professorId)?.nome ?? null,
+      inicio: v.inicio,
+      fim: v.fim,
+      local: v.local,
+      descricao: v.descricao,
+      alunos: v.alunos,
+    })),
     corModulo,
     corCurso,
   };

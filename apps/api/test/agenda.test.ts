@@ -13,7 +13,10 @@ let app: FastifyInstance;
 before(async () => {
   app = await montaApp();
 });
+/* 24/09/2026: o que os testes excluem vai para a Lixeira; no fim, tira o que eles puseram lá */
+const INICIO_LIXEIRA = new Date();
 after(async () => {
+  await prisma.lixeira.deleteMany({ where: { em: { gte: INICIO_LIXEIRA } } });
   await app.close();
   await prisma.$disconnect();
 });

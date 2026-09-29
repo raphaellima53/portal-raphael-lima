@@ -7,12 +7,14 @@ import { Busca, normaliza } from '@/components/acoes/alocacao';
 import type { Msg } from '@/components/alunos/comum';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { Excluir } from '@/components/excluir';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { type NotaL, type Sit, type StatD, useDeal, useDealAcao } from '@/lib/deal';
+import { useEhAdmin } from '@/lib/lixeira';
 import { Lk, Nada, SitB, Stats, Sub, TabelaDeal } from './comum';
 import { TabelaNotas } from './pedido';
 
@@ -624,6 +626,7 @@ export function TelaOfertas({ abas }: { abas: React.ReactNode }) {
   const [merc, setMerc] = useState('');
   const [nova, setNova] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
+  const ehAdmin = useEhAdmin();
   const ls = (q.data?.itens ?? []).filter(
     (o) =>
       (!merc || o.mercado === merc) &&
@@ -714,6 +717,17 @@ export function TelaOfertas({ abas }: { abas: React.ReactNode }) {
                 <Badge tom="green">ok</Badge>
               ),
           },
+          ...(ehAdmin
+            ? [
+                {
+                  t: 'Ações',
+                  cls: 'text-right',
+                  r: (o: Ofertas['itens'][number]) => (
+                    <Excluir tipo="ofertaPadrao" id={o.id} nome={o.nome} icone aoExcluido={(txt) => setMsg({ txt })} />
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
     </>

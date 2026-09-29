@@ -32,6 +32,13 @@ export function corLegivel(cor: string | undefined | null): string {
   return out;
 }
 
+/**
+ * Texto na cor do curso ou módulo (24/09/2026): leva as duas versões e a classe `texto-cor` escolhe pelo tema —
+ * escurecida no claro, clareada no escuro e no Alumni Black. Uso: <b className="texto-cor" style={corDeTexto(c)}>.
+ */
+export const corDeTexto = (cor: string | undefined | null) =>
+  ({ '--cor-claro': corLegivel(cor), '--cor-escuro': corSobreEscuro(cor, '#15151b') }) as React.CSSProperties;
+
 /** A cor clareada (misturada ao branco) até ler bem como texto sobre um fundo escuro. */
 export function corSobreEscuro(cor: string | undefined | null, fundo = '#0f172a'): string {
   if (!cor || !/^#[0-9a-f]{6}$/i.test(cor)) return cor ?? '';

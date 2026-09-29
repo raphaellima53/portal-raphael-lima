@@ -1,6 +1,18 @@
 'use client';
 
-import { BookOpenIcon, ChevronRightIcon, CopyIcon, DoorOpenIcon, MonitorIcon, VideoIcon } from 'lucide-react';
+import {
+  BookOpenIcon,
+  CalendarXIcon,
+  ChevronRightIcon,
+  CopyIcon,
+  DoorOpenIcon,
+  FileTextIcon,
+  LockIcon,
+  LockOpenIcon,
+  MonitorIcon,
+  UserPlusIcon,
+  VideoIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -11,11 +23,11 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { type AulaModelo, useAcaoAula, useAula } from '@/lib/agenda';
+import { type AulaModelo, useAcaoAula, useAula, useTranscricao } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
-import { Avatar, cursoTxt, QuandoAula, TagsAula } from './aula-comum';
+import { Avatar, TagsAula } from './aula-comum';
 
-type Modo = '' | 'prof' | 'cancelar' | 'valor' | 'suporte';
+type Modo = '' | 'prof' | 'cancelar' | 'meuCancelar' | 'valor' | 'suporte' | 'topico' | 'transcricao' | 'encerrar';
 
 /** Detalhes da aula (popup): clicar numa aula de qualquer visão da agenda abre aqui. */
 export function AulaDialog({ k, aoFechar }: { k: string | null; aoFechar: () => void }) {
@@ -62,6 +74,17 @@ export function AulaDialog({ k, aoFechar }: { k: string | null; aoFechar: () => 
               setMsg({ txt: t });
             }}
           />
+        ) : modo === 'meuCancelar' ? (
+          <FormMeuCancelar
+            a={a}
+            voltar={() => setModo('')}
+            aoOk={(t, saiu) => {
+              /* na aula do Community Flow o aluno sai da aula e deixa de vê-la: fecha o popup */
+              if (saiu) return aoFechar();
+              setModo('');
+              setMsg({ txt: t });
+            }}
+          />
         ) : modo === 'valor' ? (
           <FormValor
             a={a}
@@ -73,6 +96,26 @@ export function AulaDialog({ k, aoFechar }: { k: string | null; aoFechar: () => 
           />
         ) : modo === 'suporte' ? (
           <FormSuporte
+            a={a}
+            voltar={() => setModo('')}
+            aoOk={(t) => {
+              setModo('');
+              setMsg({ txt: t });
+            }}
+          />
+        ) : modo === 'topico' ? (
+          <FormTopico
+            a={a}
+            voltar={() => setModo('')}
+            aoOk={(t) => {
+              setModo('');
+              setMsg({ txt: t });
+            }}
+          />
+        ) : modo === 'transcricao' ? (
+          <PainelTranscricao a={a} voltar={() => setModo('')} />
+        ) : modo === 'encerrar' ? (
+          <FormEncerrar
             a={a}
             voltar={() => setModo('')}
             aoOk={(t) => {
@@ -143,10 +186,29 @@ function Detalhe({
           </Aviso>
         )}
         <TagsAula a={a} trava={a.trava} />
-        <div className="grid gap-1.5 rounded-lg bg-bg px-[18px] py-4">
+        {/* campos da aula (24/09/2026): Curso, Módulo, Tópico, Dia, Início, Término */}
+        <div className="grid gap-3 rounded-lg bg-bg px-[18px] py-4">
           <h3 className="text-xl font-bold text-texto">{a.titulo}</h3>
-          <p className="text-apagado">{cursoTxt(a)}</p>
-          <QuandoAula a={a} />
+          <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+            <Campo rotulo="Curso" valor={a.prod} />
+            {a.mod && <Campo rotulo={a.modRot ?? 'Módulo'} valor={a.mod} />}
+            <div className="col-span-2 sm:col-span-1">
+              <dt className="text-sm font-semibold text-azul">Tópico</dt>
+              <dd className="m-0 text-texto">
+                {a.topico || <span className="text-apagado">sem tópico</span>}
+                {a.apresentacao.podeConteudo && a.apresentacao.conteudos.length > 0 && (
+                  <Button variant="link" className="ml-2" onClick={() => setModo('topico')}>
+                    Alterar tópico
+                  </Button>
+                )}
+              </dd>
+            </div>
+            <Campo rotulo="Dia" valor={a.dataTxt} />
+            <Campo rotulo="Início" valor={a.inicio} />
+            <Campo rotulo="Término" valor={a.termino} />
+            {a.avulsa?.local && <Campo rotulo="Local ou link" valor={a.avulsa.local} />}
+          </dl>
+          {a.avulsa?.descricao && <p className="m-0 text-texto-2">{a.avulsa.descricao}</p>}
         </div>
         <div className="flex items-center gap-3">
           <Avatar nome={a.prof} />
@@ -169,8 +231,8 @@ function Detalhe({
                   <VideoIcon /> Abrir sala
                 </a>
               </Button>
-              <Button size="icon" aria-label="Copiar link da sala" onClick={copiar}>
-                <CopyIcon />
+              <Button onClick={copiar}>
+                <CopyIcon /> Copiar link
               </Button>
             </>
           ) : (
@@ -199,6 +261,7 @@ function Detalhe({
               <small className="text-sm tracking-[.06em] text-apagado uppercase">Folha do professor</small>
               {f.ve ? (
                 <>
+                  <span className="text-sm font-semibold text-azul">Valor hora/aula</span>
                   <b className="text-xl">{f.valorTxt}</b>
                   <span className="text-apagado">{f.origem}</span>
                 </>
@@ -236,14 +299,19 @@ function Detalhe({
           </div>
         )}
         <div className="flex flex-wrap gap-2">
-          {mat(a.materiais.pre, 'Pre class', BookOpenIcon)}
-          {mat(a.materiais.in, 'In class', VideoIcon)}
-          {mat(a.materiais.post, 'Post class', ChevronRightIcon)}
+          {mat(a.materiais.pre, 'Pre-Class', BookOpenIcon)}
+          {mat(a.materiais.in, 'In-Class', VideoIcon)}
+          {mat(a.materiais.post, 'Post-Class', ChevronRightIcon)}
         </div>
-        <div className="flex items-center gap-2 rounded-lg border border-borda px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-borda px-4 py-3">
           <VideoIcon className="size-4 text-apagado" />
           <b>Gravação</b>
           <Badge>{a.gravacao}</Badge>
+          {!a.ehAluno && a.sala.zoom && (
+            <Button variant="link" className="ml-auto" onClick={() => setModo('transcricao')}>
+              <FileTextIcon /> Transcrição
+            </Button>
+          )}
         </div>
         <div className="flex items-end gap-3">
           <div className="flex-1">
@@ -252,27 +320,42 @@ function Detalhe({
               {a.n} {a.n === 1 ? 'aluno' : 'alunos'}
             </b>
           </div>
-          {a.podeGerenciar && a.alunos.length > 0 && (
+          {a.podeGerenciar && (
             <Button variant="link" onClick={() => setGer(!ger)}>
-              {ger ? 'Concluir' : 'Gerenciar'}
+              {ger ? 'Concluir' : 'Gerenciar alunos'}
             </Button>
           )}
         </div>
+        {ger && a.podeGerenciar && (
+          <AdicionarAluno
+            candidatos={a.candidatos}
+            ocupado={acao.isPending}
+            aoAdicionar={(n) => faz({ acao: 'adicionarAluno', aluno: n })}
+          />
+        )}
         <ul className="grid gap-1">
-          {a.alunos.map((x) => (
-            <li key={x.nome} className={cn('flex items-center gap-3 py-1', x.fora && 'opacity-60')}>
+          {a.alunos.map((x, i) => (
+            <li key={`${x.nome}-${i}`} className={cn('flex items-center gap-3 py-1', x.fora && 'opacity-60')}>
               <Avatar nome={x.nome} />
               <div className="min-w-0 flex-1">
                 <b className="block truncate">{x.nome}</b>
-                <small className="block truncate text-sm text-apagado">{x.email}</small>
+                <small className="block truncate text-sm text-apagado">
+                  {x.email}
+                  {x.incluido ? ' · incluído só nesta aula' : ''}
+                </small>
               </div>
               {ger && a.podeGerenciar ? (
-                <Button size="sm" disabled={acao.isPending} onClick={() => faz({ acao: 'agendamento', aluno: x.nome })}>
-                  {x.fora ? 'Reagendar' : 'Cancelar agendamento'}
+                <Button
+                  size="sm"
+                  disabled={acao.isPending}
+                  aria-label={`${x.incluido ? 'Remover desta aula' : x.fora ? 'Reagendar' : 'Cancelar agendamento de'} ${x.nome}`}
+                  onClick={() => faz({ acao: 'agendamento', aluno: x.nome })}
+                >
+                  {x.incluido ? 'Remover desta aula' : x.fora ? 'Reagendar' : 'Cancelar'}
                 </Button>
               ) : (
                 <Badge tom={x.fora || a.cancelada ? 'gray' : 'blue'}>
-                  {x.fora ? 'Cancelado' : a.cancelada ? 'Cancelada' : 'Agendado'}
+                  {x.fora ? 'Cancelado' : a.bloqueada ? 'Crédito devolvido' : a.cancelada ? 'Cancelada' : 'Agendado'}
                 </Badge>
               )}
             </li>
@@ -285,19 +368,190 @@ function Detalhe({
         )}
         {!a.alunos.length && !a.extra && <p className="text-apagado">nenhum aluno agendado</p>}
       </DialogBody>
-      <DialogFoot className="justify-between">
-        {a.podeCancelar ? (
-          <Button variant="perigo" onClick={() => setModo('cancelar')}>
-            Cancelar aula
-          </Button>
-        ) : a.podeReabrir ? (
-          <Button disabled={acao.isPending} onClick={() => faz({ acao: 'reabrir' })}>
-            Desfazer cancelamento
-          </Button>
-        ) : (
-          <span />
-        )}
+      <DialogFoot className="flex-wrap justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {a.podeCancelar ? (
+            <Button variant="perigo" onClick={() => setModo('cancelar')}>
+              Cancelar aula
+            </Button>
+          ) : a.podeReabrir ? (
+            <Button disabled={acao.isPending} onClick={() => faz({ acao: 'reabrir' })}>
+              Desfazer cancelamento
+            </Button>
+          ) : null}
+          {/* 24/09/2026: o professor fica livre, os agendados recebem o crédito e a aula some para os alunos */}
+          {a.podeBloquear && (
+            <Button disabled={acao.isPending} onClick={() => faz({ acao: 'bloquear' })}>
+              {a.bloqueada ? <LockOpenIcon /> : <LockIcon />} {a.bloqueada ? 'Desbloquear horário' : 'Bloquear horário'}
+            </Button>
+          )}
+          {a.encerrarGrade.pode && (
+            <Button onClick={() => setModo('encerrar')}>
+              <CalendarXIcon /> Encerrar disponibilidade na grade
+            </Button>
+          )}
+          {/* 25/09/2026: o aluno cancela a própria aula até o prazo de cancelamento */}
+          {a.meuCancelamento &&
+            (a.meuCancelamento.pode ? (
+              <Button variant="perigo" onClick={() => setModo('meuCancelar')}>
+                Cancelar minha aula
+              </Button>
+            ) : (
+              <span className="self-center text-apagado">
+                Prazo para cancelar terminou em {a.meuCancelamento.ate} ({a.meuCancelamento.regra})
+              </span>
+            ))}
+        </div>
         <Button onClick={aoFechar}>Fechar</Button>
+      </DialogFoot>
+    </>
+  );
+}
+
+const Campo = ({ rotulo, valor }: { rotulo: string; valor: string }) => (
+  <div>
+    <dt className="text-sm font-semibold text-azul">{rotulo}</dt>
+    <dd className="m-0 break-words text-texto">{valor}</dd>
+  </div>
+);
+
+/** Gerenciar alunos › Adicionar: aluno com matrícula no curso entra só nesta aula */
+function AdicionarAluno({
+  candidatos,
+  ocupado,
+  aoAdicionar,
+}: {
+  candidatos: string[];
+  ocupado: boolean;
+  aoAdicionar: (nome: string) => void;
+}) {
+  const [nome, setNome] = useState('');
+  if (!candidatos.length)
+    return <p className="m-0 text-apagado">Todos os alunos com matrícula neste curso já estão na aula.</p>;
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <div className="grid min-w-[220px] flex-1 gap-1.5">
+        <Label>Adicionar aluno</Label>
+        <Escolha
+          rotulo="Aluno para adicionar"
+          todos="Escolha o aluno…"
+          destacar={false}
+          valor={nome}
+          aoMudar={setNome}
+          opcoes={candidatos.map((n) => ({ v: n, l: n }))}
+        />
+      </div>
+      <Button
+        disabled={!nome || ocupado}
+        onClick={() => {
+          aoAdicionar(nome);
+          setNome('');
+        }}
+      >
+        <UserPlusIcon /> Adicionar
+      </Button>
+    </div>
+  );
+}
+
+/** Alterar tópico: conteúdo do currículo (ou dos acervos do idioma) para esta aula */
+function FormTopico({ a, voltar, aoOk }: { a: AulaModelo; voltar: () => void; aoOk: (t: string) => void }) {
+  const acao = useAcaoAula(a.k);
+  const [v, setV] = useState(a.apresentacao.conteudoAtual);
+  return (
+    <>
+      <DialogHead titulo="Alterar tópico" descricao={a.rot} />
+      <DialogBody className="grid gap-3">
+        <p className="m-0 text-apagado">Tópico atual: {a.topico || 'sem tópico'}</p>
+        <div className="grid gap-1.5">
+          <Label>Tópico da aula</Label>
+          <Escolha
+            rotulo="Tópico da aula"
+            todos="Sequência do currículo"
+            destacar={false}
+            valor={v}
+            aoMudar={setV}
+            grupos={a.apresentacao.conteudos.map((g) => ({ rot: g.grupo, opcoes: g.itens }))}
+          />
+        </div>
+      </DialogBody>
+      <DialogFoot>
+        <Erro texto={acao.error?.message} />
+        <Button onClick={voltar}>Voltar</Button>
+        <Button
+          variant="primary"
+          disabled={acao.isPending}
+          onClick={() => acao.mutate({ acao: 'conteudo', conteudo: v }, { onSuccess: () => aoOk('Tópico alterado.') })}
+        >
+          Salvar
+        </Button>
+      </DialogFoot>
+    </>
+  );
+}
+
+/** Transcrição automática do Zoom */
+function PainelTranscricao({ a, voltar }: { a: AulaModelo; voltar: () => void }) {
+  const q = useTranscricao(a.k);
+  const t = q.data;
+  return (
+    <>
+      <DialogHead titulo="Transcrição" descricao={a.rot} />
+      <DialogBody className="grid gap-3">
+        {q.isPending && <p className="m-0 text-apagado">Buscando a transcrição no Zoom…</p>}
+        {q.isError && (
+          <Aviso tom="red" icone="alerta">
+            {q.error.message}
+          </Aviso>
+        )}
+        {t && !t.ok && <Aviso icone="alerta">{t.motivo}</Aviso>}
+        {t?.ok &&
+          (t.linhas.length ? (
+            <ol className="m-0 grid max-h-[50vh] list-none gap-2 overflow-auto p-0">
+              {t.linhas.map((l) => (
+                <li key={`${l.tempo}-${l.texto.slice(0, 30)}`} className="flex gap-3">
+                  <span className="shrink-0 text-apagado tabular-nums">{l.tempo}</span>
+                  <span className="text-texto">{l.texto}</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="m-0 text-apagado">A transcrição veio vazia.</p>
+          ))}
+      </DialogBody>
+      <DialogFoot>
+        <Button onClick={voltar}>Voltar</Button>
+      </DialogFoot>
+    </>
+  );
+}
+
+/** Encerrar disponibilidade na grade: o horário do módulo sai da grade a partir desta aula */
+function FormEncerrar({ a, voltar, aoOk }: { a: AulaModelo; voltar: () => void; aoOk: (t: string) => void }) {
+  const acao = useAcaoAula(a.k);
+  return (
+    <>
+      <DialogHead titulo="Encerrar disponibilidade na grade" descricao={a.rot} />
+      <DialogBody className="grid gap-3">
+        <p className="m-0">
+          O horário <b>{a.inicio}</b> de <b>{a.dataTxt.split(',')[0]}</b> sai da grade de <b>{a.mod}</b> a partir desta
+          aula ({a.dataTxt.split(', ')[1]}): esta e as próximas deixam de existir na Agenda.
+        </p>
+        <p className="m-0 text-apagado">
+          As aulas que já aconteceram continuam no histórico. Para voltar, cadastre o horário de novo em Cursos ›
+          Módulos.
+        </p>
+      </DialogBody>
+      <DialogFoot>
+        <Erro texto={acao.error?.message} />
+        <Button onClick={voltar}>Voltar</Button>
+        <Button
+          variant="perigo"
+          disabled={acao.isPending}
+          onClick={() => acao.mutate({ acao: 'encerrarGrade' }, { onSuccess: (r) => aoOk(r.msg) })}
+        >
+          Encerrar na grade
+        </Button>
       </DialogFoot>
     </>
   );
@@ -382,6 +636,53 @@ function FormCancelar({ a, voltar, aoOk }: { a: AulaModelo; voltar: () => void; 
           }
         >
           Cancelar aula
+        </Button>
+      </DialogFoot>
+    </>
+  );
+}
+
+function FormMeuCancelar({
+  a,
+  voltar,
+  aoOk,
+}: {
+  a: AulaModelo;
+  voltar: () => void;
+  aoOk: (t: string, saiu: boolean) => void;
+}) {
+  const acao = useAcaoAula(a.k);
+  const [erro, setErro] = useState('');
+  const m = a.meuCancelamento!;
+  return (
+    <>
+      <DialogHead titulo="Cancelar minha aula" descricao={a.rot} />
+      <DialogBody>
+        <div className="rounded-lg border border-[#f5c2c7] bg-vermelho-suave px-4 py-3">
+          <p className="mb-2.5">
+            {m.flow
+              ? 'Você sai desta aula particular e o crédito do Community Flow volta para você agendar outro horário.'
+              : 'Você sai desta aula e sua presença deixa de ser esperada.'}
+          </p>
+          <p className="text-apagado">
+            Cancelamento {m.regra} da aula: dá para cancelar até {m.ate}.
+          </p>
+        </div>
+      </DialogBody>
+      <DialogFoot>
+        <Erro texto={erro} />
+        <Button onClick={voltar}>Voltar</Button>
+        <Button
+          variant="perigo"
+          disabled={acao.isPending}
+          onClick={() =>
+            acao.mutate(
+              { acao: 'meuCancelamento' },
+              { onSuccess: (r) => aoOk(r.msg, m.flow), onError: (e) => setErro(e.message) },
+            )
+          }
+        >
+          Cancelar minha aula
         </Button>
       </DialogFoot>
     </>

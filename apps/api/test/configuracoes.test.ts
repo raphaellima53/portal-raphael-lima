@@ -139,7 +139,7 @@ describe('configurações', () => {
     assert.equal((await get('/auth/me', r)).json().usuario, null);
   });
 
-  test('catálogos: cria, não duplica, trava exclusão em uso e exclui o que não usa', async () => {
+  test('catálogos: cria, não duplica e exclui para a Lixeira (em uso também, só o Admin)', async () => {
     const h = await entra('admin@alumni.teste', 'alumni-admin');
     const nome = `Idioma ${Date.now()}`;
     assert.equal((await envia('POST', '/config/catalogo/idiomas', h, { nome })).json().msg, `${nome} criado.`);
@@ -151,11 +151,10 @@ describe('configurações', () => {
     const novo = c.linhas.find((x: { nome: string }) => x.nome === nome);
     const ingles = c.linhas.find((x: { nome: string }) => x.nome === 'Inglês');
     assert.ok(ingles.uso > 0);
-    assert.equal(
-      (await envia('DELETE', `/config/catalogo/idiomas/${ingles.id}`, h)).json().erro,
-      'Está em uso: inative em vez de excluir.',
-    );
-    assert.equal((await envia('DELETE', `/config/catalogo/idiomas/${novo.id}`, h)).json().msg, `${nome} excluído.`);
+    /* 24/09/2026: o item vai para a Lixeira (em uso também: quem aponta pelo nome volta a bater ao restaurar) */
+    const ex = (await envia('DELETE', `/config/catalogo/idiomas/${novo.id}`, h)).json();
+    assert.match(ex.msg, new RegExp(`^${nome} foi para a Lixeira`));
+    await prisma.lixeira.delete({ where: { id: ex.lixeiraId } });
     /* 24/09/2026: o Novo cargo pede só nome e descrição; o departamento é opcional */
     const semDep = (await envia('POST', '/config/catalogo/cargos', h, { nome: 'Cargo sem departamento' })).json();
     assert.equal(semDep.erro, undefined);
@@ -194,9 +193,10 @@ describe('configurações', () => {
     assert.equal(dias.length, 3);
     assert.match(
       (await envia('DELETE', `/config/feriados/${dias[0].id}`, h)).json().msg,
-      /removido: a agenda volta a gerar aula/,
+      /foi para a Lixeira: a agenda volta a gerar aula/,
     );
     for (const x of dias.slice(1)) await envia('DELETE', `/config/feriados/${x.id}`, h);
+    await prisma.lixeira.deleteMany({ where: { tipo: 'feriado', nome: 'Recesso teste' } });
   });
 
   test('políticas: nada mudou, exige justificativa e salva', async () => {

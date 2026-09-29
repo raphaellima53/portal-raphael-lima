@@ -78,10 +78,13 @@ before(async () => {
   });
 });
 
+/* 24/09/2026: o que os testes excluem vai para a Lixeira; no fim, tira o que eles puseram lá */
+const INICIO_LIXEIRA = new Date();
 after(async () => {
   for (const c of criados.reverse())
     await app.inject({ method: 'DELETE', url: `/cadastros/${c.id}/${c.rid}${qs(c.pai)}`, headers: h });
   await prisma.extratoProfessor.deleteMany({ where: { mes: { startsWith: '2031-' } } });
+  await prisma.lixeira.deleteMany({ where: { em: { gte: INICIO_LIXEIRA } } });
   await app.close();
   await prisma.$disconnect();
 });

@@ -55,7 +55,7 @@ export function TelaLogin() {
   const { ref: rLogin, ...campoLogin } = f.register('login');
 
   return (
-    <div className="min-h-dvh bg-[#041c4a] px-4 py-8 sm:px-8">
+    <div className="min-h-dvh bg-[#000959] px-4 py-8 sm:px-8">
       <div
         className={`mx-auto grid items-start gap-6 ${comPersonas ? 'max-w-[1224px] lg:grid-cols-[380px_1fr]' : 'max-w-[380px]'}`}
       >

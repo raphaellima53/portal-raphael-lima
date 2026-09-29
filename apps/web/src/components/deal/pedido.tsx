@@ -8,6 +8,7 @@ import { Abas } from '@/components/abas';
 import type { Msg } from '@/components/alunos/comum';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { Excluir } from '@/components/excluir';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -76,6 +77,7 @@ export function FichaPedido({ id, aba }: { id: string; aba: string }) {
   const acao = useDealAcao();
   const [msg, setMsg] = useState<Msg>(null);
   const [cancelar, setCancelar] = useState(false);
+  const router = useRouter();
   const p = q.data;
   const voltar = (
     <Button asChild>
@@ -115,6 +117,13 @@ export function FichaPedido({ id, aba }: { id: string; aba: string }) {
                 <XIcon /> Cancelar pedido
               </Button>
             )}
+            <Excluir
+              tipo="pedido"
+              id={p.id}
+              nome={`Pedido #${p.id}`}
+              rotulo="Excluir pedido"
+              aoExcluido={() => router.push('/acoes/dlPedidos')}
+            />
           </>
         }
       />

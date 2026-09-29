@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import type { DispAba } from '@/lib/alunos';
-import { corLegivel } from '@/lib/cor';
+import { corDeTexto } from '@/lib/cor';
 import { type AgendaProf, type FeedbacksProf, type FichaProf, type HabCurso, useAcaoProf } from '@/lib/professores';
 import { cn } from '@/lib/utils';
 
@@ -222,7 +222,9 @@ function Proximas({ f, d, vai }: { f: FichaProf; d: Extract<AgendaProf, { quando
                   <Td className="font-medium whitespace-nowrap text-texto">{x.data}</Td>
                   <Td className="whitespace-nowrap">{x.horario}</Td>
                   <Td>
-                    <b style={{ color: corLegivel(x.cor) }}>{x.rotulo}</b>
+                    <b className="texto-cor" style={corDeTexto(x.cor)}>
+                      {x.rotulo}
+                    </b>
                     <div className="text-apagado">{x.prod}</div>
                   </Td>
                   <Td>
@@ -299,7 +301,9 @@ function Passadas({ f, d, vai }: { f: FichaProf; d: Extract<AgendaProf, { quando
                   <Td className="font-medium whitespace-nowrap text-texto">{x.data}</Td>
                   <Td className="whitespace-nowrap">{x.horario}</Td>
                   <Td>
-                    <b style={{ color: corLegivel(x.cor) }}>{x.rotulo}</b>
+                    <b className="texto-cor" style={corDeTexto(x.cor)}>
+                      {x.rotulo}
+                    </b>
                     <div className="text-apagado">{x.prod}</div>
                   </Td>
                   <Td>

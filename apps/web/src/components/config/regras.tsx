@@ -8,6 +8,7 @@ import { CampoData, CampoHora } from '@/components/campos-data';
 import { CurriculoFormDialog } from '@/components/cursos/curriculo-forms';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { Excluir } from '@/components/excluir';
 import { usePaginacao } from '@/components/paginacao';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ import {
   useCfg,
 } from '@/lib/config';
 import { corLegivel } from '@/lib/cor';
+import { useEhAdmin } from '@/lib/lixeira';
 import { cn } from '@/lib/utils';
 import {
   AvisoMsg,
@@ -524,10 +526,18 @@ export function TelaSalas({ abas }: { abas: React.ReactNode }) {
                       <Td>
                         <StatusBadge ativo={s.ativo} fem />
                       </Td>
-                      <Td className="text-right">
+                      <Td className="text-right whitespace-nowrap">
                         <Button size="sm" aria-label={`Editar ${s.nome}`} onClick={() => abre(s)}>
                           Editar
                         </Button>
+                        <Excluir
+                          tipo="sala"
+                          id={s.id}
+                          nome={s.nome}
+                          icone
+                          className="ml-1"
+                          aoExcluido={(txt) => setMsg({ txt })}
+                        />
                       </Td>
                     </Tr>
                   ))
@@ -643,6 +653,8 @@ export function TelaCurriculos({ abas }: { abas: React.ReactNode }) {
   const [tipo, setTipo] = useState('');
   const [sit, setSit] = useState('');
   const [novo, setNovo] = useState<{ grupo: string } | null>(null);
+  const [msg, setMsg] = useState<Msg>(null);
+  const ehAdmin = useEhAdmin();
   const d = q.data;
   const filtrado = !!(busca || grupo || sit);
   const cs = useMemo(() => {
@@ -686,6 +698,11 @@ export function TelaCurriculos({ abas }: { abas: React.ReactNode }) {
               <Th className="text-right">Conteúdos</Th>
               <Th className="text-right">Sem link de In-class</Th>
               <Th>Publicado em</Th>
+              {ehAdmin && (
+                <Th>
+                  <span className="sr-only">Ações</span>
+                </Th>
+              )}
             </Tr>
           </THead>
           <TBody>
@@ -706,6 +723,11 @@ export function TelaCurriculos({ abas }: { abas: React.ReactNode }) {
                 <Td className="text-right tabular-nums">{c.conteudos}</Td>
                 <Td className="text-right tabular-nums">{c.semLink || '—'}</Td>
                 <Td className="tabular-nums">{c.publicadaEm ?? '—'}</Td>
+                {ehAdmin && (
+                  <Td className="text-right">
+                    <Excluir tipo="curriculo" id={c.id} nome={c.nome} icone aoExcluido={(txt) => setMsg({ txt })} />
+                  </Td>
+                )}
               </Tr>
             ))}
           </TBody>
@@ -727,6 +749,7 @@ export function TelaCurriculos({ abas }: { abas: React.ReactNode }) {
         }
       />
       {abas}
+      <AvisoMsg msg={msg} />
       <ErroQ e={q.error} />
       {d && (
         <>

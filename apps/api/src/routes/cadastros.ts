@@ -12,9 +12,11 @@ import {
   paraForm,
   paraLista,
 } from '../domain/cadastros.ts';
+import { tipoDoModelo } from '../domain/lixeira.ts';
 import { podeChave } from '../domain/mapa.ts';
 import { registra } from '../lib/log.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
+import { ehAdmin, moveParaLixeira } from './lixeira.ts';
 
 /**
  * Rota única dos cadastros simples (domain/cadastros.ts): lista com opções, criar, editar e excluir.
@@ -31,7 +33,8 @@ function acesso(u: UsuarioSessao | undefined, c: Cadastro) {
     ver,
     criar: ver && podeAcao(u.nivel, 'criar'),
     editar: ver && podeAcao(u.nivel, 'editar'),
-    excluir: ver && podeAcao(u.nivel, 'excluir'),
+    /* 24/09/2026: excluir é só do Admin e vai para a Lixeira */
+    excluir: ver && ehAdmin(u),
   };
 }
 
@@ -230,31 +233,24 @@ export default async function rotasCadastros(app: FastifyInstance) {
     const a = abre(req, rep);
     if (!a) return;
     const { c, pode, pai } = a;
-    if (!pode.excluir) return rep.code(403).send({ erro: 'Excluir não está liberado para o seu acesso.' });
+    if (!pode.excluir) return rep.code(403).send({ erro: 'Excluir é só do Admin.' });
     const d = delegate(c);
     const idV = c.geraId ? String(req.params.rid) : Number(req.params.rid);
     const atual = await d.findFirst({ where: { id: idV, ...(pai && c.onde ? c.onde(pai) : {}) } });
     if (!atual) return rep.code(404).send({ erro: `${cap(c.um)} não encontrad${g(c)}.` });
-    const trava = await c.podeExcluir?.(atual);
-    if (trava) return rep.code(400).send({ erro: trava });
-    try {
-      await d.delete({ where: { id: idV } });
-    } catch (e) {
-      if ((e as { code?: string }).code === 'P2003')
-        return rep.code(400).send({ erro: 'Está em uso por outro cadastro: inative em vez de excluir.' });
-      throw e;
-    }
-    invalidaBase();
-    await registra({
-      tipo: c.pai && pai ? ENT[c.pai] : c.titulo,
-      id: c.pai && pai ? pai : String(atual.id),
-      nome: await nomeDoPai(c, pai),
-      acao: `${c.um} excluíd${g(c)}`,
-      detalhe: c.rotulo(atual),
-      autor: req.usuario!.nome,
-      antes: atual,
-    });
-    return { msg: `${cap(c.um)} excluíd${g(c)}.` };
+    const tipo = tipoDoModelo(c.modelo);
+    if (!tipo) return rep.code(400).send({ erro: 'Este cadastro não tem Lixeira.' });
+    if (c.pai && pai)
+      await registra({
+        tipo: ENT[c.pai],
+        id: pai,
+        nome: await nomeDoPai(c, pai),
+        acao: `${c.um} movid${g(c)} para a Lixeira`,
+        detalhe: c.rotulo(atual),
+        autor: req.usuario!.nome,
+      });
+    /* 24/09/2026: vai para a Lixeira (Configurações › Lixeira) com o que depende dele */
+    return moveParaLixeira(req, rep, tipo, String(idV));
   });
 }
 

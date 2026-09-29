@@ -39,7 +39,12 @@ async function entra(login: string, senha: string) {
   const r = await app.inject({ method: 'POST', url: '/auth/login', payload: { login, senha } });
   return { cookie: `portal_sessao=${r.cookies.find((x) => x.name === 'portal_sessao')!.value}` };
 }
-const req = async (h: { cookie: string }, method: 'GET' | 'POST' | 'PUT', url: string, payload?: unknown) => {
+const req = async (
+  h: { cookie: string },
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  url: string,
+  payload?: unknown,
+) => {
   const r = await app.inject({ method, url, headers: h, payload: payload as object });
   // biome-ignore lint/suspicious/noExplicitAny: corpo de resposta lido à vontade nos testes
   return { status: r.statusCode, json: r.json() as Record<string, any> };
@@ -221,7 +226,8 @@ describe('menus e formulários (24/09/2026)', () => {
       (a) => a.quando > hoje && a.prof === '—',
     );
     assert.ok(futuras.length > 0);
-    assert.ok(futuras.every((a) => a.estado === 'semProfessor'));
+    /* 24/09/2026: horário da grade ainda sem aluno fica aberto; o professor sai do cadastro quando alguém entrar */
+    assert.ok(futuras.every((a) => a.estado === 'semAlunos'));
   });
 
   test('salvar módulo por módulo: um de cada vez, sem mexer nos outros, e renomear mantém o módulo', async () => {
@@ -307,6 +313,133 @@ describe('menus e formulários (24/09/2026)', () => {
     assert.equal((await prisma.curso.findUniqueOrThrow({ where: { id: vazio.json.id } })).estrutura, 'nenhuma');
     assert.equal((await req(h, 'PUT', `/cursos/${vazio.json.id}/modulo`, mod('Módulo X', 5))).status, 200);
     assert.equal((await prisma.curso.findUniqueOrThrow({ where: { id: vazio.json.id } })).estrutura, 'modulos');
+  });
+
+  test('aba Módulos: lista, renomear leva junto referências, excluir só sem alunos e reordenar', async () => {
+    const h = await adm();
+    const nome = `${NOME} aba módulos`;
+    const mod = (n: string, dia: number, extra: object = {}) => ({
+      nome: n,
+      cor: '#123456',
+      cefr: 'A2',
+      vagas: 5,
+      agendamento: { valor: 2, unidade: 'h' },
+      cancelamento: { valor: 90, unidade: 'min' },
+      horarios: [{ dia, hora: '10:00', professorId: '' }],
+      ...extra,
+    });
+    const r = await req(h, 'POST', '/cursos', {
+      nome,
+      cor: '#123456',
+      idioma: 'Inglês',
+      estrutura: 'modulos',
+      itens: [mod('Módulo A', 1), mod('Módulo B', 2), mod('Módulo C', 3)],
+    });
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    const cid = r.json.id;
+
+    /* a aba existe no Open-Entry, depois de Visão geral, com os dados de cada módulo */
+    const aba = (await req(h, 'GET', `/cursos/${cid}?aba=modulos`)).json;
+    assert.deepEqual(aba.abas.slice(0, 2), ['geral', 'modulos']);
+    assert.equal(aba.aba, 'modulos');
+    assert.deepEqual(
+      aba.dados.modulos.map((m: { nome: string }) => m.nome),
+      ['Módulo A', 'Módulo B', 'Módulo C'],
+    );
+    const a = aba.dados.modulos[0];
+    assert.deepEqual(
+      [a.cefr, a.vagas, a.agendamento, a.cancelamento, a.horarios],
+      ['A2', 5, '2 h', '90 min', [{ txt: 'Seg 10:00', prof: null }]],
+    );
+    /* curso Particular não tem a aba */
+    const part = await req(
+      h,
+      'GET',
+      `/cursos/${(await prisma.curso.findFirstOrThrow({ where: { estrutura: 'nenhuma' } })).id}`,
+    );
+    assert.ok(!part.json.abas.includes('modulos'));
+
+    /* referências pelo nome: matrícula, currículo aplicado e habilitação do professor */
+    const aluno = await prisma.aluno.findFirstOrThrow({ orderBy: { id: 'asc' } });
+    const mat = await prisma.matricula.create({
+      data: { alunoId: aluno.id, cursoId: cid, modulo: 'Módulo A', usadas: 0, total: 10 },
+    });
+    await prisma.curriculo.create({
+      data: {
+        id: 'teste-menus-aba-modulos',
+        nome: `${nome} · Módulo A`,
+        grupo: nome,
+        tipo: 'produto',
+        idioma: 'Inglês',
+        aplicado: ['Módulo A', 'Módulo B'],
+        versoes: [],
+        conteudos: [],
+      },
+    });
+    const prof = await prisma.professor.findFirstOrThrow({ where: { ativo: true }, orderBy: { ordem: 'asc' } });
+    const habilAntes = prof.habilitacao;
+    const cursosAntes = prof.cursos;
+    await prisma.professor.update({
+      where: { id: prof.id },
+      data: {
+        cursos: [...prof.cursos, nome],
+        habilitacao: { ...((prof.habilitacao as object) ?? {}), [nome]: ['Módulo A', 'Módulo C'] },
+      },
+    });
+    try {
+      const ren = await req(h, 'PUT', `/cursos/${cid}/modulo`, mod('Módulo A1', 1, { salvoComo: 'Módulo A' }));
+      assert.equal(ren.status, 200, JSON.stringify(ren.json));
+      assert.equal((await prisma.matricula.findUniqueOrThrow({ where: { id: mat.id } })).modulo, 'Módulo A1');
+      assert.deepEqual(
+        (await prisma.curriculo.findUniqueOrThrow({ where: { id: 'teste-menus-aba-modulos' } })).aplicado,
+        ['Módulo A1', 'Módulo B'],
+      );
+      const habil = (await prisma.professor.findUniqueOrThrow({ where: { id: prof.id } })).habilitacao as Record<
+        string,
+        string[]
+      >;
+      assert.deepEqual(habil[nome], ['Módulo A1', 'Módulo C']);
+
+      /* excluir (24/09/2026): só o Admin; vai para a Lixeira com a grade e as referências pelo nome ficam
+         (voltam a valer se restaurar) */
+      const gestor = await entra('persona.f@alumni.teste', 'alumni-f');
+      assert.equal(
+        (await req(gestor, 'DELETE', `/cursos/${cid}/modulo?nome=${encodeURIComponent('Módulo C')}`)).status,
+        403,
+      );
+      const sem = await req(h, 'DELETE', `/cursos/${cid}/modulo?nome=${encodeURIComponent('Módulo C')}`);
+      assert.equal(sem.status, 200, JSON.stringify(sem.json));
+      assert.match(sem.json.msg, /Módulo C foi para a Lixeira com 1 horário da grade/);
+      const habil2 = (await prisma.professor.findUniqueOrThrow({ where: { id: prof.id } })).habilitacao as Record<
+        string,
+        string[]
+      >;
+      assert.deepEqual(habil2[nome], ['Módulo A1', 'Módulo C']);
+      assert.equal(await prisma.moduloHorario.count({ where: { modulo: { cursoId: cid, nome: 'Módulo C' } } }), 0);
+      await prisma.lixeira.deleteMany({ where: { tipo: 'modulo', nome: 'Módulo C' } });
+
+      /* ordem: B antes de A1; lista incompleta é recusada */
+      assert.equal((await req(h, 'PUT', `/cursos/${cid}/modulos/ordem`, { nomes: ['Módulo B'] })).status, 400);
+      const ord = await req(h, 'PUT', `/cursos/${cid}/modulos/ordem`, { nomes: ['Módulo B', 'Módulo A1'] });
+      assert.equal(ord.status, 200, JSON.stringify(ord.json));
+      invalidaBase();
+      const depois = (await req(h, 'GET', `/cursos/${cid}?aba=modulos`)).json;
+      assert.deepEqual(
+        depois.dados.modulos.map((m: { nome: string; alunos: number }) => [m.nome, m.alunos]),
+        [
+          ['Módulo B', 0],
+          ['Módulo A1', 1],
+        ],
+      );
+    } finally {
+      await prisma.professor.update({
+        where: { id: prof.id },
+        data: { cursos: cursosAntes, habilitacao: habilAntes ?? undefined },
+      });
+      await prisma.curriculo.deleteMany({ where: { id: 'teste-menus-aba-modulos' } });
+      await prisma.matricula.deleteMany({ where: { id: mat.id } });
+      invalidaBase();
+    }
   });
 
   test('base sem funcionamento: vale o padrão e salvar em Configurações cria os dias', async () => {

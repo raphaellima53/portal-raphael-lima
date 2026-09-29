@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import { type Historico, useHistoricoAulas } from '@/lib/agenda';
-import { corLegivel } from '@/lib/cor';
+import { corDeTexto } from '@/lib/cor';
 import { cn } from '@/lib/utils';
 
 const norm = (s: string) =>
@@ -174,7 +174,9 @@ function HistoricoDeAulas() {
                   <Td className="font-medium text-texto">{x.data}</Td>
                   <Td>{x.horario}</Td>
                   <Td>
-                    <b style={{ color: corLegivel(x.cor) }}>{x.rotulo}</b>
+                    <b className="texto-cor" style={corDeTexto(x.cor)}>
+                      {x.rotulo}
+                    </b>
                     <div className="text-apagado">{x.prod}</div>
                   </Td>
                   <Td>

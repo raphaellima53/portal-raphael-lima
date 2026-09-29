@@ -16,8 +16,11 @@ before(async () => {
   app = await montaApp();
   invalidaBase();
 });
+/* 24/09/2026: o que os testes excluem vai para a Lixeira; no fim, tira o que eles puseram lá */
+const INICIO_LIXEIRA = new Date();
 after(async () => {
   await prisma.aluno.deleteMany({ where: { id: { in: criados } } });
+  await prisma.lixeira.deleteMany({ where: { em: { gte: INICIO_LIXEIRA } } });
   await app.close();
   await prisma.$disconnect();
 });
@@ -203,7 +206,9 @@ describe('alunos · cadastro, matrícula e alocação', () => {
     });
     assert.equal(nm2.status, 200);
 
-    assert.match((await req(h, 'DELETE', `/alunos/${id}`)).json.msg, /excluído/);
+    /* 24/09/2026: excluir manda para a Lixeira */
+    assert.match((await req(h, 'DELETE', `/alunos/${id}`)).json.msg, /foi para a Lixeira/);
+    await prisma.lixeira.deleteMany({ where: { tipo: 'aluno', registroId: String(id) } });
     assert.equal((await req(h, 'GET', `/alunos/${id}`)).status, 404);
     const t4 = await prisma.turma.findUnique({ where: { id: turma!.id } });
     assert.equal(t4!.ocupadas, turma!.ocupadas, 'excluir devolve a vaga');

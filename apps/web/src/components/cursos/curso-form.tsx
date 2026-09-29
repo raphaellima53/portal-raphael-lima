@@ -22,6 +22,7 @@ import {
   useSalvarCurso,
   useSalvarModulo,
 } from '@/lib/cursos';
+import { cn } from '@/lib/utils';
 
 /*
  * Novo curso (24/09/2026): Nome, Cor, Idioma e Tipo de curso obrigatórios; o tipo abre o cadastro próprio:
@@ -68,9 +69,9 @@ const Esquema = z
   .superRefine((v, ctx) => {
     const erro = (path: (string | number)[], message: string) => ctx.addIssue({ code: 'custom', path, message });
     if (v.estrutura === 'nenhuma') return;
-    const qual = v.estrutura === 'modulos' ? 'módulo' : 'turma';
+    const qual = v.estrutura === 'modulos' ? 'do módulo' : 'da turma';
     v.itens.forEach((it, k) => {
-      if (!it.nome.trim()) erro(['itens', k, 'nome'], `Informe o nome da ${qual}.`);
+      if (!it.nome.trim()) erro(['itens', k, 'nome'], `Informe o nome ${qual}.`);
       if (!it.cefr) erro(['itens', k, 'cefr'], 'Escolha o CEFR.');
       if (!it.vagas) erro(['itens', k, 'vagas'], 'Informe as vagas.');
       if (v.estrutura === 'modulos') {
@@ -571,6 +572,87 @@ export function CursoFormDialog({
   );
 }
 
+/**
+ * Novo módulo e Editar módulo (aba Módulos, 24/09/2026): os mesmos campos do módulo no Novo curso, gravados só
+ * neste módulo. `nome` = o módulo em edição (null = novo).
+ */
+export function ModuloDialog({
+  aberto,
+  aoFechar,
+  cursoId,
+  curso,
+  nome,
+  aoSalvo,
+}: {
+  aberto: boolean;
+  aoFechar: () => void;
+  cursoId: number;
+  curso: Form;
+  nome: string | null;
+  aoSalvo: (msg: string) => void;
+}) {
+  const opcoes = useOpcoesCurso(aberto);
+  const salvar = useSalvarModulo();
+  const f = useForm<Form>({ resolver: zodResolver(Esquema), defaultValues: VAZIO });
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reinicia ao abrir
+  useEffect(() => {
+    if (!aberto) return;
+    const it = curso.itens.find((x) => x.salvoComo === nome) ?? novoItem(curso.cor || '#003FB0');
+    f.reset({ ...VAZIO, ...curso, estrutura: 'modulos', itens: [it] });
+    salvar.reset();
+  }, [aberto, nome]);
+  const e = f.formState.errors;
+  const enviar = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!(await f.trigger('itens.0'))) return;
+    salvar.mutate(
+      { ...f.getValues('itens.0'), cursoId },
+      {
+        onSuccess: (r) => {
+          aoFechar();
+          aoSalvo(r.msg);
+        },
+      },
+    );
+  };
+  return (
+    <Dialog open={aberto} onOpenChange={(v) => !v && aoFechar()}>
+      <DialogContent tamanho="lg">
+        <form onSubmit={enviar} noValidate className="flex min-h-0 flex-col">
+          <DialogHead
+            titulo={nome ? `Editar ${nome}` : 'Novo módulo'}
+            descricao={`${curso.nome} · dados, regras de agenda e grade do módulo`}
+          />
+          <DialogBody>
+            <ItemCard
+              k={0}
+              modulo
+              solto
+              control={f.control}
+              register={f.register}
+              op={opcoes.data}
+              erros={e.itens?.[0] as Record<string, { message?: string }> | undefined}
+            />
+          </DialogBody>
+          <DialogFoot>
+            {salvar.isError && (
+              <span role="alert" className="mr-auto font-medium text-vermelho">
+                {salvar.error.message}
+              </span>
+            )}
+            <Button type="button" onClick={aoFechar}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="primary" disabled={salvar.isPending}>
+              {salvar.isPending ? 'Salvando…' : nome ? 'Salvar módulo' : 'Criar módulo'}
+            </Button>
+          </DialogFoot>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /** módulo (Open-Entry) ou turma (Regular) */
 function ItemCard({
   k,
@@ -585,6 +667,7 @@ function ItemCard({
   ocupado,
   aoSalvar,
   msg,
+  solto = false,
 }: {
   k: number;
   modulo: boolean;
@@ -592,21 +675,25 @@ function ItemCard({
   register: UseFormRegister<Form>;
   op: OpcoesCurso | undefined;
   erros?: Record<string, { message?: string }>;
-  remover: () => void;
-  estado: EstadoModulo;
-  salvando: boolean;
-  ocupado: boolean;
-  aoSalvar: () => void;
-  msg: { ok: boolean; txt: string } | null;
+  remover?: () => void;
+  estado?: EstadoModulo;
+  salvando?: boolean;
+  ocupado?: boolean;
+  aoSalvar?: () => void;
+  msg?: { ok: boolean; txt: string } | null;
+  /** só os campos, sem cabeçalho nem botão de salvar (diálogo de módulo da aba Módulos) */
+  solto?: boolean;
 }) {
   const qual = modulo ? 'módulo' : 'turma';
   return (
     <div
       role="group"
       aria-label={modulo ? `Módulo ${k + 1}` : `Turma ${k + 1}`}
-      className="grid gap-3 rounded-md border border-borda bg-bg p-4 sm:grid-cols-2"
+      className={
+        solto ? 'grid gap-4 sm:grid-cols-2' : 'grid gap-3 rounded-md border border-borda bg-bg p-4 sm:grid-cols-2'
+      }
     >
-      <div className="flex items-center justify-between gap-2 sm:col-span-2">
+      <div className={cn('flex items-center justify-between gap-2 sm:col-span-2', solto && 'hidden')}>
         <div className="flex flex-wrap items-center gap-2">
           <b className="text-texto">{modulo ? `Módulo ${k + 1}` : `Turma ${k + 1}`}</b>
           {modulo &&
@@ -725,7 +812,7 @@ function ItemCard({
               )}
             />
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-3 sm:col-span-2">
+          <div className={cn('flex flex-wrap items-center justify-end gap-3 sm:col-span-2', solto && 'hidden')}>
             {msg && (
               <span
                 role={msg.ok ? 'status' : 'alert'}

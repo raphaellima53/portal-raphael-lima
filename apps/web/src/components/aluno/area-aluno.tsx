@@ -5,7 +5,7 @@ import { Stat, Trilho } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { Card, CardHead, CardTitle } from '@/components/ui/card';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
-import { corLegivel } from '@/lib/cor';
+import { corDeTexto } from '@/lib/cor';
 import type { MinhaArea } from '@/lib/tipos';
 
 /** A área do aluno (antes a tela Minha área): matrículas, saldo de aulas e as próximas aulas. Mora no Meu perfil. */
@@ -75,7 +75,9 @@ export function AreaDoAluno({ d, visaoAluno = false }: { d: MinhaArea; visaoAlun
                 <Tr key={i}>
                   <Td>{x.quando}</Td>
                   <Td>
-                    <b style={{ color: corLegivel(x.cor) }}>{x.rotulo}</b>
+                    <b className="texto-cor" style={corDeTexto(x.cor)}>
+                      {x.rotulo}
+                    </b>
                   </Td>
                   <Td>{x.prof}</Td>
                   <Td>{x.sala}</Td>

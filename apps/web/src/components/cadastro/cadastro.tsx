@@ -321,7 +321,7 @@ export function Cadastro({
             descricao={excluir?.rotulo}
             erro={erro}
             ocupado={acao.isPending}
-            rotuloOk="Excluir"
+            rotuloOk="Mover para a Lixeira"
             aoSalvar={() =>
               excluir &&
               acao.mutate(
@@ -337,7 +337,8 @@ export function Cadastro({
             }
           >
             <p className="text-texto-2 sm:col-span-2">
-              O registro sai de vez e a exclusão fica na Auditoria. Não dá para desfazer.
+              O registro sai das telas e vai para Configurações › Lixeira, com o que depende dele. De lá o Admin
+              restaura igual ou apaga de vez.
             </p>
           </FormDialog>
         </>

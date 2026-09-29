@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AcessoPessoa } from '@/components/acesso-pessoa';
 import { api } from './api';
 import type { PessoaExtra } from './cadastros';
+import type { FlowResumo } from './flow';
 import type { Tom } from './tipos';
 
 export type Item = { nome: string; cor: string } | null;
@@ -101,10 +102,15 @@ export type CursosAba = {
     usadas: number;
     total: number;
     saldo: number;
+    /** Community Flow: aula particular agendada com crédito, sem horário fixo */
+    flow: boolean;
     horarios: { txt: string; prof: string | null }[];
   }[];
   encerradas: { id: number; curso: string; item: Item; usadas: number; total: number; encerradaEm: string }[];
   alocacao: AlocCard[] | null;
+  /** Community Flow: créditos (null = sem adesão) e se quem vê pode agendar pelo aluno */
+  flow: FlowResumo | null;
+  agendaFlow: boolean;
 };
 export type DispAba = {
   stats: StatA[];

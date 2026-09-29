@@ -14,6 +14,7 @@ import {
   crsItens,
   crsRegras,
   DN,
+  MOD_FLOW,
 } from '../domain/agenda.ts';
 import {
   alAgenda,
@@ -66,6 +67,8 @@ import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
 import { diaUTC, faltando, isoUTC, PessoaIn, pessoaDoBanco, pessoaParaBanco } from '../lib/pessoa.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
+import { flowJson } from './flow.ts';
+import { ehAdmin, moveParaLixeira } from './lixeira.ts';
 
 /** abas da ficha: [chave, rótulo, grupo, chave de acesso quando não é aluno.<aba>] (AL_ABAS do portal) */
 const AL_ABAS = [
@@ -397,7 +400,7 @@ export default async function rotasAlunos(app: FastifyInstance) {
         criar: podeOperar(u),
         editar: alPode(u, 'editar'),
         desativar: alPode(u, 'desativar'),
-        excluir: alPode(u, 'excluir'),
+        excluir: ehAdmin(u),
         como: alPode(u, 'como'),
         ficha: AL_ABAS.some((a) => podeChave(u, chaveAba(a))),
       },
@@ -461,6 +464,9 @@ export default async function rotasAlunos(app: FastifyInstance) {
         alocacao: podeChave(u, 'aluno.alocacao')
           ? alAlocacoes(b, a, ofs, folhaVeValor(quemAula(u)), BLACK_VALOR_PADRAO)
           : null,
+        /* Community Flow: créditos de aula particular (1 a cada 5 presenças nos níveis) */
+        flow: flowJson(b, a, ofs),
+        agendaFlow: podeChave(u, 'aluno.alocacao') && podeOperar(u),
       };
     } else if (aba === 'disponibilidade') {
       dados = {
@@ -563,7 +569,7 @@ export default async function rotasAlunos(app: FastifyInstance) {
       pode: {
         editar: alPode(u, 'editar'),
         desativar: alPode(u, 'desativar'),
-        excluir: alPode(u, 'excluir') && !personas.has(a.id),
+        excluir: ehAdmin(u) && !personas.has(a.id),
         como: alPode(u, 'como'),
         operar: podeOperar(u),
         agenda: podeChave(u, 'agenda'),
@@ -770,22 +776,14 @@ export default async function rotasAlunos(app: FastifyInstance) {
   });
   app.delete('/alunos/:id', { preHandler: exigeLista }, async (req, rep) => {
     const u = req.usuario!;
-    if (!alPode(u, 'excluir')) return rep.code(403).send({ erro: 'Excluir aluno é só do Administrador.' });
+    if (!ehAdmin(u)) return rep.code(403).send({ erro: 'Excluir aluno é só do Admin.' });
     const { id } = ID.parse(req.params);
     const b = await base();
     const a = await alunoOu404(b, id, rep);
     if (!a) return;
-    if ((await personasIds()).has(id))
-      return rep.code(409).send({ erro: 'Persona de teste não se exclui. Use Desativar.' });
-    const n = alMat(a).length;
-    for (const e of alMat(a)) await turmaOcupa(b, e.curso, e.modulo, -1);
-    await prisma.$transaction([
-      prisma.usuario.updateMany({ where: { alunoId: id }, data: { alunoId: null } }),
-      prisma.aluno.delete({ where: { id } }),
-    ]);
-    await loga(u, a, 'Aluno excluído', `${n} matrículas ativas`);
-    invalidaBase();
-    return { msg: `${a.name} foi excluído da base.` };
+    await loga(u, a, 'Aluno movido para a Lixeira', `${alMat(a).length} matrículas ativas`);
+    /* 24/09/2026: vai para a Lixeira com matrículas, feedbacks e datas bloqueadas (restaura igual) */
+    return moveParaLixeira(req, rep, 'aluno', String(id));
   });
   app.post('/alunos/:id/acessar-como', { preHandler: exigeLista }, async (req, rep) => {
     const u = req.usuario!;
@@ -1065,7 +1063,9 @@ export default async function rotasAlunos(app: FastifyInstance) {
     const novo = p.data.item;
     if (novo === e.modulo)
       return rep.code(400).send({ erro: `Escolha ${eTurma ? 'outra turma' : 'outro módulo'} na lista.` });
-    if (!crsItens(c).includes(novo) || novo === 'Private FLOW')
+    if (e.modulo === MOD_FLOW)
+      return rep.code(400).send({ erro: 'O Community Flow é uma adesão: encerre esta matrícula e abra outra.' });
+    if (!crsItens(c).includes(novo) || novo === MOD_FLOW)
       return rep.code(400).send({ erro: `${eTurma ? 'Turma' : 'Módulo'} não encontrado neste curso.` });
     const t = eTurma ? c.turmas.find((z) => z.name === novo) : undefined;
     if (t && t.ocupadas >= t.vagas) return rep.code(409).send({ erro: `${novo} está lotada.` });

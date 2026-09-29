@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CampoData, CampoHora } from '@/components/campos-data';
 import { Escolha } from '@/components/escolha';
+import { Excluir } from '@/components/excluir';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -310,6 +311,18 @@ export function DialogoAtividade({
             <Button variant="ghost" className="mr-auto text-vermelho" disabled={acao.isPending} onClick={cancelar}>
               Cancelar atividade
             </Button>
+          )}
+          {c && (
+            <Excluir
+              tipo="atividade"
+              id={c.id}
+              nome={c.titulo}
+              icone
+              aoExcluido={(msg) => {
+                aoFechar();
+                aoSalvo(msg);
+              }}
+            />
           )}
           <Button onClick={aoFechar}>Fechar</Button>
           {!leitura && (

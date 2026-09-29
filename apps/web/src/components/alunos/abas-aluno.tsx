@@ -15,7 +15,7 @@ import { Card, CardHead, CardTitle } from '@/components/ui/card';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import type { AgendamentosAba, DispAba, FichaResp, FinanceiroAba, LogAba, Perfil, Vinculos } from '@/lib/alunos';
 import { useAcaoAluno } from '@/lib/alunos';
-import { corLegivel } from '@/lib/cor';
+import { corDeTexto } from '@/lib/cor';
 import { cn } from '@/lib/utils';
 import type { Msg } from './comum';
 
@@ -408,7 +408,9 @@ function Proximas({ f, d, vai }: { f: FichaResp; d: Extract<AgendamentosAba, { q
                   <Td className="font-medium whitespace-nowrap text-texto">{x.data}</Td>
                   <Td className="whitespace-nowrap">{x.horario}</Td>
                   <Td>
-                    <b style={{ color: corLegivel(x.cor) }}>{x.rotulo}</b>
+                    <b className="texto-cor" style={corDeTexto(x.cor)}>
+                      {x.rotulo}
+                    </b>
                     <div className="text-apagado">{x.prod}</div>
                   </Td>
                   <Td>
@@ -503,7 +505,9 @@ function Passadas({ d, vai }: { d: Extract<AgendamentosAba, { quando: 'passadas'
                   <Td className="font-medium whitespace-nowrap text-texto">{x.data}</Td>
                   <Td className="whitespace-nowrap">{x.horario}</Td>
                   <Td>
-                    <b style={{ color: corLegivel(x.cor) }}>{x.rotulo}</b>
+                    <b className="texto-cor" style={corDeTexto(x.cor)}>
+                      {x.rotulo}
+                    </b>
                     <div className="text-apagado">{x.prod}</div>
                   </Td>
                   <Td>

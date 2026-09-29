@@ -106,6 +106,18 @@ export default async function rotasAuth(app: FastifyInstance) {
       where: { id: u.id },
       select: { foto: true, trocarSenha: true },
     });
+    /* 24/09/2026: o aluno com matrícula ativa no Alumni Black (aulas particulares) vê o portal no tema da sub-marca */
+    const black =
+      u.ehAluno && u.alunoId != null
+        ? !!(await prisma.matricula.findFirst({
+            where: {
+              alunoId: u.alunoId,
+              desativadoEm: null,
+              curso: { nome: { contains: 'Alumni Black', mode: 'insensitive' } },
+            },
+            select: { id: true },
+          }))
+        : false;
     return {
       usuario: {
         id: u.id,
@@ -126,6 +138,7 @@ export default async function rotasAuth(app: FastifyInstance) {
         persona: u.personaLetra,
         agendaPresa: u.agendaPresa,
         como: u.como,
+        marca: black ? ('black' as const) : null,
       },
       nav: navDe(u),
       chaves: chavesDe(u),

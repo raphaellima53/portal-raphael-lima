@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { Excluir } from '@/components/excluir';
 import { usePaginacao } from '@/components/paginacao';
 import { AbasDoMenu } from '@/components/secao-abas';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +17,7 @@ import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import { ErroApi } from '@/lib/api';
 import { useEmpresas } from '@/lib/empresas';
 import { idCadastro } from '@/lib/ids';
+import { useEhAdmin } from '@/lib/lixeira';
 import { EmpresaFormDialog } from './empresa-form';
 
 const norm = (s: string) =>
@@ -33,6 +35,13 @@ export function ListaEmpresas() {
   const [sit, setSit] = useState('');
   const [ger, setGer] = useState<string | null>(null);
   const [nova, setNova] = useState<{ form: null } | null>(null);
+  /* 24/09/2026: Excluir empresa, só o Admin (vai para a Lixeira); a ficha volta para cá com ?msg= */
+  const admin = useEhAdmin();
+  const [msg, setMsg] = useState('');
+  useEffect(() => {
+    const m = new URLSearchParams(window.location.search).get('msg');
+    if (m) setMsg(m);
+  }, []);
 
   useEffect(() => {
     document.title = 'Empresas · Portal Raphael Lima';
@@ -86,6 +95,11 @@ export function ListaEmpresas() {
       {q.isError && (
         <Aviso tom="red" icone="alerta">
           {q.error.message}
+        </Aviso>
+      )}
+      {msg && (
+        <Aviso tom="blue" icone="ok">
+          {msg}
         </Aviso>
       )}
       {renov.length > 0 && sit !== 'Renovação' && (
@@ -157,6 +171,11 @@ export function ListaEmpresas() {
               <Th className="text-right">Presença</Th>
               <Th>Contrato até</Th>
               <Th>Alertas</Th>
+              {admin && (
+                <Th>
+                  <span className="sr-only">Ações</span>
+                </Th>
+              )}
             </Tr>
           </THead>
           <TBody>
@@ -202,11 +221,16 @@ export function ListaEmpresas() {
                       <span className="text-apagado">—</span>
                     )}
                   </Td>
+                  {admin && (
+                    <Td className="text-right" onClick={(x) => x.stopPropagation()}>
+                      <Excluir tipo="empresa" id={e.id} nome={e.nome} icone aoExcluido={setMsg} />
+                    </Td>
+                  )}
                 </Tr>
               ))
             ) : (
               <Tr>
-                <Td colSpan={8} className="py-10 text-center text-apagado-2">
+                <Td colSpan={admin ? 9 : 8} className="py-10 text-center text-apagado-2">
                   {q.isPending ? 'Carregando…' : 'nenhuma empresa neste filtro'}
                 </Td>
               </Tr>

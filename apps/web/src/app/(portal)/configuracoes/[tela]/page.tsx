@@ -6,6 +6,7 @@ import { Suspense, useEffect } from 'react';
 import { TelaPerfis, TelaSessoes } from '@/components/config/acessos';
 import { TelaAlertas, TelaExecucoes, TelaPainel } from '@/components/config/alertas';
 import { TelaDesign, TelaMapaTelas, TelaPersonas } from '@/components/config/documentacao';
+import { TelaLixeira } from '@/components/config/lixeira';
 import { TelaCatalogo } from '@/components/config/pessoas';
 import { TelaCurriculos, TelaDias, TelaFeriados, TelaPoliticas, TelaSalas } from '@/components/config/regras';
 import { TelaUsuarios } from '@/components/config/usuarios';
@@ -80,6 +81,7 @@ function Tela() {
   if (tela === 'feriados') return <TelaFeriados abas={abas} />;
   if (tela === 'salas') return <TelaSalas abas={abas} />;
   if (tela === 'curriculo') return <TelaCurriculos abas={abas} />;
+  if (tela === 'lixeira') return <TelaLixeira abas={abas} />;
   if (tela === 'alertas') return <TelaAlertas abas={abas} />;
   if (tela === 'admPainel') return <TelaPainel abas={abas} />;
   if (tela === 'execucoes') return <TelaExecucoes abas={abas} />;

@@ -8,6 +8,7 @@ import { Abas } from '@/components/abas';
 import { AbaContratos } from '@/components/deal/contratos';
 import { Aviso, PageHead, Stat } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { Excluir } from '@/components/excluir';
 import { usePaginacao } from '@/components/paginacao';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -106,6 +107,14 @@ function FichaInterna() {
                 </Button>
               </>
             )}
+            {/* 24/09/2026: só o Admin vê; vai para Configurações › Lixeira (alunos e turmas perdem o vínculo até restaurar) */}
+            <Excluir
+              tipo="empresa"
+              id={e.id}
+              nome={e.nome}
+              rotulo="Excluir empresa"
+              aoExcluido={(t) => router.push(`/empresas?msg=${encodeURIComponent(t)}`)}
+            />
           </>
         }
       />

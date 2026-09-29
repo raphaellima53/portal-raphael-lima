@@ -321,12 +321,15 @@ describe('adequação ao Portal Alumni', () => {
     const l = tela.linhas.find((x: { id: number }) => x.id === t.id);
     const ruim = await req('PUT', `/cadastros/turmas/${t.id}`, { ...l.valores, grade: 'segunda de manhã' });
     assert.match(ruim.json.erro, /Grade no formato/);
-    const com = await prisma.matricula.count({ where: { cursoId: t.cursoId, modulo: t.nome, desativadoEm: null } });
-    if (com) {
-      const ex = await req('DELETE', `/cadastros/turmas/${t.id}`);
-      assert.equal(ex.status, 400);
-      assert.match(ex.json.erro, /inative em vez de excluir/);
-    }
+    /* 24/09/2026: o Admin exclui mesmo com aluno (vai para a Lixeira) e a restauração devolve a turma igual */
+    const ex = await req('DELETE', `/cadastros/turmas/${t.id}`);
+    assert.equal(ex.status, 200, JSON.stringify(ex.json));
+    assert.match(ex.json.msg, /foi para a Lixeira/);
+    assert.equal(await prisma.turma.count({ where: { id: t.id } }), 0);
+    const { restaurar } = await import('../src/domain/lixeira.ts');
+    await restaurar(ex.json.lixeiraId);
+    const volta = await prisma.turma.findUniqueOrThrow({ where: { id: t.id } });
+    assert.deepEqual([volta.nome, volta.grade, volta.ocupadas], [t.nome, t.grade, t.ocupadas]);
   });
 
   test('dinheiro em pt-BR e o que mudou na Auditoria', () => {

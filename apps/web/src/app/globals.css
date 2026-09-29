@@ -1,7 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is([data-theme="dark"] *));
+/* o tema Alumni Black também é escuro: herda os ajustes dark: dos componentes */
+@custom-variant dark (&:is([data-theme="dark"] *, [data-marca="black"] *));
 
 /* ======================= DESIGN SYSTEM DO PORTAL =======================
    Tokens do ds.css do artefato. Tipografia: nada abaixo de 14px. Destaque: profundidade (sombra) e hover —
@@ -16,9 +17,9 @@
   --text-2: #2f3b4e;
   --muted: #566174;
   --muted-2: #5f6b7e;
-  /* paleta do Figma (Page 3, 21/09/2026): azul #003FB0 (Essential 2), hover #083688 (Essential 3) */
+  /* paleta oficial (Manual de Identidade Visual Alumni, 2025): azul #003FB0 (Essential 2), hover #062967 (Essential 3) */
   --blue: #003fb0;
-  --blue-dark: #083688;
+  --blue-dark: #062967;
   --blue-soft: #eaf0fc;
   --blue-line: #c7d6f4;
   --green: #0a7a55;
@@ -35,8 +36,9 @@
   --track: #eef1f5;
   --hover: #f4f6fa;
 
+  /* menu lateral: Essential 3 → Essential 4 do manual */
   --sidebar-1: #062967;
-  --sidebar-2: #041c4a;
+  --sidebar-2: #000959;
   --sidebar-text: #d4def2;
   --sidebar-muted: #a4b3d3;
   --sidebar-user: #0b347c;
@@ -98,9 +100,52 @@
   --hover: #17223a;
 }
 
+/* Tema Alumni Black (24/09/2026, brandbook alumni-black-brandbook.vercel.app): o aluno do Alumni Black vê o portal em
+   Onyx (fundo), Grafite (superfícies) e Aço (bordas), com texto Osso, ouro nos textos de destaque e azul elétrico nas
+   ações. Títulos em Jost, corpo em Inter. Vale por cima do tema claro ou escuro (data-marca no <html>). */
+:root[data-marca="black"] {
+  --bg: #08080a;
+  --card: #15151b;
+  --border: #26262f;
+  --border-soft: #1d1d25;
+  --border-strong: #34343f;
+  --text: #f4f4f6;
+  --text-2: #d6d6de;
+  --muted: #a1a1ad;
+  --muted-2: #8f8f9b;
+  --blue: #2563eb;
+  --blue-dark: #1d4ed8;
+  --blue-soft: #1f1a0e;
+  --blue-line: #5c4512;
+  --green: #3fcf95;
+  --green-soft: #0f2e25;
+  --amber: #f0b44c;
+  --amber-soft: #33260e;
+  --red: #ff6b76;
+  --red-soft: #3a151b;
+  --purple: #b39cff;
+  --purple-soft: #231a45;
+  --gray-soft: #1c1c24;
+  --gray: #c9c9d2;
+  --track: #1c1c24;
+  --hover: #1c1c24;
+  --sidebar-1: #15151b;
+  --sidebar-2: #08080a;
+  --sidebar-text: #c9c9d2;
+  --sidebar-muted: #8a8a96;
+  --sidebar-user: #1c1c24;
+  --sidebar-user-hover: #26262f;
+  --sidebar-avatar: #26262f;
+  --anel: 0 0 0 3px rgba(200, 149, 31, 0.4);
+  --ouro: #c8951f;
+  --ouro-suave: #e0b34a;
+}
+
 @theme inline {
+  /* Manrope (manual da marca, 2025); o sistema fica de reserva */
   --font-sans:
-    "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, Inter, Roboto, Helvetica, Arial, sans-serif;
+    var(--font-manrope), "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica,
+    Arial, sans-serif;
   --font-mono: ui-monospace, Consolas, monospace;
 
   --color-background: var(--background);
@@ -223,6 +268,30 @@
       scroll-behavior: auto !important;
     }
   }
+}
+
+/* texto na cor do curso ou módulo (lib/cor.ts, corDeTexto): a versão certa para o fundo do tema */
+.texto-cor {
+  color: var(--cor-claro);
+}
+:is([data-theme="dark"], [data-marca="black"]) .texto-cor {
+  color: var(--cor-escuro);
+}
+
+/* Alumni Black: corpo em Inter e títulos em Jost; texto de destaque (links, filtro ativo) em Ouro Suave, que tem
+   contraste AA sobre o Grafite — o azul elétrico fica para o fundo dos botões */
+:root[data-marca="black"] body {
+  font-family: var(--font-inter), "Segoe UI", -apple-system, sans-serif;
+}
+:root[data-marca="black"] :is(h1, h2, h3) {
+  font-family: var(--font-jost), var(--font-inter), sans-serif;
+  letter-spacing: -0.02em;
+}
+:root[data-marca="black"] .text-azul {
+  color: var(--ouro-suave);
+}
+:root[data-marca="black"] :focus-visible {
+  outline-color: var(--ouro-suave);
 }
 
 .sidebar-fundo {

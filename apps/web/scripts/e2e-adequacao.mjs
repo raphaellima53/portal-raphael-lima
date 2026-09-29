@@ -67,8 +67,8 @@ await passo('Serviços: editar e excluir', async () => {
   await pg.getByText('Serviço salvo.').waitFor();
   assert.match(await pg.locator('main tbody tr', { hasText: NOME }).innerText(), /MNT2/);
   await pg.getByRole('button', { name: `Excluir ${NOME}` }).click();
-  await dialogo(pg).getByRole('button', { name: 'Excluir' }).click();
-  await pg.getByText('Serviço excluído.').waitFor();
+  await dialogo(pg).getByRole('button', { name: 'Mover para a Lixeira' }).click();
+  await pg.getByText(/foi para a Lixeira/).waitFor();
   assert.equal(await pg.locator('main tbody tr', { hasText: NOME }).count(), 0);
 });
 
@@ -83,8 +83,8 @@ await passo('Ficha do aluno: Datas bloqueadas grava a data em dd/mm/aaaa e volta
   const linha = pg.locator('main tbody tr', { hasText: 'viagem e2e' });
   assert.match(await linha.innerText(), /15\/12\/2031/);
   await pg.getByRole('button', { name: 'Excluir 15/12/2031' }).click();
-  await dialogo(pg).getByRole('button', { name: 'Excluir' }).click();
-  await pg.getByText('Data bloqueada excluída.').waitFor();
+  await dialogo(pg).getByRole('button', { name: 'Mover para a Lixeira' }).click();
+  await pg.getByText(/foi para a Lixeira/).waitFor();
 });
 
 await passo('Ficha do professor: abas novas em Habilitação e Pagamentos', async () => {

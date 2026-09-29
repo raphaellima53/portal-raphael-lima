@@ -25,7 +25,9 @@ import {
   dispK,
   FX_ESTADO,
   fxPresenca,
+  MOD_FLOW,
   type Oferta,
+  prazoAte,
   prDisp,
 } from './agenda.ts';
 import { fxHash } from './aulas.ts';
@@ -239,6 +241,7 @@ export function alMatriculas(b: Base, a: AlunoB, ofs: Oferta[]) {
       usadas: e.usadas,
       total: e.total,
       saldo: e.total - e.usadas,
+      flow: e.modulo === MOD_FLOW,
       horarios: meus
         .filter((x) => x.prod === e.curso && x.mod === e.modulo)
         .map((x) => ({ txt: `${agDiasTxt(x)} · ${agFaixa(x)}`, prof: x.prof === '—' ? null : x.prof })),
@@ -353,6 +356,8 @@ export function alAlocacoes(b: Base, a: AlunoB, ofs: Oferta[], veValor: boolean,
     const c = b.cursos.find((x) => x.name === e.curso);
     if (!c) return [];
     const mod = e.modulo;
+    /* Community Flow: sem alocação — aula particular agendada com crédito (cartão próprio na aba Cursos) */
+    if (mod === MOD_FLOW) return [];
     const cor = b.corCurso[c.name] || '#1a4fd6';
     const o = ofs.find((x) => x.prod === c.name && x.mod === mod && x.alunos.includes(a.name));
     const topo = {
@@ -382,7 +387,7 @@ export function alAlocacoes(b: Base, a: AlunoB, ofs: Oferta[], veValor: boolean,
     const eTurma = c.estrutura === 'turmas';
     const r = o ? alocAvalia(b, a, c.name, mod, o.prof, o.dias, o.hora, ofs) : null;
     const opcoes = crsItens(c)
-      .filter((x) => x !== 'Private FLOW')
+      .filter((x) => x !== MOD_FLOW)
       .map((it) => {
         const y = ofs.find((z) => z.prod === c.name && z.mod === it && z.vagas !== 1);
         const t = eTurma ? c.turmas.find((z) => z.name === it) : undefined;
@@ -493,15 +498,8 @@ export function alAgenda(b: Base, a: AlunoB, dias: number, ofs: Oferta[], agora 
   /* o módulo com regra própria (Novo curso, 24/09/2026, em minutos) vale antes da do curso */
   const prazo = (x: Aula, regra: 'agendamento' | 'cancelamento') => {
     const c = b.cursos.find((y) => y.name === x.prod);
-    const min = c && x.mod ? c.modInfo[x.mod]?.[`${regra}Min`] : null;
-    const rg = c ? crsRegras(c) : null;
-    const padrao =
-      regra === 'cancelamento'
-        ? (rg?.cancelamento ?? 6)
-        : ((rg as { antecedencia?: number } | null)?.antecedencia ?? 0);
-    const h = min != null ? min / 60 : padrao;
-    const d = new Date(x.quando.getTime() - h * 36e5);
-    return h ? `${dm(d)} · ${agHM(d)}` : 'até o início';
+    const d = prazoAte(c, x.mod, regra, x.quando);
+    return +d !== +x.quando ? `${dm(d)} · ${agHM(d)}` : 'até o início';
   };
   return {
     dias,

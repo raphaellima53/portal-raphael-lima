@@ -393,8 +393,8 @@ export function TelaCatalogo({ k, abas }: { k: string; abas: React.ReactNode }) 
             descricao={
               form?.id
                 ? form.uso
-                  ? `Em uso por ${form.uso} ${form.uso === 1 ? 'registro' : 'registros'}: dá para inativar, não para excluir.`
-                  : 'Sem uso: dá para excluir.'
+                  ? `Em uso por ${form.uso} ${form.uso === 1 ? 'registro' : 'registros'}. Excluir leva para a Lixeira: quem usa continua com o nome e volta a bater se restaurar.`
+                  : 'Sem uso.'
                 : d.t
             }
             erro={erro}
@@ -404,7 +404,8 @@ export function TelaCatalogo({ k, abas }: { k: string; abas: React.ReactNode }) 
               form && faz(form.id ? `/catalogo/${k}/${form.id}` : `/catalogo/${k}`, form.id ? 'PUT' : 'POST', form)
             }
             extra={
-              form?.id && !form.uso ? (
+              /* 24/09/2026: vai para Configurações › Lixeira, mesmo em uso (só o Admin chega aqui) */
+              form?.id ? (
                 <Button
                   type="button"
                   variant="perigo"
@@ -412,7 +413,7 @@ export function TelaCatalogo({ k, abas }: { k: string; abas: React.ReactNode }) 
                   disabled={acao.isPending}
                   onClick={() => faz(`/catalogo/${k}/${form.id}`, 'DELETE')}
                 >
-                  Excluir {d.um}
+                  Mover para a Lixeira
                 </Button>
               ) : null
             }

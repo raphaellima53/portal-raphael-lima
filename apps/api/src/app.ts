@@ -19,7 +19,9 @@ import rotasCursos from './routes/cursos.ts';
 import rotasDeal from './routes/deal.ts';
 import rotasEmpresas from './routes/empresas.ts';
 import rotasEngenharia from './routes/engenharia.ts';
+import rotasFlow from './routes/flow.ts';
 import rotasInicio from './routes/inicio.ts';
+import rotasLixeira from './routes/lixeira.ts';
 import rotasProfessores from './routes/professores.ts';
 import rotasRelatorios from './routes/relatorios.ts';
 
@@ -66,5 +68,7 @@ export async function montaApp() {
   await app.register(rotasConfigRegras);
   await app.register(rotasCadastros);
   await app.register(rotasEngenharia);
+  await app.register(rotasLixeira);
+  await app.register(rotasFlow);
   return app;
 }

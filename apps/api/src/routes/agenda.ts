@@ -6,8 +6,12 @@ import {
   agAulasEntre,
   agHabilitado,
   agHM,
+  agISO,
+  agOfertas,
   agRotulo,
   alMat,
+  crsItens,
+  crsRegras,
   FX_ESTADO,
   fxPresenca,
 } from '../domain/agenda.ts';
@@ -29,6 +33,7 @@ import {
   aulaPassou,
   aulaRot,
   aulaSala,
+  avulsaDe,
   FOLHA_MOTIVOS,
   folhaPodeSuporte,
   folhaPodeValor,
@@ -37,9 +42,11 @@ import {
   folhaValor,
   folhaValorBase,
   folhaVeValor,
+  primeiroNome,
   type QuemAula,
 } from '../domain/aulas.ts';
-import { type AjusteAula, base } from '../domain/base.ts';
+import { autoAgenda } from '../domain/autoagenda.ts';
+import { type AjusteAula, base, invalidaBase } from '../domain/base.ts';
 import {
   EV_GRUPOS,
   EV_UM,
@@ -55,7 +62,9 @@ import {
 import { podeChave } from '../domain/mapa.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
+import { reuniaoDoLink, transcricao } from '../lib/zoom.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
+import { moveParaLixeira } from './lixeira.ts';
 
 const quem = (u: UsuarioSessao): QuemAula => ({
   nome: u.nome,
@@ -63,6 +72,7 @@ const quem = (u: UsuarioSessao): QuemAula => ({
   areas: u.areas,
   tipoPerfil: u.tipoPerfil,
   ehAluno: u.ehAluno,
+  alunoId: u.alunoId,
 });
 
 async function contexto(u: UsuarioSessao, minha: boolean): Promise<Contexto> {
@@ -176,6 +186,12 @@ const AcaoAula = z.discriminatedUnion('acao', [
   z.object({ acao: z.literal('zoomEnviar') }),
   z.object({ acao: z.literal('zoomEncerrar') }),
   z.object({ acao: z.literal('notas'), texto: z.string().max(5000) }),
+  /* 24/09/2026 */
+  z.object({ acao: z.literal('bloquear') }),
+  z.object({ acao: z.literal('adicionarAluno'), aluno: z.string().min(1, 'Escolha o aluno.') }),
+  z.object({ acao: z.literal('encerrarGrade') }),
+  /* 25/09/2026: o aluno cancela a própria aula, dentro do prazo de cancelamento */
+  z.object({ acao: z.literal('meuCancelamento') }),
 ]);
 
 const EventoForm = z
@@ -246,6 +262,206 @@ export default async function rotasAgenda(app: FastifyInstance) {
     return aulaModelo(b, a, quem(req.usuario!));
   });
 
+  /** Transcrição (24/09/2026): automática do Zoom, da gravação na nuvem da reunião da aula */
+  app.get('/aulas/transcricao', { preHandler: exigeAgenda }, async (req, rep) => {
+    const u = req.usuario!;
+    const { b, a, erro } = await aulaVisivel(u, String((req.query as { k?: string }).k ?? ''));
+    if (!a) return rep.code(404).send({ erro });
+    const sala = aulaSala(b, a);
+    const reuniao = sala.url ? reuniaoDoLink(sala.url) : null;
+    if (!sala.zoom || !reuniao) return { ok: false, motivo: 'Esta aula não tem sala do Zoom.' };
+    if (!aulaPassou(a)) return { ok: false, motivo: 'A transcrição aparece depois que a aula acontece.' };
+    try {
+      return await transcricao(reuniao);
+    } catch (e) {
+      return { ok: false, motivo: (e as Error).message };
+    }
+  });
+
+  /** + Novo › Aula (24/09/2026): opções do formulário — cursos, módulos ou turmas, tópicos, professores e alunos */
+  app.get('/aulas/avulsas/opcoes', { preHandler: exigeAgenda }, async (req, rep) => {
+    const u = req.usuario!;
+    if (u.ehAluno || aulaNivel(quem(u)) > 3) return rep.code(403).send({ erro: 'Seu acesso não cria aula.' });
+    const b = await base();
+    const profs = await prisma.professor.findMany({ where: { ativo: true }, orderBy: { nome: 'asc' } });
+    const abc = (x: string, y: string) => x.localeCompare(y, 'pt-BR', { sensitivity: 'base', numeric: true });
+    return {
+      cursos: b.cursos
+        .filter((c) => c.active !== false)
+        .sort((x, y) => abc(x.name, y.name))
+        .map((c) => {
+          const itens = crsItens(c);
+          const curs = b.curriculos.filter((x) => x.grupo === c.name && x.conteudos.length);
+          return {
+            id: c.id,
+            nome: c.name,
+            rotuloItem: c.estrutura === 'turmas' ? 'Turma' : c.estrutura === 'modulos' ? 'Módulo' : null,
+            itens,
+            duracao: crsRegras(c).duracao,
+            professores: profs
+              .filter((p) => b.professores.find((t) => t.id === p.id && agHabilitado(t, c.name, null)))
+              .map((p) => ({ v: p.id, l: p.nome })),
+            /* tópicos: conteúdos do currículo aplicado ao item (ou do curso) */
+            topicos: Object.fromEntries(
+              (itens.length ? itens : ['']).map((it) => {
+                const cs = curs.filter((x) => !it || x.aplicado.includes(it));
+                return [
+                  it,
+                  (cs.length ? cs : curs).flatMap((x) =>
+                    x.conteudos.map((ct, i) => ({ v: `${x.id}|${i}`, l: `${i + 1}. ${ct.titulo}`, grupo: x.nome })),
+                  ),
+                ];
+              }),
+            ),
+            alunos: b.alunos
+              .filter((a) => a.matriculas.some((e) => !e.desativadoEm && e.curso === c.name))
+              .map((a) => a.name)
+              .sort(abc),
+          };
+        }),
+    };
+  });
+
+  const AvulsaForm = z
+    .object({
+      cursoId: z.coerce.number().int({ message: 'Escolha o curso.' }),
+      modulo: z.string().trim().max(200).default(''),
+      topico: z.string().trim().max(300).default(''),
+      conteudo: z.string().max(80).default(''),
+      professorId: z.string().default(''),
+      data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe a data.'),
+      ini: z.string().regex(/^\d{2}:\d{2}$/, 'Informe o início.'),
+      fim: z.string().regex(/^\d{2}:\d{2}$/, 'Informe o término.'),
+      local: z.string().trim().max(500).default(''),
+      desc: z.string().trim().max(2000).default(''),
+      alunos: z.array(z.string().min(1)).max(200).default([]),
+      confirmar: z.boolean().default(false),
+    })
+    .refine((d) => d.fim > d.ini, { message: 'O término precisa ser depois do início.', path: ['fim'] });
+
+  app.post('/aulas/avulsas', { preHandler: exigeAgenda }, async (req, rep) => {
+    const u = req.usuario!;
+    if (u.ehAluno || aulaNivel(quem(u)) > 3) return rep.code(403).send({ erro: 'Seu acesso não cria aula.' });
+    const r = AvulsaForm.safeParse(req.body);
+    if (!r.success) return erro400(rep, r.error);
+    const v = r.data;
+    const b = await base();
+    const c = b.cursos.find((x) => x.id === v.cursoId);
+    if (!c) return rep.code(400).send({ erro: 'Escolha o curso.' });
+    const itens = crsItens(c);
+    if (itens.length && !itens.includes(v.modulo))
+      return rep.code(400).send({ erro: `Escolha ${c.estrutura === 'turmas' ? 'a turma' : 'o módulo'}.` });
+    /* tópico: um conteúdo do currículo do curso ou um texto livre */
+    const [curId, pos] = v.conteudo.split('|');
+    const ct = curId
+      ? b.curriculos.find((x) => x.id === curId && x.grupo === c.name)?.conteudos[Number(pos)]
+      : undefined;
+    const topico = ct?.titulo ?? v.topico;
+    if (!topico) return rep.code(400).send({ erro: 'Informe o tópico da aula.' });
+    const prof = v.professorId ? b.professores.find((t) => t.id === v.professorId) : null;
+    if (v.professorId && (!prof || !agHabilitado(prof, c.name, v.modulo || null)))
+      return rep.code(400).send({ erro: `${prof?.name ?? 'O professor'} não está habilitado em ${c.name}.` });
+    const semMat = v.alunos.filter(
+      (n) => !b.alunos.find((a) => a.name === n)?.matriculas.some((e) => !e.desativadoEm && e.curso === c.name),
+    );
+    if (semMat.length) return rep.code(400).send({ erro: `Sem matrícula ativa em ${c.name}: ${semMat.join(', ')}.` });
+    const inicio = new Date(`${v.data}T${v.ini}:00`);
+    const fim = new Date(`${v.data}T${v.fim}:00`);
+    /* professor já com aula no horário: avisa e só grava com "Salvar mesmo assim" */
+    if (prof && !v.confirmar) {
+      const choques = agAulasEntre(b, inicio, inicio).filter(
+        (a) =>
+          a.prof === prof.name &&
+          a.estado !== 'cancelada' &&
+          a.quando < fim &&
+          +a.quando + (a.duracao || 50) * 6e4 > +inicio,
+      );
+      if (choques.length)
+        return rep.code(409).send({
+          erro: `${prof.name} já tem aula nesse horário: ${choques.map((a) => aulaRot(a)).join('; ')}.`,
+          choques: choques.length,
+        });
+    }
+    const id = `av-${crypto.randomUUID().slice(0, 12)}`;
+    await prisma.aulaAvulsa.create({
+      data: {
+        id,
+        cursoId: c.id,
+        modulo: v.modulo,
+        topico,
+        conteudo: ct ? v.conteudo : '',
+        professorId: prof?.id ?? null,
+        inicio,
+        fim,
+        local: v.local,
+        descricao: v.desc,
+        alunos: v.alunos,
+        criadoPor: u.nome,
+      },
+    });
+    invalidaBase();
+    const hora = inicio.getHours() + inicio.getMinutes() / 60;
+    const k = [c.name, v.modulo, `Aula avulsa ${id}`, v.data, hora].join('|');
+    await registra({
+      tipo: 'aula',
+      id: k,
+      acao: 'Aula avulsa criada',
+      detalhe: `${topico} · ${v.alunos.length} ${v.alunos.length === 1 ? 'aluno' : 'alunos'}`,
+      nome: `${c.name}${v.modulo ? ` · ${v.modulo}` : ''} · ${fmt.data(inicio)} ${v.ini}`,
+      autor: u.nome,
+    });
+    return {
+      msg: `Aula criada: ${topico}, ${fmt.data(inicio)} das ${v.ini} às ${v.fim}${prof ? ` com ${prof.name}` : ' (sem professor)'}.`,
+      k,
+      data: v.data,
+    };
+  });
+
+  /* 25/09/2026: autoagendamento do aluno nos cursos Open-Entry — o menu do dia e a inscrição numa aula */
+  app.get('/agenda/agendar', { preHandler: exigeAgenda }, async (req, rep) => {
+    const u = req.usuario!;
+    const dia = String((req.query as { data?: string }).data ?? '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return rep.code(400).send({ erro: 'Escolha o dia.' });
+    const b = await base();
+    const al = u.alunoId != null ? b.alunos.find((x) => x.id === u.alunoId) : undefined;
+    if (!al) return rep.code(403).send({ erro: 'Só o aluno agenda as próprias aulas.' });
+    return autoAgenda(b, al, dia, agOfertas(b));
+  });
+
+  app.post('/agenda/agendar', { preHandler: exigeAgenda }, async (req, rep) => {
+    const u = req.usuario!;
+    const k = String((req.body as { k?: string })?.k ?? '');
+    const b = await base();
+    const al = u.alunoId != null ? b.alunos.find((x) => x.id === u.alunoId) : undefined;
+    if (!al) return rep.code(403).send({ erro: 'Só o aluno agenda as próprias aulas.' });
+    const a = aulaDe(b, k);
+    if (!a) return rep.code(404).send({ erro: 'Esta aula não existe mais na agenda.' });
+    /* confere de novo pelo mesmo menu (prazo, vaga, choque e crédito) no instante da gravação */
+    const g = autoAgenda(b, al, agISO(a.quando), agOfertas(b)).grupos.find(
+      (x) => !x.flow && x.aulas.some((y) => y.k === k),
+    );
+    const slot = g?.aulas.find((y) => y.k === k);
+    if (!g || !slot) return rep.code(400).send({ erro: 'Esta aula não está disponível para você agendar.' });
+    if (slot.trava) return rep.code(409).send({ erro: `Não dá para agendar: ${slot.trava}.` });
+    await gravaAjuste(a.k, (o) => {
+      /* quem tinha cancelado a participação volta; senão entra só nesta aula */
+      if (o.fora?.[al.name]) delete o.fora[al.name];
+      else if (!a.alunos.includes(al.name)) o.extras = [...(o.extras ?? []), al.name];
+    });
+    await registra({
+      tipo: 'aula',
+      id: a.k,
+      acao: 'Aluno agendou a aula',
+      detalhe: al.name,
+      nome: aulaRot(a),
+      autor: u.nome,
+    });
+    return {
+      msg: `Aula agendada: ${slot.topico}, ${fmt.semana(a.quando)} das ${slot.ini} às ${slot.fim}${slot.prof === 'Professor a definir' ? ' (professor a definir)' : ` com ${slot.prof}`}.`,
+      k: a.k,
+    };
+  });
+
   app.post('/aulas/acao', { preHandler: exigeAgenda }, async (req, rep) => {
     const u = req.usuario!;
     const k = String((req.body as { k?: string })?.k ?? '');
@@ -293,8 +509,110 @@ export default async function rotasAgenda(app: FastifyInstance) {
         });
         await log('Cancelamento desfeito');
         return { msg: 'A aula voltou para a agenda.' };
+      /* 24/09/2026: Bloquear horário — o professor fica livre, os agendados recebem o crédito de volta e a aula
+         some para os alunos; Desbloquear devolve */
+      case 'bloquear': {
+        if (nv > 3 || passou || (cancelada && !a.bloqueada)) return negado();
+        const tira = !!a.bloqueada;
+        await gravaAjuste(a.k, (o) => {
+          if (tira) delete o.bloqueada;
+          else o.bloqueada = true;
+        });
+        await log(tira ? 'Horário desbloqueado' : 'Horário bloqueado', `${a.n}${a.n === 1 ? ' aluno' : ' alunos'}`);
+        return {
+          msg: tira
+            ? 'Horário desbloqueado: a aula voltou para a agenda.'
+            : `Horário bloqueado.${a.n ? ` ${a.n} ${a.n === 1 ? 'aluno recebe' : 'alunos recebem'} o crédito de volta.` : ''} ${a.prof !== '—' ? `${a.prof} fica livre neste horário.` : ''}`.trim(),
+        };
+      }
+      /* Gerenciar alunos › Adicionar: aluno com matrícula ativa no curso entra só nesta aula */
+      case 'adicionarAluno': {
+        if (nv > 3 || cancelada || passou) return negado();
+        const al = b.alunos.find((x) => x.name === d.aluno);
+        if (!al?.matriculas.some((e) => !e.desativadoEm && e.curso === a.prod))
+          return rep.code(400).send({ erro: `${d.aluno} não tem matrícula ativa em ${a.prod}.` });
+        if (a.alunos.includes(d.aluno)) return rep.code(400).send({ erro: `${d.aluno} já está nesta aula.` });
+        if (a.n >= a.vagas) return rep.code(400).send({ erro: `A aula está lotada (${a.vagas} vagas).` });
+        await gravaAjuste(a.k, (o) => {
+          o.extras = [...(o.extras ?? []), d.aluno];
+        });
+        await log('Aluno incluído na aula', d.aluno);
+        return { msg: `${d.aluno} entrou nesta aula.` };
+      }
+      /* Encerrar disponibilidade na grade: o horário do módulo deixa de gerar aula a partir desta data */
+      case 'encerrarGrade': {
+        if (nv > 2 || passou || a.avulsa || !a.mod) return negado();
+        const hm = agHM(a.quando);
+        const c = await prisma.curso.findUnique({ where: { nome: a.prod } });
+        const mod = c && (await prisma.modulo.findUnique({ where: { cursoId_nome: { cursoId: c.id, nome: a.mod } } }));
+        const hs = mod
+          ? await prisma.moduloHorario.findMany({
+              where: { moduloId: mod.id, dia: a.quando.getDay(), hora: hm, ate: null },
+            })
+          : [];
+        if (!hs.length)
+          return rep.code(400).send({ erro: 'Este horário não está na grade do módulo (Cursos › Módulos).' });
+        /* o último dia é a véspera desta aula (coluna @db.Date em UTC) */
+        const ate = new Date(Date.UTC(a.quando.getFullYear(), a.quando.getMonth(), a.quando.getDate() - 1));
+        await prisma.moduloHorario.updateMany({ where: { id: { in: hs.map((h) => h.id) } }, data: { ate } });
+        invalidaBase();
+        await registra({
+          tipo: 'curso',
+          id: String(c!.id),
+          nome: a.prod,
+          acao: 'Horário encerrado na grade',
+          detalhe: `${a.mod} · ${aulaRot(a)} em diante`,
+          autor: u.nome,
+        });
+        return {
+          msg: `${a.mod} · ${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][a.quando.getDay()]} ${hm} saiu da grade a partir de ${fmt.data(a.quando)}: esta aula e as seguintes deixam de existir.`,
+        };
+      }
+      /* o próprio aluno cancela a aula dele até o prazo do módulo (ou do curso). Na aula do Community Flow sai da aula
+         avulsa (o crédito e a vaga voltam; sem ninguém, a aula deixa de existir); nas outras, fica como cancelado */
+      case 'meuCancelamento': {
+        const m = aulaModelo(b, a, p).meuCancelamento;
+        if (!u.ehAluno || !m) return negado();
+        if (!m.pode)
+          return rep.code(400).send({
+            erro: `O prazo para cancelar esta aula terminou em ${m.ate} (cancelar ${m.regra}).`,
+          });
+        const eu = b.alunos.find((x) => x.id === u.alunoId)!.name;
+        const v = m.flow ? avulsaDe(b, a) : null;
+        if (v) {
+          const resto = v.alunos.filter((x) => x !== eu);
+          if (resto.length) await prisma.aulaAvulsa.update({ where: { id: v.id }, data: { alunos: resto } });
+          else {
+            await prisma.aulaAvulsa.delete({ where: { id: v.id } });
+            await prisma.aulaAjuste.deleteMany({ where: { chave: a.k } });
+          }
+          invalidaBase();
+        } else if (ov.extras?.includes(eu)) {
+          await gravaAjuste(a.k, (o) => {
+            o.extras = (o.extras ?? []).filter((x) => x !== eu);
+          });
+        } else {
+          await gravaAjuste(a.k, (o) => {
+            o.fora = { ...(o.fora ?? {}), [eu]: true };
+          });
+        }
+        await log('Aluno cancelou a própria aula', eu);
+        return {
+          msg: m.flow
+            ? 'Aula cancelada. O crédito do Community Flow voltou para você.'
+            : 'Aula cancelada. Sua presença não é mais esperada nela.',
+        };
+      }
       case 'agendamento': {
         if (nv > 3 || cancelada || passou || !a.alunos.includes(d.aluno)) return negado();
+        /* incluído só nesta aula: remover tira da lista */
+        if (ov.extras?.includes(d.aluno)) {
+          await gravaAjuste(a.k, (o) => {
+            o.extras = (o.extras ?? []).filter((x) => x !== d.aluno);
+          });
+          await log('Aluno retirado da aula', d.aluno);
+          return { msg: `${d.aluno} saiu desta aula.` };
+        }
         const volta = !!ov.fora?.[d.aluno];
         await gravaAjuste(a.k, (o) => {
           o.fora = o.fora ?? {};
@@ -577,9 +895,14 @@ export default async function rotasAgenda(app: FastifyInstance) {
       ini: evHora(e.ini),
       fim: evHora(e.fim),
       dataTxt: `${e.ini.toLocaleDateString('pt-BR', { weekday: 'long' }).replace(/^./, (c) => c.toUpperCase())}, ${e.ini.getDate()} de ${e.ini.toLocaleDateString('pt-BR', { month: 'short' })}`,
-      part: e.part.map((x) => ({ ...x, grupo: EV_UM[x.g] ?? x.g })),
+      /* o aluno vê os outros alunos só pelo primeiro nome e não vê os choques de agenda dos outros */
+      part: e.part.map((x) => ({
+        ...x,
+        n: u.ehAluno && x.g === 'aluno' && x.n !== al?.name ? primeiroNome(x.n) : x.n,
+        grupo: EV_UM[x.g] ?? x.g,
+      })),
       por: e.por,
-      choques: evChoques(b, e),
+      choques: u.ehAluno ? [] : evChoques(b, e),
       podeEditar: !u.ehAluno && evPodeEditar(nv, e, u.nome),
       podeExcluir: !u.ehAluno && evPodeExcluir(nv, e, u.nome),
     };
@@ -647,7 +970,6 @@ export default async function rotasAgenda(app: FastifyInstance) {
     if (!e) return rep.code(404).send({ erro: 'Evento não encontrado.' });
     if (u.ehAluno || !evPodeExcluir(aulaNivel(quem(u)), e, u.nome))
       return rep.code(403).send({ erro: 'Seu acesso não permite excluir este evento.' });
-    await prisma.evento.delete({ where: { id: e.id } });
     await registra({
       tipo: 'evento',
       id: e.id,
@@ -656,7 +978,9 @@ export default async function rotasAgenda(app: FastifyInstance) {
       acao: e.tipo === 'Reunião' ? 'Reunião excluída' : 'Evento excluído',
       detalhe: `${evHora(e.ini)} · ${e.part.length} participantes`,
     });
-    return { msg: `${e.tipo === 'Reunião' ? 'Reunião excluída' : 'Evento excluído'}.` };
+    /* 24/09/2026: vai para a Lixeira (o Admin restaura em Configurações › Lixeira) */
+    const r = await moveParaLixeira(req, rep, 'evento', e.id);
+    return r && 'msg' in r ? { msg: `${e.tipo === 'Reunião' ? 'Reunião excluída' : 'Evento excluído'}.` } : r;
   });
 
   /* ---- Histórico de aulas: o do aluno (área do aluno) e o do professor (as aulas que deu ou em que foi substituído) ---- */

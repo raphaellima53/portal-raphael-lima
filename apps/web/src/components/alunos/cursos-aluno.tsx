@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CampoData } from '@/components/campos-data';
 import { Chave } from '@/components/config/comum';
 import { Escolha } from '@/components/escolha';
+import { FlowCartao } from '@/components/flow';
 import { usePaginacao } from '@/components/paginacao';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -108,7 +109,12 @@ export function AbaCursos({ f, d, setMsg }: { f: FichaResp; d: CursosAba; setMsg
                   </Td>
                   <Td className="text-right tabular-nums">{e.saldo.toLocaleString('pt-BR')}</Td>
                   <Td>
-                    {e.horarios.length ? (
+                    {e.flow ? (
+                      <span className="text-apagado">
+                        aula particular agendada com crédito
+                        {d.flow ? ` · ${d.flow.saldo} de ${d.flow.ganhos} créditos` : ''}
+                      </span>
+                    ) : e.horarios.length ? (
                       e.horarios.map((h) => (
                         <div key={h.txt} className="whitespace-nowrap">
                           {h.txt} · {h.prof ?? <span className="text-vermelho">sem professor</span>}
@@ -201,10 +207,12 @@ export function AbaCursos({ f, d, setMsg }: { f: FichaResp; d: CursosAba; setMsg
       <h2 className="mt-8 mb-2 text-lg font-bold text-texto">Alocação de cada matrícula</h2>
       {d.alocacao ? (
         <>
+          {d.flow && <FlowCartao alunoId={f.id} podeAgendar={d.agendaFlow} />}
           <p className="mb-4 max-w-[900px] text-apagado">
             Onde cada matrícula cai na grade. Turma e módulo em grupo têm horário próprio — troca-se a turma ou o
-            módulo. Private FLOW e Alumni Black são individuais: professor, dias e hora são da matrícula e passam por
-            disponibilidade e choque de agenda antes de salvar.
+            módulo. Alumni Black é individual: professor, dias e hora são da matrícula e passam por disponibilidade e
+            choque de agenda antes de salvar. Community Flow não tem horário fixo: o aluno agenda a aula particular com
+            crédito.
           </p>
           {d.alocacao.length ? (
             <div className="grid gap-4 xl:grid-cols-2">

@@ -74,8 +74,8 @@ await passo('departamentos: cria, renomeia e exclui', async () => {
   await dialogo(pg).getByRole('button', { name: 'Salvar' }).click();
   await pg.getByText('Qualidade e2e 2 salvo.').waitFor();
   await pg.getByRole('button', { name: 'Editar Qualidade e2e 2' }).click();
-  await dialogo(pg).getByRole('button', { name: 'Excluir departamento' }).click();
-  await pg.getByText('Qualidade e2e 2 excluído.').waitFor();
+  await dialogo(pg).getByRole('button', { name: 'Mover para a Lixeira' }).click();
+  await pg.getByText(/^Qualidade e2e 2 foi para a Lixeira/).waitFor();
 });
 
 await passo('feriados: importar os nacionais de outro ano e remover um', async () => {
@@ -84,7 +84,7 @@ await passo('feriados: importar os nacionais de outro ano e remover um', async (
   await pg.getByRole('button', { name: /Importar feriados nacionais de/ }).click();
   await pg.getByText(/feriados nacionais de \d{4} (importados|já estavam)/).waitFor();
   await pg.getByRole('button', { name: /^Remover Tiradentes/ }).click();
-  await pg.getByText(/Tiradentes \(21\/04\/\d{4}\) removido/).waitFor();
+  await pg.getByText(/Tiradentes \(21\/04\/\d{4}\) foi para a Lixeira/).waitFor();
 });
 
 await passo('condições e vigência: salvar pede justificativa', async () => {

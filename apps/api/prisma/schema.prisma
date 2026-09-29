@@ -294,6 +294,7 @@ model Curso {
   ofertas    Oferta[]
   servicos   Servico[]
   ciclos     CicloAprendizagem[]
+  avulsas    AulaAvulsa[]
 }
 
 model Modulo {
@@ -326,8 +327,35 @@ model ModuloHorario {
   /// HH:MM
   hora        String
   professorId String?
+  /// 24/09/2026 (Encerrar disponibilidade na grade): último dia do horário; nulo = sem fim
+  ate         DateTime? @db.Date
 
   @@index([moduloId])
+}
+
+/// Aula avulsa (24/09/2026, Agenda › + Novo › Aula): uma aula fora da grade, com tópico, professor e alunos
+model AulaAvulsa {
+  id          String   @id
+  cursoId     Int
+  curso       Curso    @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  /// módulo ou turma (nome)
+  modulo      String
+  /// título do tópico (conteúdo do currículo ou texto livre)
+  topico      String
+  /// conteúdo do currículo escolhido ("curriculoId|posição"); vazio = tópico livre
+  conteudo    String   @default("")
+  professorId String?
+  inicio      DateTime
+  fim         DateTime
+  /// local ou link
+  local       String   @default("")
+  descricao   String   @default("")
+  /// alunos da aula (nomes)
+  alunos      String[]
+  criadoPor   String
+  criadaEm    DateTime @default(now())
+
+  @@index([inicio])
 }
 
 /// Curso Particular: as alocações (o responsável, aluno 1, e as vagas)
@@ -848,6 +876,23 @@ model LogAlteracao {
   motivo     String?
 
   @@index([quando])
+}
+
+/// Lixeira (24/09/2026): o que o Admin excluiu, com a cópia completa (o registro e o que foi junto) para restaurar
+model Lixeira {
+  id         Int      @id @default(autoincrement())
+  /// curso · aluno · usuario · professor … (TIPOS em domain/lixeira.ts)
+  tipo       String
+  registroId String
+  nome       String
+  /// o que foi junto, ex.: "31 matrículas · 2 turmas"
+  resumo     String   @default("")
+  /// { grupos: [{ modelo, linhas }] na ordem de inserção, religa: [{ modelo, fk, pares }] }
+  dados      Json
+  por        String
+  em         DateTime @default(now())
+
+  @@index([em])
 }
 
 /// Eventos e reuniões da Agenda (AG_EVENTOS). participantes: [{ g: colaborador|prestador|aluno, n }]

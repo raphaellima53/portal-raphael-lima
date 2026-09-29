@@ -57,6 +57,7 @@ const MENU_DAS_TELAS: Record<string, string[]> = {
     'feriados',
     'salas',
     'curriculo',
+    'lixeira',
     'tiposcurso',
     'tiposala',
     'idiomas',

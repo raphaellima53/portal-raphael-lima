@@ -8,6 +8,7 @@ import { Cadastro } from '@/components/cadastro/cadastro';
 import { CampoData } from '@/components/campos-data';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
+import { Excluir } from '@/components/excluir';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -149,6 +150,15 @@ export function FormUsuario({ id }: { id: number | null }) {
                 <ChevronLeftIcon /> Usuários
               </Link>
             </Button>
+            {id != null && u && (
+              <Excluir
+                tipo="usuario"
+                id={id}
+                nome={u.nome}
+                rotulo="Excluir usuário"
+                aoExcluido={(t) => router.push(`/configuracoes/usuarios?msg=${encodeURIComponent(t)}`)}
+              />
+            )}
             {botaoOk}
           </>
         }
