@@ -5,7 +5,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db.ts';
-import { agOfertas } from '../domain/agenda.ts';
+import { agOfertas, ZOOM_POR_CONTA } from '../domain/agenda.ts';
 import { base, invalidaBase } from '../domain/base.ts';
 import {
   ADM_PAINEL,
@@ -33,6 +33,7 @@ import docInfo from '../domain/dados/doc-info.json' with { type: 'json' };
 import { funcionamento } from '../domain/funcionamento.ts';
 import { TELAS_MAPA } from '../domain/mapa.ts';
 import { hrefProf, hrefTela } from '../domain/rotas.ts';
+import { cifra, decifra } from '../lib/cifra.ts';
 import { fmt } from '../lib/fmt.ts';
 import {
   CnpjIn,
@@ -44,7 +45,7 @@ import {
   pessoaParaBanco,
 } from '../lib/pessoa.ts';
 import { cfgLog, erro400, exigeCfg } from './config-acessos.ts';
-import { moveParaLixeira } from './lixeira.ts';
+import { ehAdmin, moveParaLixeira } from './lixeira.ts';
 
 const diaUTC = (iso: string) => new Date(`${iso}T00:00:00Z`);
 const deUTC = (d: Date) => new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
@@ -107,6 +108,9 @@ const SalaIn = z.object({
     .string()
     .regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Data da licença inválida.')
     .default(''),
+  /* 30/09/2026: senha da conta do Zoom — só de escrita (vazio mantém a atual; "limpar" apaga), guardada cifrada */
+  zoomSenha: z.string().max(200).default(''),
+  zoomSenhaLimpar: z.boolean().default(false),
 });
 const Just = z.string().trim().min(5, 'Escreva a justificativa (pelo menos 5 letras).').max(500);
 
@@ -418,7 +422,10 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
         ativo: s.ativo,
         zoomEmail: s.zoomEmail,
         zoomLicencaAte: isoUTC(s.zoomLicencaAte),
+        zoomTemSenha: !!s.zoomSenhaCifrada,
       })),
+      /* regra das contas do Zoom (30/09/2026) */
+      zoomPorConta: ZOOM_POR_CONTA,
       tipos: tipos.filter((t) => t.tipo === 'roomTypes' && t.ativo).map((t) => t.nome),
       alvos: [
         ...tipos.filter((t) => t.tipo === 'courseTypes').map((t) => ({ v: t.nome, l: `${t.nome} (pool do tipo)` })),
@@ -441,7 +448,9 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
       ativo: v.ativo,
       zoomEmail: v.zoomEmail,
       zoomLicencaAte: diaOuNulo(v.zoomLicencaAte),
+      ...(v.zoomSenhaLimpar ? { zoomSenhaCifrada: '' } : v.zoomSenha ? { zoomSenhaCifrada: cifra(v.zoomSenha) } : {}),
     };
+    if (v.zoom && !v.zoomEmail) return { erro: 'Sala do Zoom precisa do e-mail da conta do Zoom.' };
     if (id) {
       const atual = await prisma.sala.findUnique({ where: { id } });
       if (!atual) return { erro: 'Sala não encontrada.', cod: 404 };
@@ -466,6 +475,16 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
   app.put('/config/salas/:id', { preHandler: exigeCfg }, async (req, rep) => {
     const r = await salvaSala(Number((req.params as { id: string }).id), req.body, req.usuario!);
     return 'erro' in r ? rep.code(r.cod ?? 400).send({ erro: r.erro }) : r;
+  });
+  /* 30/09/2026: revelar a senha da conta do Zoom — só o Admin, e fica na Auditoria */
+  app.post('/config/salas/:id/senha', { preHandler: exigeCfg }, async (req, rep) => {
+    const u = req.usuario!;
+    if (!ehAdmin(u)) return rep.code(403).send({ erro: 'Só o Admin vê a senha da conta do Zoom.' });
+    const s = await prisma.sala.findUnique({ where: { id: Number((req.params as { id: string }).id) } });
+    if (!s) return rep.code(404).send({ erro: 'Sala não encontrada.' });
+    if (!s.zoomSenhaCifrada) return rep.code(404).send({ erro: 'Esta sala não tem senha cadastrada.' });
+    await cfgLog(u, 'salas', 'Senha do Zoom revelada', `${s.nome} · ${s.zoomEmail}`);
+    return { senha: decifra(s.zoomSenhaCifrada) };
   });
 
   /* ================= Feriados e recessos ================= */

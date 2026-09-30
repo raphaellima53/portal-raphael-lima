@@ -16,6 +16,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
+import { api } from '@/lib/api';
 import {
   type Curriculos,
   type Dias,
@@ -410,6 +411,10 @@ type SalaForm = {
   ativo: boolean;
   zoomEmail: string;
   zoomLicencaAte: string;
+  /* 30/09/2026: senha da conta do Zoom — só de escrita; vazia mantém a atual */
+  zoomSenha: string;
+  zoomTemSenha: boolean;
+  zoomSenhaLimpar: boolean;
 };
 export function TelaSalas({ abas }: { abas: React.ReactNode }) {
   const q = useCfg<Salas>('/salas');
@@ -435,8 +440,20 @@ export function TelaSalas({ abas }: { abas: React.ReactNode }) {
     setErro('');
     setForm(
       s
-        ? { ...s }
-        : { id: null, nome: '', tipo: '', atende: '', zoom: false, ativo: true, zoomEmail: '', zoomLicencaAte: '' },
+        ? { ...s, zoomSenha: '', zoomSenhaLimpar: false }
+        : {
+            id: null,
+            nome: '',
+            tipo: '',
+            atende: '',
+            zoom: false,
+            ativo: true,
+            zoomEmail: '',
+            zoomLicencaAte: '',
+            zoomSenha: '',
+            zoomTemSenha: false,
+            zoomSenhaLimpar: false,
+          },
     );
   };
   return (
@@ -445,6 +462,12 @@ export function TelaSalas({ abas }: { abas: React.ReactNode }) {
       {abas}
       <AvisoMsg msg={msg} />
       <ErroQ e={q.error} />
+      {d && (
+        <p className="mb-3 text-texto-2">
+          Cada sala do Zoom é uma conta já existente e recebe até {d.zoomPorConta} aulas ao mesmo tempo; a próxima aula
+          vai para a conta seguinte. A aula abre dentro do portal, sem login no Zoom.
+        </p>
+      )}
       {d && (
         <>
           <Barra>
@@ -605,8 +628,8 @@ export function TelaSalas({ abas }: { abas: React.ReactNode }) {
                   className="sm:col-span-2"
                   on={form.zoom}
                   aoMudar={(v) => setForm({ ...form, zoom: v })}
-                  rotulo="Tem link do Zoom"
-                  ajuda="Sem link, a aula online entra como pendência na agenda."
+                  rotulo="Sala do Zoom (conta)"
+                  ajuda="Conta do Zoom já existente; recebe até 2 aulas ao mesmo tempo."
                 />
                 {form.zoom && (
                   <>
@@ -618,6 +641,19 @@ export function TelaSalas({ abas }: { abas: React.ReactNode }) {
                         value={form.zoomEmail}
                         onChange={(e) => setForm({ ...form, zoomEmail: e.target.value })}
                       />
+                    </Campo>
+                    <Campo id="sa-zsenha" rotulo="Senha da conta">
+                      <div className="grid gap-1.5">
+                        <Input
+                          id="sa-zsenha"
+                          type="password"
+                          autoComplete="new-password"
+                          placeholder={form.zoomTemSenha ? '•••••••• (guardada, cifrada)' : 'senha da conta do Zoom'}
+                          value={form.zoomSenha}
+                          onChange={(e) => setForm({ ...form, zoomSenha: e.target.value, zoomSenhaLimpar: false })}
+                        />
+                        {form.id && form.zoomTemSenha && <RevelaSenha id={form.id} aoMsg={(t) => setErro(t)} />}
+                      </div>
                     </Campo>
                     <Campo id="sa-zlic" rotulo="Licença válida até">
                       <CampoData
@@ -831,5 +867,29 @@ export function TelaCurriculos({ abas }: { abas: React.ReactNode }) {
       )}
       <CurriculoFormDialog abre={novo} aoFechar={() => setNovo(null)} />
     </>
+  );
+}
+
+/** 30/09/2026: só o Admin revela a senha da conta do Zoom (fica na Auditoria) */
+function RevelaSenha({ id, aoMsg }: { id: number; aoMsg: (t: string) => void }) {
+  const admin = useEhAdmin();
+  const [senha, setSenha] = useState('');
+  if (!admin) return <span className="text-apagado">só o Admin vê a senha</span>;
+  return senha ? (
+    <span className="text-texto-2">
+      Senha: <b className="select-all">{senha}</b>
+    </span>
+  ) : (
+    <Button
+      size="sm"
+      className="justify-self-start"
+      onClick={() =>
+        api<{ senha: string }>(`/config/salas/${id}/senha`, { method: 'POST', json: {} })
+          .then((r) => setSenha(r.senha))
+          .catch((e: Error) => aoMsg(e.message))
+      }
+    >
+      Revelar senha
+    </Button>
   );
 }

@@ -3,6 +3,7 @@
  * Usa um app Server-to-Server OAuth (ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET no .env); sem essas
  * variáveis o portal responde "Zoom não conectado". A transcrição vem do arquivo TRANSCRIPT (.vtt) da gravação.
  */
+import { createHmac } from 'node:crypto';
 import { env } from '../env.ts';
 
 export const zoomConectado = () => !!(env.ZOOM_ACCOUNT_ID && env.ZOOM_CLIENT_ID && env.ZOOM_CLIENT_SECRET);
@@ -64,4 +65,52 @@ export async function transcricao(reuniao: string): Promise<Transcricao> {
   const v = await fetch(arq.download_url, { headers: { Authorization: `Bearer ${t}` } });
   if (!v.ok) return { ok: false, motivo: `O Zoom respondeu ${v.status} ao baixar a transcrição.` };
   return { ok: true, linhas: deVtt(await v.text()) };
+}
+
+/* ---------------- 30/09/2026: aula dentro do portal (Meeting SDK) ---------------- */
+
+/** o Meeting SDK precisa do app do SDK (assinatura) e do Server-to-Server (criar a reunião e o token de anfitrião) */
+export const sdkConectado = () => zoomConectado() && !!(env.ZOOM_SDK_KEY && env.ZOOM_SDK_SECRET);
+
+const b64url = (x: string | Buffer) => Buffer.from(x).toString('base64url');
+/** assinatura do Meeting SDK (JWT HS256): role 1 = anfitrião, 0 = participante; vale 2 horas */
+export function assinatura(reuniao: string, role: 0 | 1) {
+  const iat = Math.floor(Date.now() / 1000) - 30;
+  const exp = iat + 2 * 3600;
+  const cab = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const corpo = b64url(
+    JSON.stringify({ appKey: env.ZOOM_SDK_KEY, sdkKey: env.ZOOM_SDK_KEY, mn: reuniao, role, iat, exp, tokenExp: exp }),
+  );
+  const sig = createHmac('sha256', env.ZOOM_SDK_SECRET).update(`${cab}.${corpo}`).digest('base64url');
+  return `${cab}.${corpo}.${sig}`;
+}
+
+/** cria a reunião da aula na conta (usuário do Zoom) da sala */
+export async function criaReuniao(conta: string, topico: string, inicio: Date, minutos: number) {
+  const t = await acesso();
+  const r = await fetch(`https://api.zoom.us/v2/users/${encodeURIComponent(conta)}/meetings`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${t}`, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      topic: topico.slice(0, 200),
+      type: 2,
+      start_time: inicio.toISOString(),
+      duration: minutos,
+      timezone: 'America/Sao_Paulo',
+      settings: { join_before_host: false, waiting_room: false, auto_recording: 'cloud', mute_upon_entry: true },
+    }),
+  });
+  if (!r.ok) throw new Error(`O Zoom recusou criar a reunião na conta ${conta} (${r.status}).`);
+  const j = (await r.json()) as { id: number; password?: string };
+  return { id: String(j.id), senha: j.password ?? '' };
+}
+
+/** token de anfitrião (ZAK) da conta: o professor abre a aula como anfitrião sem fazer login no Zoom */
+export async function tokenAnfitriao(conta: string) {
+  const t = await acesso();
+  const r = await fetch(`https://api.zoom.us/v2/users/${encodeURIComponent(conta)}/token?type=zak`, {
+    headers: { Authorization: `Bearer ${t}` },
+  });
+  if (!r.ok) throw new Error(`O Zoom não deu o token de anfitrião da conta ${conta} (${r.status}).`);
+  return ((await r.json()) as { token: string }).token;
 }

@@ -7,7 +7,7 @@
 import { prisma } from '../db.ts';
 import { plural } from '../lib/fmt.ts';
 import { acAlocItens, fecMeses, fecRotulo, propostasParadas } from './acoes.ts';
-import { agAulasEntre, agOfertas, alMat, type Oferta } from './agenda.ts';
+import { agAulasEntre, agOfertas, alMat, type Oferta, SEM_CONTA_ZOOM } from './agenda.ts';
 import type { Base } from './base.ts';
 import { garantirFeedbacks } from './feedbacks-db.ts';
 import { type Pessoa, podeChave } from './mapa.ts';
@@ -20,6 +20,9 @@ export type ExtrasAlertas = {
   fechadaAnterior: boolean;
   mesAnterior: string;
   propostas: number;
+  /** 30/09/2026: solicitações de aluno pendentes e o aluno da mais antiga */
+  sol: number;
+  solAluno: number | null;
 };
 export async function extrasAlertas(b: Base, ofs: Oferta[] = agOfertas(b), agora = new Date()): Promise<ExtrasAlertas> {
   await garantirFeedbacks(b, b.alunos, ofs);
@@ -30,6 +33,10 @@ export async function extrasAlertas(b: Base, ofs: Oferta[] = agOfertas(b), agora
     fechadaAnterior: b.fechadas.has(mesAnterior),
     mesAnterior,
     propostas: propostasParadas(await prisma.lead.findMany({ select: { etapa: true, mudou: true } }), agora),
+    sol: await prisma.solicitacaoAluno.count({ where: { status: 'Pendente' } }),
+    solAluno:
+      (await prisma.solicitacaoAluno.findFirst({ where: { status: 'Pendente' }, orderBy: { criadoEm: 'asc' } }))
+        ?.alunoId ?? null,
   };
 }
 
@@ -64,6 +71,32 @@ export function alertasDe(
       t: 'Aulas sem professor',
       d: `${plural(prox.length, 'aula nos próximos 7 dias', 'aulas nos próximos 7 dias')} com aluno e sem professor escalado`,
       href: hrefAgenda({ vista: 'kanban', periodo: 'semana', qual: 'semProf', ...presa }),
+    },
+    'agenda',
+  );
+
+  add(
+    {
+      k: 'solicitacoes',
+      nivel: 'amber',
+      n: x.sol,
+      t: 'Solicitações de alunos',
+      d: `${plural(x.sol, 'pedido de aluno', 'pedidos de alunos')} (cancelamento ou mudança de horário) esperando a equipe`,
+      href: x.solAluno != null ? `/alunos/${x.solAluno}/solicitacoes` : '/alunos',
+    },
+    'aluno.cursos',
+  );
+
+  /* 30/09/2026: cada conta do Zoom comporta 2 aulas simultâneas; a 3ª fica sem conta */
+  const semZoom = agAulasEntre(b, agora, somar(7), agora).filter((a) => a.sala === SEM_CONTA_ZOOM);
+  add(
+    {
+      k: 'semZoom',
+      nivel: 'red',
+      n: semZoom.length,
+      t: 'Aulas sem conta do Zoom',
+      d: `${plural(semZoom.length, 'aula nos próximos 7 dias', 'aulas nos próximos 7 dias')} com as contas do Zoom lotadas (2 aulas por conta ao mesmo tempo)`,
+      href: hrefTela('salas'),
     },
     'agenda',
   );

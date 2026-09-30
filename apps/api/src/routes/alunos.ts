@@ -81,6 +81,8 @@ const AL_ABAS = [
   ['relatorios', 'Relatórios', 'matriculas', 'aluno.cursos'],
   ['disponibilidade', 'Disponibilidade', 'matriculas'],
   ['datas', 'Datas bloqueadas', 'matriculas', 'aluno.disponibilidade'],
+  /* 30/09/2026: pedidos do aluno (cancelamento no Regular, mudança de dias e horários no Particular) */
+  ['solicitacoes', 'Solicitações', 'matriculas', 'aluno.cursos'],
   ['financeiro', 'Parcelas', 'financeiro'],
   /* 23/09/2026: "Contratos serão uma aba dentro dos perfis de alunos" — contratos da empresa e os pedidos do aluno (Deal) */
   ['contratos', 'Contratos e pedidos', 'contratos', 'deal.contratos'],
@@ -97,6 +99,7 @@ const ABA_CADASTRO: Partial<Record<Aba, string>> = {
   nivelamento: 'nivelamentos',
   relatorios: 'relatorios-matricula',
   datas: 'datas-bloqueadas',
+  solicitacoes: 'solicitacoes-aluno',
   fbaulas: 'feedbacks-aula',
 };
 const GRUPOS: Record<string, string> = {

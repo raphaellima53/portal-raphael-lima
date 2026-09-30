@@ -13,6 +13,7 @@ import { type AulaModelo, useAcaoAula, useAula } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
 import { Avatar, cursoTxt, PRESENCA, QuandoAula, TagsAula } from './aula-comum';
 import { AulaDialog, FormSuporte } from './aula-dialog';
+import { SalaZoom } from './sala-zoom';
 
 export const voltaSegura = (v: string | null, padrao = '/agenda') =>
   v?.startsWith('/') && !v.startsWith('//') ? v : padrao;
@@ -197,7 +198,11 @@ export function AulaPagina() {
           <VideoIcon className="size-4 text-azul" />
           <b>Sala de aula</b>
         </div>
-        {a.sala.zoom && !a.cancelada ? (
+        {a.sala.zoom && !a.cancelada && !a.sala.url ? (
+          /* 30/09/2026: a sala abre aqui mesmo, sem login no Zoom */
+          <SalaZoom k={a.k} sala={a.sala.nome} semConta={a.sala.semConta} autoAbrir={sp.get('entrar') === '1'} />
+        ) : a.sala.zoom && !a.cancelada ? (
+          /* aula avulsa com link próprio no Local */
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="primary">
               <a href={a.sala.url} target="_blank" rel="noopener noreferrer">

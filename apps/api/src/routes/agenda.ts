@@ -60,9 +60,11 @@ import {
   type Participante,
 } from '../domain/eventos.ts';
 import { podeChave } from '../domain/mapa.ts';
+import { pendenteNaAula, TIPO_CANCEL, TIPO_MUDANCA } from '../domain/solicitacoes.ts';
+import { env } from '../env.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
-import { reuniaoDoLink, transcricao } from '../lib/zoom.ts';
+import { assinatura, criaReuniao, reuniaoDoLink, sdkConectado, tokenAnfitriao, transcricao } from '../lib/zoom.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
 import { moveParaLixeira } from './lixeira.ts';
 
@@ -192,6 +194,12 @@ const AcaoAula = z.discriminatedUnion('acao', [
   z.object({ acao: z.literal('encerrarGrade') }),
   /* 25/09/2026: o aluno cancela a própria aula, dentro do prazo de cancelamento */
   z.object({ acao: z.literal('meuCancelamento') }),
+  /* 30/09/2026: curso Regular — o aluno solicita o cancelamento; Particular — solicita mudança de dias e horários */
+  z.object({ acao: z.literal('solicitarCancelamento'), motivo: z.string().trim().max(1000).default('') }),
+  z.object({
+    acao: z.literal('solicitarMudanca'),
+    pedido: z.string().trim().min(3, 'Diga os dias e horários que você quer.').max(1000),
+  }),
 ]);
 
 const EventoForm = z
@@ -259,7 +267,71 @@ export default async function rotasAgenda(app: FastifyInstance) {
     const k = String((req.query as { k?: string }).k ?? '');
     const { b, a, erro } = await aulaVisivel(req.usuario!, k);
     if (!a) return rep.code(404).send({ erro });
-    return aulaModelo(b, a, quem(req.usuario!));
+    const m = aulaModelo(b, a, quem(req.usuario!));
+    const u = req.usuario!;
+    if (m.meuCancelamento && u.alunoId != null) m.meuCancelamento.pendente = !!(await pendenteNaAula(u.alunoId, a.k));
+    return m;
+  });
+
+  /**
+   * 30/09/2026: entrar na sala do Zoom sem sair do portal nem fazer login. A reunião é criada na conta (sala) que a
+   * distribuição deu à aula; o professor da aula entra como anfitrião (token da conta), aluno e equipe como participantes.
+   * A sala abre 30 minutos antes e fecha 30 minutos depois da aula.
+   */
+  app.get('/aulas/zoom', { preHandler: exigeAgenda }, async (req, rep) => {
+    const u = req.usuario!;
+    const k = String((req.query as { k?: string }).k ?? '');
+    const { b, a, erro } = await aulaVisivel(u, k);
+    if (!a) return rep.code(404).send({ erro });
+    const sala = aulaSala(b, a);
+    if (!sala.zoom) return rep.code(400).send({ erro: `Aula presencial na ${sala.nome}: não há sala no Zoom.` });
+    if (a.estado === 'cancelada') return rep.code(400).send({ erro: 'Aula cancelada: a sala não abre.' });
+    if (sala.semConta)
+      return rep.code(409).send({
+        erro: 'Todas as contas do Zoom já têm 2 aulas nesse horário. Cadastre mais uma conta em Configurações › Salas ou mude o horário.',
+      });
+    if (!sala.conta)
+      return rep
+        .code(400)
+        .send({ erro: `A sala ${sala.nome} ainda não tem a conta do Zoom cadastrada (Configurações › Salas).` });
+    const fim = +a.quando + (a.duracao || 50) * 6e4;
+    const agora = Date.now();
+    if (agora < +a.quando - 30 * 6e4) return rep.code(400).send({ erro: 'A sala abre 30 minutos antes da aula.' });
+    if (agora > fim + 30 * 6e4) return rep.code(400).send({ erro: 'A aula já terminou: a sala fechou.' });
+    if (!sdkConectado())
+      return rep.code(503).send({
+        erro: 'O Zoom ainda não está conectado ao portal. Um Admin precisa cadastrar os apps do Zoom (Server-to-Server: ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET; Meeting SDK: ZOOM_SDK_KEY, ZOOM_SDK_SECRET).',
+      });
+    const anfitriao = !u.ehAluno && (u.agendaPresa?.prof ?? u.nome) === a.prof;
+    let r = b.ajustes[a.k]?.zoom?.reuniao;
+    if (!r || r.conta !== sala.conta) {
+      const nova = await criaReuniao(sala.conta, `${aulaRot(a)}`, a.quando, a.duracao || 50);
+      r = { ...nova, conta: sala.conta };
+      const guardar = r;
+      await gravaAjuste(a.k, (o) => {
+        o.zoom = { ...(o.zoom ?? {}), reuniao: guardar };
+      });
+    }
+    if (anfitriao)
+      await registra({
+        tipo: 'aula',
+        id: a.k,
+        nome: aulaRot(a),
+        acao: 'Sala do Zoom aberta',
+        detalhe: sala.nome,
+        autor: u.nome,
+      });
+    return {
+      sdkKey: env.ZOOM_SDK_KEY,
+      assinatura: assinatura(r.id, anfitriao ? 1 : 0),
+      reuniao: r.id,
+      senha: r.senha,
+      nome: u.nome,
+      email: u.email,
+      zak: anfitriao ? await tokenAnfitriao(sala.conta) : '',
+      anfitriao,
+      sala: sala.nome,
+    };
   });
 
   /** Transcrição (24/09/2026): automática do Zoom, da gravação na nuvem da reunião da aula */
@@ -570,9 +642,44 @@ export default async function rotasAgenda(app: FastifyInstance) {
       }
       /* o próprio aluno cancela a aula dele até o prazo do módulo (ou do curso). Na aula do Community Flow sai da aula
          avulsa (o crédito e a vaga voltam; sem ninguém, a aula deixa de existir); nas outras, fica como cancelado */
+      case 'solicitarCancelamento':
+      case 'solicitarMudanca': {
+        const m = aulaModelo(b, a, p).meuCancelamento;
+        if (!u.ehAluno || !m || u.alunoId == null) return negado();
+        const cancel = d.acao === 'solicitarCancelamento';
+        if (cancel && m.modo !== 'solicitar') return negado();
+        if (!cancel && !m.mudanca) return negado();
+        if (cancel && !m.pode)
+          return rep
+            .code(400)
+            .send({ erro: `O prazo para pedir o cancelamento terminou em ${m.ate} (cancelar ${m.regra}).` });
+        if (cancel && (await pendenteNaAula(u.alunoId, a.k)))
+          return rep.code(409).send({ erro: 'Você já pediu o cancelamento desta aula; a equipe vai responder.' });
+        await prisma.solicitacaoAluno.create({
+          data: {
+            alunoId: u.alunoId,
+            tipo: cancel ? TIPO_CANCEL : TIPO_MUDANCA,
+            curso: a.prod,
+            aula: cancel ? a.k : '',
+            aulaRot: aulaRot(a),
+            pedido: d.acao === 'solicitarMudanca' ? d.pedido : d.motivo,
+          },
+        });
+        await log(
+          cancel ? 'Aluno pediu cancelamento' : 'Aluno pediu mudança de dias e horários',
+          cancel ? d.motivo : d.pedido,
+        );
+        return {
+          msg: cancel
+            ? 'Pedido de cancelamento enviado. Você continua na aula até a equipe pedagógica aprovar.'
+            : 'Pedido de mudança enviado. A equipe pedagógica vai ver os novos dias e horários com você.',
+        };
+      }
       case 'meuCancelamento': {
         const m = aulaModelo(b, a, p).meuCancelamento;
         if (!u.ehAluno || !m) return negado();
+        /* curso Regular: o aluno só solicita (30/09/2026) */
+        if (m.modo === 'solicitar') return negado();
         if (!m.pode)
           return rep.code(400).send({
             erro: `O prazo para cancelar esta aula terminou em ${m.ate} (cancelar ${m.regra}).`,

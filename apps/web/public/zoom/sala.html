@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sala do Zoom</title>
+    <!-- 30/09/2026: a aula abre aqui, dentro do portal (iframe da página da aula), sem login no Zoom.
+         A página da aula manda a assinatura e os dados da reunião por postMessage (mesma origem). -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #fff;
+        font-family: Manrope, system-ui, sans-serif;
+        font-size: 14px;
+        color: #1f2430;
+      }
+      #raiz {
+        width: 100%;
+        height: 100%;
+      }
+      #msg {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #5b6477;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="msg">Preparando a sala…</div>
+    <div id="raiz"></div>
+    <script src="zoom-meeting-embedded-ES5.min.js"></script>
+    <script>
+      (function () {
+        var avisa = function (m) {
+          parent.postMessage(m, location.origin);
+        };
+        window.addEventListener('message', function (e) {
+          if (e.origin !== location.origin || !e.data || e.data.tipo !== 'zoom-entrar') return;
+          var c = e.data;
+          var client = window.ZoomMtgEmbedded.createClient();
+          var raiz = document.getElementById('raiz');
+          client
+            .init({
+              zoomAppRoot: raiz,
+              language: 'pt-PT',
+              patchJsMedia: true,
+              leaveOnPageUnload: true,
+              customize: {
+                video: {
+                  isResizable: true,
+                  viewSizes: { default: { width: raiz.clientWidth, height: Math.max(360, raiz.clientHeight - 120) } },
+                },
+              },
+            })
+            .then(function () {
+              return client.join({
+                signature: c.assinatura,
+                sdkKey: c.sdkKey,
+                meetingNumber: c.reuniao,
+                password: c.senha,
+                userName: c.nome,
+                userEmail: c.email,
+                zak: c.zak || undefined,
+              });
+            })
+            .then(function () {
+              document.getElementById('msg').remove();
+              avisa({ tipo: 'zoom-ok' });
+            })
+            .catch(function (err) {
+              var t = (err && (err.reason || err.message)) || String(err);
+              document.getElementById('msg').textContent = 'O Zoom não abriu a sala: ' + t;
+              avisa({ tipo: 'zoom-erro', erro: t });
+            });
+        });
+        avisa({ tipo: 'zoom-pronto' });
+      })();
+    </script>
+  </body>
+</html>

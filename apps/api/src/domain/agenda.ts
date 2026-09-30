@@ -469,7 +469,46 @@ export function agAulasEntre(b: Base, ini: Date, fim: Date, agora = new Date(), 
       });
     });
   }
-  return out.sort((a, c) => +a.quando - +c.quando);
+  return zoomDistribui(b, out).sort((a, c) => +a.quando - +c.quando);
+}
+
+/** até quantas aulas ao mesmo tempo uma conta (sala) do Zoom recebe — regra do usuário, 30/09/2026 */
+export const ZOOM_POR_CONTA = 2;
+export const SEM_CONTA_ZOOM = 'Sem conta Zoom livre';
+
+/**
+ * Salas do Zoom = contas já existentes. Cada conta comporta até 2 aulas simultâneas, nunca 3: as aulas online do dia
+ * (sala do Zoom), em ordem de início, vão para a primeira conta com vaga no horário; lotadas todas, a aula fica
+ * "Sem conta Zoom livre" (alerta). Contas que atendem o curso (ou o tipo do curso) vêm antes das gerais.
+ * Aula cancelada ou bloqueada não ocupa conta.
+ */
+export function zoomDistribui(b: Base, aulas: Aula[]) {
+  const contas = b.salas.filter((s) => s.zoom && s.active);
+  if (!contas.length) return aulas;
+  const ehZoom = new Set(b.salas.filter((s) => s.zoom).map((s) => s.name));
+  const ocup = new Map<string, [number, number][]>();
+  const fim = (a: Aula) => +a.quando + (a.duracao || 50) * 6e4;
+  const livre = (conta: string, a: Aula) =>
+    (ocup.get(conta) ?? []).filter(([i, f]) => i < fim(a) && f > +a.quando).length < ZOOM_POR_CONTA;
+  const online = aulas
+    .filter((a) => (ehZoom.has(a.sala) || a.sala === SEM_CONTA_ZOOM) && a.estado !== 'cancelada' && !a.bloqueada)
+    .sort((x, y) => +x.quando - +y.quando || x.k.localeCompare(y.k));
+  for (const a of online) {
+    const c = b.cursos.find((x) => x.name === a.prod);
+    const doCurso = contas.filter((s) => s.atende === a.prod || (!!c?.tipo && s.atende === c.tipo));
+    const ordem = [...doCurso, ...contas.filter((s) => !doCurso.includes(s))];
+    /* a reunião já criada numa conta fica nela (o link não muda), se ainda houver vaga */
+    const fixa = b.ajustes[a.k]?.zoom?.reuniao?.conta;
+    const achou =
+      (fixa && ordem.find((s) => s.zoomEmail === fixa && livre(s.name, a))) || ordem.find((s) => livre(s.name, a));
+    if (!achou) {
+      a.sala = SEM_CONTA_ZOOM;
+      continue;
+    }
+    a.sala = achou.name;
+    ocup.set(achou.name, [...(ocup.get(achou.name) ?? []), [+a.quando, fim(a)]]);
+  }
+  return aulas;
 }
 
 /** cor da aula: a do módulo neste curso (30/09/2026: mesmo nome em dois cursos não pega a cor do outro), senão a do curso */

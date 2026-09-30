@@ -21,6 +21,11 @@ const Env = z.object({
   ZOOM_ACCOUNT_ID: z.string().default(''),
   ZOOM_CLIENT_ID: z.string().default(''),
   ZOOM_CLIENT_SECRET: z.string().default(''),
+  /* 30/09/2026: app Meeting SDK do Zoom (a aula abre dentro do portal, sem login); vazio = não conectado */
+  ZOOM_SDK_KEY: z.string().default(''),
+  ZOOM_SDK_SECRET: z.string().default(''),
+  /* chave para cifrar segredos no banco (senha das contas do Zoom); vazio = deriva do COOKIE_SECRET */
+  CIFRA_CHAVE: z.string().default(''),
 });
 
 export const env = Env.parse(process.env);

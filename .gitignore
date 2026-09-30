@@ -26,3 +26,4 @@ tools/extrai-portal/acoes.json
 tools/extrai-portal/auditoria.json
 tools/extrai-portal/relatorios.json
 tools/extrai-portal/configuracoes.json
+apps/web/public/zoom/zoom-meeting-embedded-ES5.min.js

@@ -70,6 +70,7 @@ export const TIPOS: Record<string, TipoLixeira> = {
         { modelo: 'dataBloqueada', fk: 'alunoId' },
         { modelo: 'feedbackAula', fk: 'alunoId' },
         { modelo: 'bolsa', fk: 'alunoId' },
+        { modelo: 'solicitacaoAluno', fk: 'alunoId' },
         /* 30/09/2026: aluno de persona de teste leva o login junto (volta junto na restauração) */
         { modelo: 'usuario', fk: 'alunoId', onde: { personaLetra: { not: null } }, filhos: USUARIO_FILHOS },
       ],
@@ -195,6 +196,7 @@ const PLURAL: Record<string, [string, string]> = {
   lancamentoExtrato: ['lançamento', 'lançamentos'],
   avaliacaoProfessor: ['avaliação', 'avaliações'],
   usuario: ['login', 'logins'],
+  solicitacaoAluno: ['solicitação', 'solicitações'],
   preferencia: ['preferência', 'preferências'],
   dashboardConfig: ['painel personalizado', 'painéis personalizados'],
   usuarioEmail: ['e-mail', 'e-mails'],

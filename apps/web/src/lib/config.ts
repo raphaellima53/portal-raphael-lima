@@ -208,9 +208,12 @@ export type Salas = {
     ativo: boolean;
     zoomEmail: string;
     zoomLicencaAte: string;
+    zoomTemSenha: boolean;
   }[];
   tipos: string[];
   alvos: Opcao[];
+  /** 30/09/2026: aulas simultâneas por conta do Zoom */
+  zoomPorConta: number;
 };
 export type Feriados = {
   ano: number;

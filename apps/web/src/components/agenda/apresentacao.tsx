@@ -4,7 +4,6 @@ import {
   BookOpenIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  CopyIcon,
   MailIcon,
   PencilIcon,
   UserCheckIcon,
@@ -283,31 +282,20 @@ export function Apresentacao() {
               ) : (
                 <>
                   <p className="mb-2.5 break-all text-texto-2">
-                    {a.sala.nome} · <span className="text-apagado">{a.sala.url}</span>
+                    {a.sala.semConta ? 'Sem conta do Zoom livre neste horário (2 aulas por conta)' : a.sala.nome}
                   </p>
                   {ap.podeOperar && (
                     <div className="mb-2.5 flex flex-wrap gap-2">
+                      {/* 30/09/2026: a reunião abre dentro do portal, na página da aula (outra aba), sem login no Zoom */}
                       <Button asChild variant="primary">
                         <a
-                          href={a.sala.url}
+                          href={a.sala.url || `/agenda/aula?k=${encodeURIComponent(a.k)}&entrar=1`}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => faz({ acao: 'zoomAbrir' })}
                         >
                           <VideoIcon /> {z.aberta ? 'Voltar para a reunião' : 'Iniciar reunião no Zoom'}
                         </a>
-                      </Button>
-                      <Button
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(a.sala.url);
-                            setMsg({ txt: 'Link da sala copiado.' });
-                          } catch {
-                            setMsg({ txt: `Link: ${a.sala.url}` });
-                          }
-                        }}
-                      >
-                        <CopyIcon /> Copiar link
                       </Button>
                       <Button disabled={acao.isPending} onClick={() => faz({ acao: 'zoomEnviar' })}>
                         <MailIcon /> Enviar link aos alunos

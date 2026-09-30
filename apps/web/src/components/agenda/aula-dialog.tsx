@@ -27,7 +27,18 @@ import { type AulaModelo, useAcaoAula, useAula, useTranscricao } from '@/lib/age
 import { cn } from '@/lib/utils';
 import { Avatar, TagsAula } from './aula-comum';
 
-type Modo = '' | 'prof' | 'cancelar' | 'meuCancelar' | 'valor' | 'suporte' | 'topico' | 'transcricao' | 'encerrar';
+type Modo =
+  | ''
+  | 'prof'
+  | 'cancelar'
+  | 'meuCancelar'
+  | 'solCancelar'
+  | 'solMudanca'
+  | 'valor'
+  | 'suporte'
+  | 'topico'
+  | 'transcricao'
+  | 'encerrar';
 
 /** Detalhes da aula (popup): clicar numa aula de qualquer visão da agenda abre aqui. */
 export function AulaDialog({ k, aoFechar }: { k: string | null; aoFechar: () => void }) {
@@ -81,6 +92,16 @@ export function AulaDialog({ k, aoFechar }: { k: string | null; aoFechar: () => 
             aoOk={(t, saiu) => {
               /* na aula do Community Flow o aluno sai da aula e deixa de vê-la: fecha o popup */
               if (saiu) return aoFechar();
+              setModo('');
+              setMsg({ txt: t });
+            }}
+          />
+        ) : modo === 'solCancelar' || modo === 'solMudanca' ? (
+          <FormSolicitar
+            a={a}
+            tipo={modo === 'solCancelar' ? 'cancelamento' : 'mudanca'}
+            voltar={() => setModo('')}
+            aoOk={(t) => {
               setModo('');
               setMsg({ txt: t });
             }}
@@ -224,7 +245,18 @@ function Detalhe({
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {a.sala.zoom ? (
+          {a.sala.zoom && a.sala.semConta ? (
+            <span className="inline-flex flex-[1_1_220px] items-center gap-2 rounded-md border border-[#f5c2c7] bg-vermelho-suave px-3 text-texto-2">
+              <VideoIcon className="size-4 text-vermelho" /> Sem conta do Zoom livre neste horário
+            </span>
+          ) : a.sala.zoom && !a.sala.url ? (
+            /* 30/09/2026: a sala abre dentro do portal, na página da aula, sem login no Zoom */
+            <Button asChild variant="primary" className="flex-[1_1_220px]">
+              <Link href={`/agenda/aula?k=${encodeURIComponent(a.k)}&entrar=1&volta=${volta}`}>
+                <VideoIcon /> Entrar na sala · {a.sala.nome}
+              </Link>
+            </Button>
+          ) : a.sala.zoom ? (
             <>
               <Button asChild variant="primary" className="flex-[1_1_220px]">
                 <a href={a.sala.url} target="_blank" rel="noopener noreferrer">
@@ -391,16 +423,25 @@ function Detalhe({
             </Button>
           )}
           {/* 25/09/2026: o aluno cancela a própria aula até o prazo de cancelamento */}
+          {/* 30/09/2026: Regular = solicitar o cancelamento; Particular = também pedir mudança de dias e horários */}
           {a.meuCancelamento &&
-            (a.meuCancelamento.pode ? (
-              <Button variant="perigo" onClick={() => setModo('meuCancelar')}>
-                Cancelar minha aula
+            (a.meuCancelamento.modo === 'solicitar' && a.meuCancelamento.pendente ? (
+              <span className="self-center text-apagado">Cancelamento pedido — aguardando a equipe pedagógica</span>
+            ) : a.meuCancelamento.pode ? (
+              <Button
+                variant="perigo"
+                onClick={() => setModo(a.meuCancelamento?.modo === 'solicitar' ? 'solCancelar' : 'meuCancelar')}
+              >
+                {a.meuCancelamento.modo === 'solicitar' ? 'Solicitar cancelamento' : 'Cancelar minha aula'}
               </Button>
             ) : (
               <span className="self-center text-apagado">
                 Prazo para cancelar terminou em {a.meuCancelamento.ate} ({a.meuCancelamento.regra})
               </span>
             ))}
+          {a.meuCancelamento?.mudanca && (
+            <Button onClick={() => setModo('solMudanca')}>Solicitar mudança de dias e horários</Button>
+          )}
         </div>
         <Button onClick={aoFechar}>Fechar</Button>
       </DialogFoot>
@@ -683,6 +724,73 @@ function FormMeuCancelar({
           }
         >
           Cancelar minha aula
+        </Button>
+      </DialogFoot>
+    </>
+  );
+}
+
+/** 30/09/2026: o aluno pede e a equipe pedagógica decide (cancelamento no Regular, mudança de horário no Particular) */
+function FormSolicitar({
+  a,
+  tipo,
+  voltar,
+  aoOk,
+}: {
+  a: AulaModelo;
+  tipo: 'cancelamento' | 'mudanca';
+  voltar: () => void;
+  aoOk: (t: string) => void;
+}) {
+  const acao = useAcaoAula(a.k);
+  const [texto, setTexto] = useState('');
+  const [erro, setErro] = useState('');
+  const cancel = tipo === 'cancelamento';
+  const m = a.meuCancelamento!;
+  return (
+    <>
+      <DialogHead
+        titulo={cancel ? 'Solicitar cancelamento' : 'Solicitar mudança de dias e horários'}
+        descricao={a.rot}
+      />
+      <DialogBody className="grid gap-3">
+        <p className="m-0 text-texto-2">
+          {cancel
+            ? `No curso em turma, quem cancela é a equipe pedagógica: você continua na aula até o pedido ser aprovado. Dá para pedir até ${m.ate}.`
+            : 'Sua grade é fixa: diga os dias e horários que você prefere e a equipe pedagógica combina a mudança com você e o professor.'}
+        </p>
+        <div className="grid gap-1.5">
+          <Label htmlFor="sol-texto">
+            {cancel ? 'Motivo (opcional)' : 'Dias e horários que você quer'}
+            {!cancel && <span className="text-vermelho">*</span>}
+          </Label>
+          <textarea
+            id="sol-texto"
+            rows={3}
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder={cancel ? 'Ex.: viagem a trabalho' : 'Ex.: terças e quintas às 19h, a partir de novembro'}
+            className="min-h-20 rounded-md border border-borda-forte bg-card px-3 py-2 text-sm outline-none focus:border-azul focus:ring-2 focus:ring-azul/20"
+          />
+        </div>
+      </DialogBody>
+      <DialogFoot>
+        <Erro texto={erro} />
+        <Button onClick={voltar}>Voltar</Button>
+        <Button
+          variant={cancel ? 'perigo' : 'primary'}
+          disabled={acao.isPending || (!cancel && texto.trim().length < 3)}
+          onClick={() =>
+            acao.mutate(
+              cancel ? { acao: 'solicitarCancelamento', motivo: texto } : { acao: 'solicitarMudanca', pedido: texto },
+              {
+                onSuccess: (r) => aoOk(r.msg),
+                onError: (e) => setErro(e.message),
+              },
+            )
+          }
+        >
+          Enviar pedido
         </Button>
       </DialogFoot>
     </>

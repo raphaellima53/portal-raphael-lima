@@ -452,6 +452,30 @@ model AusenciaProfessor {
   @@index([professorId])
 }
 
+/// 30/09/2026: o aluno pede e a equipe decide — cancelamento de aula (curso Regular) ou mudança de dias e horários
+/// (curso Particular). Aprovar um cancelamento tira o aluno da aula.
+model SolicitacaoAluno {
+  id          Int       @id @default(autoincrement())
+  alunoId     Int
+  aluno       Aluno     @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  /// Cancelamento de aula · Mudança de dias e horários
+  tipo        String
+  curso       String
+  /// chave da aula (cancelamento) e o rótulo dela
+  aula        String    @default("")
+  aulaRot     String    @default("")
+  /// motivo do cancelamento ou os dias e horários que o aluno quer
+  pedido      String    @default("")
+  /// Pendente · Aprovada · Recusada
+  status      String    @default("Pendente")
+  resposta    String    @default("")
+  decididoPor String?
+  decididoEm  DateTime?
+  criadoEm    DateTime  @default(now())
+
+  @@index([alunoId])
+}
+
 /// O professor pede para largar uma alocação fixa; a coordenação decide
 model PedidoCancelamentoAlocacao {
   id          Int       @id @default(autoincrement())
@@ -544,6 +568,8 @@ model Sala {
   /// conta do Zoom da sala e até quando a licença vale
   zoomEmail      String    @default("")
   zoomLicencaAte DateTime? @db.Date
+  /// 30/09/2026: senha da conta do Zoom, cifrada (AES-256-GCM); só o Admin revela, com registro na Auditoria
+  zoomSenhaCifrada String  @default("")
   ativo          Boolean   @default(true)
   ordem          Int       @default(0)
 }
@@ -605,6 +631,7 @@ model Aluno {
   feedbacks       FeedbackAluno[]
   datasBloqueadas DataBloqueada[]
   feedbacksAula   FeedbackAula[]
+  solicitacoes    SolicitacaoAluno[]
 }
 
 /// Dias em que o aluno não pode ter aula (viagem, prova): a alocação e o agendamento pulam essas datas

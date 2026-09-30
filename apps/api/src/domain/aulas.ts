@@ -16,8 +16,10 @@ import {
   prazoAte,
   prazoHoras,
   prazoTxt,
+  SEM_CONTA_ZOOM,
 } from './agenda.ts';
 import type { AjusteAula, Base, ConteudoCur, CurriculoB, Suporte } from './base.ts';
+import { modoAluno } from './solicitacoes.ts';
 
 export type QuemAula = {
   nome: string;
@@ -87,9 +89,11 @@ export const aulaDataTxt = (d: Date) => `${agCap(d.toLocaleDateString('pt-BR', {
 export const aulaSala = (b: Base, a: { sala: string }) => {
   /* aula avulsa com link no Local: o link é a sala */
   if (/^https?:\/\//i.test(a.sala)) return { zoom: /zoom\.us/i.test(a.sala), nome: 'Link da aula', url: a.sala };
+  /* 30/09/2026: salas do Zoom = contas; a aula abre dentro do portal (sem link externo nem login) */
+  if (a.sala === SEM_CONTA_ZOOM) return { zoom: true, nome: a.sala, url: '', conta: '', semConta: true };
   const r = b.salas.find((x) => x.name === a.sala);
-  if (!r?.zoom) return { zoom: false, nome: a.sala, url: '' };
-  return { zoom: true, nome: a.sala, url: `https://zoom.us/j/9${String(fxHash(`${a.sala}|sala`)).padStart(9, '0')}` };
+  if (!r?.zoom) return { zoom: false, nome: a.sala, url: '', conta: '', semConta: false };
+  return { zoom: true, nome: a.sala, url: '', conta: r.zoomEmail, semConta: false };
 };
 export const aulaPassou = (a: Aula, agora = new Date()) => a.quando <= agora;
 export const aulaHojeOuAntes = (a: Aula, agora = new Date()) => {
@@ -370,6 +374,12 @@ export function aulaModelo(b: Base, a: Aula, p: QuemAula, agora = new Date()) {
           ate: `${fmt.data(cancelarAte)} às ${agHM(cancelarAte)}`,
           regra: prazoTxt(prazoHoras(c, a.mod, 'cancelamento')),
           flow: a.mod === MOD_FLOW,
+          /* 30/09/2026: Regular = o aluno solicita e a equipe decide; Open-Entry e Particular = cancela direto */
+          modo: modoAluno(c).cancelar,
+          /* Particular: o aluno pode pedir mudança de dias e horários */
+          mudanca: modoAluno(c).mudanca,
+          /* preenchido na rota: já há uma solicitação de cancelamento pendente desta aula */
+          pendente: false,
         }
       : null;
   const candidatos = b.alunos

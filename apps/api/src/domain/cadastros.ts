@@ -11,6 +11,7 @@ import { agOfertas, alMat } from './agenda.ts';
 import { alHistorico } from './alunos.ts';
 import { base } from './base.ts';
 import { moduloPeloNivel } from './nivel-modulo.ts';
+import { SOL_STATUS, TIPO_CANCEL, tiraDaAula } from './solicitacoes.ts';
 
 export type TipoCampo =
   | 'texto'
@@ -324,6 +325,74 @@ export const CADASTROS: Cadastro[] = [
       return null;
     },
     rotulo: (r) => String(r.alvo),
+  },
+  {
+    /* 30/09/2026: pedidos do aluno — cancelamento de aula (curso Regular) e mudança de dias e horários (Particular) */
+    id: 'solicitacoes-aluno',
+    titulo: 'Solicitações do aluno',
+    um: 'solicitação',
+    fem: true,
+    novo: 'Nova solicitação',
+    sobre:
+      'Pedidos feitos pelo aluno na agenda: cancelamento de aula (curso Regular) e mudança de dias e horários (Particular). Aprovar um cancelamento tira o aluno da aula.',
+    modelo: 'solicitacaoAluno',
+    chaves: ['aluno.cursos'],
+    pai: 'aluno',
+    soComPai: true,
+    onde: (pai) => ({ alunoId: Number(pai) }),
+    campos: [
+      { k: 'tipo', rotulo: 'Pedido', tipo: 'texto', coluna: true, soLista: true },
+      { k: 'curso', rotulo: 'Curso', tipo: 'texto', coluna: true, soLista: true },
+      { k: 'aulaRot', rotulo: 'Aula', tipo: 'texto', coluna: true, soLista: true },
+      { k: 'pedido', rotulo: 'O que o aluno pediu', tipo: 'longo', coluna: true, soLista: true, largo: true },
+      {
+        k: 'status',
+        rotulo: 'Situação',
+        tipo: 'escolha',
+        fonte: { lista: SOL_STATUS },
+        padrao: 'Pendente',
+        coluna: true,
+        filtro: true,
+      },
+      { k: 'resposta', rotulo: 'Resposta ao aluno', tipo: 'longo', largo: true },
+    ],
+    ordem: [{ criadoEm: 'desc' }],
+    extras: [
+      {
+        k: 'pedidoEm',
+        rotulo: 'Pedido em',
+        valor: (r) => (r.criadoEm instanceof Date ? r.criadoEm.toLocaleDateString('pt-BR') : ''),
+      },
+      {
+        k: 'decisao',
+        rotulo: 'Decidido',
+        valor: (r) =>
+          r.decididoPor
+            ? `${r.decididoPor} · ${r.decididoEm instanceof Date ? r.decididoEm.toLocaleDateString('pt-BR') : ''}`
+            : '—',
+      },
+    ],
+    antes: (x, c, atual) => {
+      if (!atual) return 'As solicitações são feitas pelo aluno, na agenda dele.';
+      if (atual.status === 'Aprovada' && x.status !== 'Aprovada')
+        return 'Solicitação aprovada não volta: o cancelamento já foi feito. Inclua o aluno de novo pela aula, se preciso.';
+      if (x.status !== 'Pendente' && atual.status !== x.status) {
+        x.decididoPor = c.autor;
+        x.decididoEm = new Date();
+      }
+      if (x.status === 'Pendente') {
+        x.decididoPor = null;
+        x.decididoEm = null;
+      }
+      return null;
+    },
+    /* aprovar o cancelamento tira o aluno da aula */
+    depois: async (r) => {
+      if (r.status !== 'Aprovada' || r.tipo !== TIPO_CANCEL || !r.aula) return;
+      const al = await prisma.aluno.findUnique({ where: { id: Number(r.alunoId) }, select: { nome: true } });
+      if (al) await tiraDaAula(await base(), String(r.aula), al.nome);
+    },
+    rotulo: (r) => `${r.tipo} · ${r.curso}`,
   },
   {
     id: 'sessoes-pedagogicas',

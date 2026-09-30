@@ -104,7 +104,18 @@ export type AulaModelo = {
   /** alunos com matrícula no curso que ainda não estão na aula (Gerenciar alunos › Adicionar) */
   candidatos: string[];
   /** 25/09/2026: o aluno cancela a própria aula até o prazo do módulo (ou do curso) */
-  meuCancelamento: null | { pode: boolean; ate: string; regra: string; flow: boolean };
+  meuCancelamento: null | {
+    pode: boolean;
+    ate: string;
+    regra: string;
+    flow: boolean;
+    /** 30/09/2026: Regular = 'solicitar' (a equipe decide); Open-Entry e Particular = 'direto' */
+    modo: 'direto' | 'solicitar';
+    /** Particular: pode pedir mudança de dias e horários */
+    mudanca: boolean;
+    /** já há um pedido de cancelamento pendente desta aula */
+    pendente: boolean;
+  };
   transcricao: boolean;
   rotulo: string;
   dataTxt: string;
@@ -114,7 +125,8 @@ export type AulaModelo = {
   sub: string | null;
   podeAlterarProf: boolean;
   profsHabilitados: string[];
-  sala: { zoom: boolean; nome: string; url: string };
+  /** 30/09/2026: sala do Zoom = conta; url só na aula avulsa com link; semConta = as contas lotaram (2 aulas por conta) */
+  sala: { zoom: boolean; nome: string; url: string; conta: string; semConta: boolean };
   ehAluno: boolean;
   materiais: { pre: string; in: string; post: string };
   gravacao: string;
@@ -213,7 +225,10 @@ export type AcaoAula =
   | { acao: 'bloquear' | 'encerrarGrade' }
   | { acao: 'adicionarAluno'; aluno: string }
   /* 25/09/2026 */
-  | { acao: 'meuCancelamento' };
+  | { acao: 'meuCancelamento' }
+  /* 30/09/2026 */
+  | { acao: 'solicitarCancelamento'; motivo: string }
+  | { acao: 'solicitarMudanca'; pedido: string };
 
 /** + Novo › Aula: opções do formulário */
 export type OpcoesAvulsa = {

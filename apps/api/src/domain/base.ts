@@ -145,10 +145,20 @@ export type CurriculoB = {
   aplicado: string[];
   conteudos: ConteudoCur[];
 };
-export type SalaB = { name: string; atende: string; tipo: string; zoom: boolean; active: boolean };
+export type SalaB = {
+  name: string;
+  atende: string;
+  tipo: string;
+  zoom: boolean;
+  active: boolean;
+  /** 30/09/2026: e-mail da conta do Zoom da sala (host das reuniões) */
+  zoomEmail: string;
+};
 export type UsuarioLinha = { nome: string; email: string; status: string; mfa: boolean; perfil: string };
 export type Suporte = { motivo: string; detalhe: string; quem: string; quando: string };
 export type ZoomAula = {
+  /** 30/09/2026: reunião criada no Zoom para esta aula, na conta (sala) escolhida */
+  reuniao?: { id: string; senha: string; conta: string };
   aberta?: boolean;
   desde?: string;
   gravando?: boolean;
@@ -408,7 +418,14 @@ async function carrega(): Promise<Base> {
       mfa: u.mfa,
       perfil: u.perfilLegado ?? perfilNome(PERFIS.find((p) => p.id === u.perfilId)),
     })),
-    salas: salas.map((r) => ({ name: r.nome, atende: r.atende, tipo: r.tipo, zoom: r.zoom, active: r.ativo })),
+    salas: salas.map((r) => ({
+      name: r.nome,
+      atende: r.atende,
+      tipo: r.tipo,
+      zoom: r.zoom,
+      active: r.ativo,
+      zoomEmail: r.zoomEmail,
+    })),
     colaboradores: colaboradores.map((c) => ({ nome: c.nome, ativo: c.ativo })),
     fechadas: new Set(fechadas.map((f) => f.ym)),
     ajustes: Object.fromEntries(ajustes.map((a) => [a.chave, a.dados as AjusteAula])),
