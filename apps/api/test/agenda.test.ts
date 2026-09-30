@@ -29,14 +29,22 @@ async function entra(login: string, senha: string) {
 const get = async (h: { cookie: string }, url: string) => (await app.inject({ url, headers: h })).json();
 
 /** uma aula futura com alunos, que ainda não foi mexida */
+/** primeira aula futura com professor e alunos; procura até 4 semanas à frente (desde 30/09/2026 horário da grade
+    sem professor não recebe professor automático, então a semana corrente pode não ter nenhuma) */
 async function aulaFutura(h: { cookie: string }) {
-  const d = await get(h, '/agenda?vista=semanal');
   const hoje = new Date();
-  const futura = d.aulas.find((a: { estado: string; iso: string; hora: number }) => {
-    const q = new Date(`${a.iso}T${String(a.hora).padStart(2, '0')}:00:00`);
-    return a.estado === 'comAlunos' && q > hoje;
-  });
-  return futura as { k: string; prof: string; n: number };
+  for (let s = 0; s < 4; s++) {
+    const dia = new Date(hoje);
+    dia.setDate(dia.getDate() + 7 * s);
+    const iso = `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, '0')}-${String(dia.getDate()).padStart(2, '0')}`;
+    const d = await get(h, `/agenda?vista=semanal&data=${iso}`);
+    const futura = d.aulas.find((a: { estado: string; iso: string; hora: number }) => {
+      const q = new Date(`${a.iso}T${String(a.hora).padStart(2, '0')}:00:00`);
+      return a.estado === 'comAlunos' && q > hoje;
+    });
+    if (futura) return futura as { k: string; prof: string; n: number };
+  }
+  throw new Error('nenhuma aula futura com professor e alunos nas próximas 4 semanas');
 }
 const limpaAjuste = async (k: string) => {
   await prisma.aulaAjuste.deleteMany({ where: { chave: k } });

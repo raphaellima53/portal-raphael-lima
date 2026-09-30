@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Abas } from '@/components/abas';
+import { AlertaIcone } from '@/components/alerta-icone';
 import { AbaModulos } from '@/components/cursos/aba-modulos';
 import { AbaCurriculo, AbaGeral, AbaGrade, AbaRegras } from '@/components/cursos/abas-curso';
 import { CurriculoFormDialog } from '@/components/cursos/curriculo-forms';
@@ -60,17 +61,26 @@ export default function CursoPage() {
   /* grade do módulo com horário ainda sem professor vinculado (24/09/2026) */
   const semProf =
     c.form.estrutura === 'modulos'
-      ? c.form.itens.flatMap((it) =>
-          it.horarios.filter((h) => !h.professorId).map((h) => `${it.nome} · ${DIAS[h.dia]} ${h.hora}`),
-        )
+      ? c.form.itens.map((it) => ({
+          titulo: it.nome,
+          itens: it.horarios.filter((h) => !h.professorId).map((h) => `${DIAS[h.dia]} ${h.hora}`),
+        }))
       : [];
 
   return (
     <>
       <PageHead
         titulo={
-          <span className="texto-cor" style={corDeTexto(c.cor)}>
-            {c.nome}
+          <span className="inline-flex flex-wrap items-center gap-3">
+            <span className="texto-cor" style={corDeTexto(c.cor)}>
+              {c.nome}
+            </span>
+            <AlertaIcone
+              titulo="Horários da grade sem professor"
+              grupos={semProf}
+              nota="Essas aulas aparecem na Agenda como sem professor."
+              acao={c.pode.editar ? { rotulo: 'Vincular em Editar curso', aoClicar: () => setEditar(true) } : undefined}
+            />
           </span>
         }
         acoes={
@@ -106,24 +116,6 @@ export default function CursoPage() {
         rotulo="Abas do curso"
         itens={c.abas.map((a) => ({ href: `/cursos/${c.id}/${a}`, rotulo: ROTULOS[a], ativa: a === c.aba }))}
       />
-      {semProf.length > 0 && (
-        <Aviso tom="amber" icone="alerta">
-          <b>
-            {semProf.length}{' '}
-            {semProf.length === 1 ? 'horário da grade sem professor' : 'horários da grade sem professor'}:
-          </b>{' '}
-          {semProf.join('; ')}. Essas aulas aparecem na Agenda como sem professor.{' '}
-          {c.pode.editar && (
-            <button
-              type="button"
-              className="cursor-pointer font-semibold text-azul hover:underline"
-              onClick={() => setEditar(true)}
-            >
-              Vincular em Editar curso
-            </button>
-          )}
-        </Aviso>
-      )}
       {msg && (
         <Aviso tom="blue" icone="ok">
           {msg}

@@ -116,14 +116,21 @@ describe('Lixeira', () => {
     assert.equal(await prisma.lixeira.count({ where: { id: it2.id } }), 0);
   });
 
-  test('só o Admin; e não exclui o próprio usuário nem persona de teste', async () => {
+  test('só o Admin; não exclui o próprio usuário; persona de teste vai com o login e volta', async () => {
     const adm = await entra('admin@alumni.teste', 'alumni-admin');
     const eu = (await req(adm, 'GET', '/auth/me')).json.usuario;
     assert.match((await req(adm, 'DELETE', `/lixeira/usuario/${eu.id}`)).json.erro, /próprio usuário/);
     const persona = await prisma.usuario.findFirstOrThrow({
       where: { personaLetra: { not: null }, alunoId: { not: null } },
     });
-    assert.match((await req(adm, 'DELETE', `/lixeira/aluno/${persona.alunoId}`)).json.erro, /Persona/);
+    /* 30/09/2026: o aluno da persona vai para a Lixeira levando o login; restaurar devolve os dois */
+    const ex = await req(adm, 'DELETE', `/lixeira/aluno/${persona.alunoId}`);
+    assert.equal(ex.status, 200, JSON.stringify(ex.json));
+    assert.equal(await prisma.usuario.count({ where: { id: persona.id } }), 0);
+    assert.equal((await req(adm, 'POST', `/lixeira/${ex.json.lixeiraId}/restaurar`)).status, 200);
+    const volta = await prisma.usuario.findUniqueOrThrow({ where: { id: persona.id } });
+    assert.equal(volta.alunoId, persona.alunoId);
+    assert.equal(volta.personaLetra, persona.personaLetra);
     /* Diretoria/Gestor não: Gestor (persona F) recebe 403 */
     const gestor = await entra('persona.f@alumni.teste', 'alumni-f');
     assert.equal((await req(gestor, 'GET', '/lixeira')).status, 403);

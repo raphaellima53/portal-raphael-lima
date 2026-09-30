@@ -17,6 +17,17 @@ const razao = (a: number[], b: number[]) => {
 const tinta = (c: number[], alfa: number) => c.map((v) => v * alfa + 255 * (1 - alfa));
 const hex = (c: number[]) => `#${c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
 
+/**
+ * Fundo na cor exata do curso ou módulo (30/09/2026: "as cores na agenda devem bater" — sem escurecer) e o texto
+ * branco por cima; quase preto só quando a cor é tão clara que o branco some.
+ */
+export function fundoCor(cor: string | undefined | null): React.CSSProperties {
+  if (!cor || !/^#[0-9a-f]{6}$/i.test(cor)) return { background: cor ?? undefined };
+  const c = [1, 3, 5].map((i) => Number.parseInt(cor.slice(i, i + 2), 16));
+  /* 30/09/2026: texto branco como padrão (pedido do usuário); escuro só em cor quase branca, onde o branco some */
+  return { background: cor, color: razao([255, 255, 255], c) >= 2 ? '#fff' : '#15151b' };
+}
+
 /** A cor escurecida até ler bem com texto branco por cima e como texto sobre a tinta de 12%. */
 export function corLegivel(cor: string | undefined | null): string {
   if (!cor || !/^#[0-9a-f]{6}$/i.test(cor)) return cor ?? '';

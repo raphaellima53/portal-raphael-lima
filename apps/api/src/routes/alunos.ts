@@ -43,6 +43,7 @@ import {
 import { BLACK_VALOR_PADRAO, folhaVeValor } from '../domain/aulas.ts';
 import { type AlunoB, type Base, base, invalidaBase } from '../domain/base.ts';
 import { criaPedido, DEAL_FORMAS, garanteDeal } from '../domain/deal.ts';
+import { moduloPeloNivel } from '../domain/nivel-modulo.ts';
 import { GENEROS } from '../lib/pessoa.ts';
 import { CEFR } from './cursos.ts';
 
@@ -341,10 +342,12 @@ function confereMatricula(b: Base, curso: string, item: string | null | undefine
   const c = b.cursos.find((x) => x.name === curso && x.active !== false);
   if (!c) return { erro: 'Escolha o curso.' };
   const itens = crsItens(c);
-  if (itens.length && (!item || !itens.includes(item))) return { erro: 'Escolha o módulo ou a turma.' };
+  /* 30/09/2026: no curso por módulos o módulo pode ficar para depois do nivelamento; turma continua obrigatória */
+  if (item ? !itens.includes(item) : itens.length && c.estrutura !== 'modulos')
+    return { erro: 'Escolha o módulo ou a turma.' };
   if (!(total > 0)) return { erro: 'Informe o pacote de aulas.' };
   if (!crsRegras(c).modalidades.includes(modalidade)) return { erro: 'Modalidade não aceita nas regras do curso.' };
-  return { c, item: itens.length ? item! : null };
+  return { c, item: itens.length && item ? item : null };
 }
 
 export default async function rotasAlunos(app: FastifyInstance) {
@@ -569,7 +572,7 @@ export default async function rotasAlunos(app: FastifyInstance) {
       pode: {
         editar: alPode(u, 'editar'),
         desativar: alPode(u, 'desativar'),
-        excluir: ehAdmin(u) && !personas.has(a.id),
+        excluir: ehAdmin(u),
         como: alPode(u, 'como'),
         operar: podeOperar(u),
         agenda: podeChave(u, 'agenda'),
@@ -694,6 +697,8 @@ export default async function rotasAlunos(app: FastifyInstance) {
             concluidoEm: v.nivelamento.concluidoEm ? new Date(`${v.nivelamento.concluidoEm}T00:00:00Z`) : null,
           },
         });
+      /* sem módulo escolhido: o nivelamento define (mesmo CEFR) */
+      if (v.nivelamento?.cefr) await moduloPeloNivel(mat.id, v.nivelamento.cefr);
       /* contrato e pagamento: o pedido do Deal com as parcelas (o aluno entra como beneficiário do contrato) */
       if (of && v.matricula)
         await criaPedido({

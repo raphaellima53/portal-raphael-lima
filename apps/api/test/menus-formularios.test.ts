@@ -89,9 +89,9 @@ describe('menus e formulários (24/09/2026)', () => {
       cor: '#123456',
       idioma: 'Inglês',
       estrutura: 'modulos',
-      itens: [{ ...modulo, cefr: '' }],
+      itens: [{ ...modulo, cefr: 'Z9' }],
     });
-    assert.match(semCefr.json.erro, /CEFR/);
+    assert.match(semCefr.json.erro, /CEFR inválido/);
     const r = await req(h, 'POST', '/cursos', {
       nome: NOME,
       cor: '#123456',
@@ -271,7 +271,7 @@ describe('menus e formulários (24/09/2026)', () => {
     assert.match((await salva(mod('Módulo C', 1))).json.erro, /mesmo professor está em Módulo A e Módulo C/);
     assert.match((await salva(mod('módulo a', 3))).json.erro, /Já existe um módulo/);
     assert.match((await salva(mod('Módulo C', 0))).json.erro, /fora do horário/);
-    assert.match((await salva(mod('Módulo C', 3, { cefr: '' }))).json.erro, /CEFR/);
+    assert.match((await salva(mod('Módulo C', 3, { cefr: 'Z9' }))).json.erro, /CEFR inválido/);
 
     /* renomear pelo módulo mantém o id e troca a grade */
     const idB = mods.find((m) => m.nome === 'Módulo B')!.id;

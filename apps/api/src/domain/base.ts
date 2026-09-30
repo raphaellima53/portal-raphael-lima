@@ -99,21 +99,22 @@ export type MatriculaB = {
   inicio?: string | null;
 };
 /**
- * cores dos níveis (Manual de Identidade Visual Alumni, 2025 · Brand Colors – Level Support; decisão de 24/09/2026).
- * Confidence não está no manual: usa o azul primário da marca (#003387).
+ * cor oficial de cada nível, definida pelo usuário em 30/09/2026 (não alterar). A tela usa a cor gravada no módulo;
+ * esta tabela é a referência (e dá os nomes dos níveis ao Community Flow). CEFR: A0, A1, A1+, A2, A2+, B1, B1+, B2,
+ * B2+, C1, C1+ — gravados pela migração 20260930100000_cor_dos_niveis.
  */
 export const COR_NIVEL: Record<string, string> = {
-  Confidence: '#003387',
-  'Essential 1': '#0467D8',
+  Confidence: '#2377FF',
+  'Essential 1': '#0E56D5',
   'Essential 2': '#003FB0',
-  'Essential 3': '#062967',
-  'Essential 4': '#000959',
-  'Rise 1': '#BC4AB9',
-  'Rise 2': '#8E1A8B',
-  'Rise 3': '#5D0060',
-  'Apex 1': '#DD0721',
-  'Apex 2': '#AF0015',
-  'Apex 3': '#720013',
+  'Essential 3': '#083688',
+  'Essential 4': '#062967',
+  'Rise 1': '#A14F9C',
+  'Rise 2': '#83367E',
+  'Rise 3': '#6E0C6F',
+  'Apex 1': '#D13543',
+  'Apex 2': '#B41624',
+  'Apex 3': '#8E0F1A',
 };
 
 export type AlunoB = {
@@ -283,17 +284,14 @@ async function carrega(): Promise<Base> {
 
   const corModulo: Record<string, string> = {};
   const corCurso: Record<string, string> = {};
-  /* níveis da paleta do Figma (Page 3, 21/09/2026): Confidence, Essential 1–4, Rise 1–3 e Apex 1–3 */
-  const corNivel = (nome: string, cor: string) => {
-    const m = /^(Confidence|Essential [1-4]|Rise [1-3]|Apex [1-3])\b/.exec(nome);
-    return m ? COR_NIVEL[m[1]] : cor;
-  };
+  /* 30/09/2026: vale a cor gravada no módulo. A paleta do Figma (COR_NIVEL) sobrescrevia na leitura e impedia trocar
+     a cor de um nível; a migração 20260930100000_cor_dos_niveis gravou a paleta uma vez, e agora ela é só o começo */
   const cs: CursoB[] = cursos.map((c) => {
     corCurso[c.nome] = c.cor;
     const cores: Record<string, string> = {};
     for (const m of c.modulos) {
-      cores[m.nome] = corNivel(m.nome, m.cor);
-      corModulo[m.nome] ??= corNivel(m.nome, m.cor);
+      cores[m.nome] = m.cor;
+      corModulo[m.nome] ??= m.cor;
     }
     return {
       id: c.id,

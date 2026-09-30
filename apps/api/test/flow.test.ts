@@ -60,7 +60,7 @@ describe('Community Flow', () => {
       idioma: 'Inglês',
       estrutura: 'modulos',
       itens: [
-        /* nível com professor vinculado (as presenças) e um horário sem professor (sai do cadastro) */
+        /* nível com professor vinculado (as presenças) e um horário sem professor (fica sem: não há vínculo automático) */
         {
           nome: 'Essential 1',
           cor: '#0467D8',
@@ -80,7 +80,8 @@ describe('Community Flow', () => {
           vagas: 2,
           agendamento: { valor: 1, unidade: 'h' },
           cancelamento: { valor: 1, unidade: 'h' },
-          horarios: dias.map((dia) => ({ dia, hora: '21:00', professorId: '' })),
+          /* 30/09/2026: o professor do Flow é o vinculado na grade */
+          horarios: dias.map((dia) => ({ dia, hora: '21:00', professorId: prof.id })),
         },
       ],
     });
@@ -113,15 +114,11 @@ describe('Community Flow', () => {
       });
     invalidaBase();
 
-    /* horário da grade sem professor recebe o professor pelo cadastro */
+    /* 30/09/2026: horário da grade sem professor continua sem professor, mesmo com alguém disponível */
     const b = await base();
-    const auto = agOfertas(b).find((o) => o.prod === NOME && o.mod === 'Essential 1' && o.hora === 15.5);
-    /* só recebe professor o horário com aluno; sem aluno ele não prende professor */
-    assert.ok(auto);
-    if (auto.alunos.length) {
-      assert.equal(auto.prof, prof.nome);
-      assert.equal(auto.profAuto, true);
-    } else assert.equal(auto.prof, '—');
+    const sem = agOfertas(b).find((o) => o.prod === NOME && o.mod === 'Essential 1' && o.hora === 15.5);
+    assert.ok(sem);
+    assert.equal(sem.prof, '—');
 
     const f = await req(h, 'GET', `/flow?alunoId=${a.id}`);
     assert.equal(f.status, 200, JSON.stringify(f.json));

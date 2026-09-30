@@ -10,11 +10,10 @@ import {
   agHM,
   agRotulo,
   crsItens,
-  dispConflitos,
   FX_ESTADO,
   fxPresenca,
   type Oferta,
-  prDisp,
+  prConflitos,
 } from './agenda.ts';
 import { fxHora, fxPassadas, fxProximas } from './alunos.ts';
 import { fxHash } from './aulas.ts';
@@ -24,13 +23,13 @@ export const prOfertas = (ofs: Oferta[], t: ProfessorB) => ofs.filter((o) => o.p
 export const agNum = (n: number) => n.toFixed(1).replace('.', ',');
 const cor = (b: Base, c: string) => b.corCurso[c] || '#1a4fd6';
 
-export function prResumo(b: Base, t: ProfessorB, ofs: Oferta[]) {
+export function prResumo(_b: Base, t: ProfessorB, ofs: Oferta[]) {
   const meus = prOfertas(ofs, t);
   return {
     horarios: meus.length,
     aulas: meus.reduce((s, o) => s + o.dias.length, 0),
     alunos: new Set(meus.flatMap((o) => o.alunos)).size,
-    fora: dispConflitos(prDisp(b, t, ofs), meus).length,
+    fora: prConflitos(t, meus).length,
   };
 }
 

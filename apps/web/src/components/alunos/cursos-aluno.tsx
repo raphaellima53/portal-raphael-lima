@@ -2,9 +2,11 @@
 
 import { CheckIcon, PlusIcon, XIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { CampoData } from '@/components/campos-data';
 import { Chave } from '@/components/config/comum';
+import { Aviso } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { FlowCartao } from '@/components/flow';
 import { usePaginacao } from '@/components/paginacao';
@@ -55,9 +57,24 @@ export function AbaCursos({ f, d, setMsg }: { f: FichaResp; d: CursosAba; setMsg
       { onSuccess: (r) => setMsg({ txt: r.msg }), onError: (e) => setMsg({ txt: e.message, erro: true }) },
     );
   const op = f.pode.operar;
+  /* 30/09/2026: logo depois do Novo aluno (só o perfil), os próximos passos */
+  const recem = useSearchParams().get('novo') === '1';
 
   return (
     <>
+      {recem && op && (
+        <Aviso tom="blue" icone="ok">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex-1">Perfil de {f.nome} criado. Agora cadastre as matrículas e a conta de acesso.</span>
+            <Button size="sm" variant="primary" onClick={() => setMat({ e: null })}>
+              <PlusIcon /> Nova matrícula
+            </Button>
+            <Button size="sm" asChild>
+              <Link href={`/alunos/${f.id}/acesso`}>Conta de acesso</Link>
+            </Button>
+          </div>
+        </Aviso>
+      )}
       <Card className="mb-4 overflow-hidden">
         <CardHead>
           <CardTitle>Matrículas ativas</CardTitle>
@@ -515,14 +532,14 @@ function MatriculaDialog({
   const escolheCurso = (v: string) => {
     setCurso(v);
     const n = op.data?.cursos.find((x) => x.nome === v);
-    setItem(n?.itens[0] ?? '');
+    setItem(n?.estrutura === 'modulos' ? '' : (n?.itens[0] ?? ''));
     setModalidade(n?.modalidades[0] ?? 'Online');
     setTotal(n ? String(n.pacote) : '');
     setErro('');
   };
   const enviar = () => {
     if (!curso) return setErro('Escolha o curso.');
-    if (c?.itens.length && !item) return setErro('Escolha o módulo ou a turma.');
+    if (c?.itens.length && !item && c.estrutura !== 'modulos') return setErro('Escolha a turma.');
     if (!(Number(total) > 0)) return setErro('Informe o pacote de aulas.');
     if (e && Number(usadas) > Number(total)) return setErro('Aulas usadas não podem passar do pacote.');
     acao.mutate(
@@ -580,7 +597,15 @@ function MatriculaDialog({
               rotulo="Módulo ou turma"
               destacar={false}
               disabled={!c?.itens.length}
-              todos={!c ? 'escolha o curso' : c.itens.length ? undefined : 'sem módulo nem turma'}
+              todos={
+                !c
+                  ? 'escolha o curso'
+                  : !c.itens.length
+                    ? 'sem módulo nem turma'
+                    : c.estrutura === 'modulos'
+                      ? 'definir pelo nivelamento'
+                      : undefined
+              }
               valor={item}
               aoMudar={setItem}
               opcoes={(c?.itens ?? []).map((x) => ({ v: x, l: x }))}

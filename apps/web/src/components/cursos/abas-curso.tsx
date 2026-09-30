@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { AlertaIcone } from '@/components/alerta-icone';
 import { Aviso, Stat } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { usePaginacao } from '@/components/paginacao';
@@ -596,29 +597,31 @@ export function AbaCurriculo({ c, d, novo }: { c: CursoResp; d: CurriculoAba; no
   const { fatia, rodape } = usePaginacao(d.lista);
   return (
     <>
-      {c.pode.curriculo && (
-        <div className="mb-3.5 flex">
-          <Button variant="primary" onClick={novo}>
-            <PlusIcon /> Novo currículo
-          </Button>
+      {(c.pode.curriculo || d.emRascunho.length > 0) && (
+        <div className="mb-3.5 flex items-center gap-3">
+          {c.pode.curriculo && (
+            <Button variant="primary" onClick={novo}>
+              <PlusIcon /> Novo currículo
+            </Button>
+          )}
+          <AlertaIcone
+            titulo="Currículos em rascunho"
+            grupos={[
+              {
+                itens: d.emRascunho.map((x) => (
+                  <Link
+                    key={x.id}
+                    href={`/cursos/curriculos/${x.id}?volta=${encodeURIComponent(volta)}`}
+                    className="font-semibold text-azul hover:underline"
+                  >
+                    {x.nome} ({x.versao})
+                  </Link>
+                )),
+              },
+            ]}
+            nota="As aulas só leem depois de publicar."
+          />
         </div>
-      )}
-      {d.emRascunho.length > 0 && (
-        <Aviso tom="amber" icone="info">
-          Em rascunho:{' '}
-          {d.emRascunho.map((x, i) => (
-            <span key={x.id}>
-              {i > 0 && ', '}
-              <Link
-                href={`/cursos/curriculos/${x.id}?volta=${encodeURIComponent(volta)}`}
-                className="font-semibold text-azul hover:underline"
-              >
-                {x.nome} ({x.versao})
-              </Link>
-            </span>
-          ))}{' '}
-          — as aulas só leem depois de publicar.
-        </Aviso>
       )}
       <Stats s={d.stats} />
       <Card className="overflow-hidden">
@@ -674,10 +677,11 @@ export function AbaCurriculo({ c, d, novo }: { c: CursoResp; d: CurriculoAba; no
       </Card>
       {d.semCurriculo.length > 0 && (
         <div className="mt-3.5">
-          <Aviso tom="amber" icone="alerta">
-            <b>Sem currículo:</b> {d.semCurriculo.join(', ')}. As aulas {d.eTurma ? 'dessas turmas' : 'desses módulos'}{' '}
-            saem sem conteúdo definido.
-          </Aviso>
+          <AlertaIcone
+            titulo={d.eTurma ? 'Turmas sem currículo' : 'Módulos sem currículo'}
+            grupos={[{ itens: d.semCurriculo }]}
+            nota={`As aulas ${d.eTurma ? 'dessas turmas' : 'desses módulos'} saem sem conteúdo definido.`}
+          />
         </div>
       )}
     </>

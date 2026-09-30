@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
 import { type AutoAgenda, type SlotAgendar, useAgendarAula, useAutoAgenda } from '@/lib/agenda';
-import { corLegivel } from '@/lib/cor';
+import { fundoCor } from '@/lib/cor';
 import { useAgendarFlow } from '@/lib/flow';
 import { cn } from '@/lib/utils';
 import { iniciais } from './aula-comum';
@@ -103,16 +103,10 @@ function Grupo({
   return (
     <section aria-label={`${g.curso} · ${g.mod}`} className="grid gap-2.5">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span
-          className="rounded-[6px] px-2 py-0.5 font-semibold text-white"
-          style={{ background: corLegivel(g.corCurso) }}
-        >
+        <span className="rounded-[6px] px-2 py-0.5 font-semibold text-white" style={fundoCor(g.corCurso)}>
           {g.curso}
         </span>
-        <span
-          className="rounded-[6px] px-2 py-0.5 font-semibold text-white"
-          style={{ background: corLegivel(g.corMod || g.corCurso) }}
-        >
+        <span className="rounded-[6px] px-2 py-0.5 font-semibold text-white" style={fundoCor(g.corMod || g.corCurso)}>
           {g.mod}
         </span>
         <Badge tom={g.creditos ? 'green' : 'gray'}>{plural(g.creditos, 'crédito', 'créditos')}</Badge>

@@ -26,8 +26,9 @@ async function recusa(u: UsuarioSessao, tipo: string, id: string): Promise<strin
     }
   }
   if (tipo === 'aluno') {
+    /* 30/09/2026: persona de teste se exclui (vai junto com o login); só não pode ser a própria conta */
     const persona = await prisma.usuario.findFirst({ where: { alunoId: Number(id), personaLetra: { not: null } } });
-    if (persona) return 'Persona de teste não se exclui (é o login de demonstração). Use Desativar.';
+    if (persona?.id === u.id) return 'Você não pode excluir o aluno do próprio login.';
   }
   return null;
 }

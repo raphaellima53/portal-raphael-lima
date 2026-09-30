@@ -10,6 +10,7 @@ import { fmt } from '../lib/fmt.ts';
 import { agOfertas, alMat } from './agenda.ts';
 import { alHistorico } from './alunos.ts';
 import { base } from './base.ts';
+import { moduloPeloNivel } from './nivel-modulo.ts';
 
 export type TipoCampo =
   | 'texto'
@@ -110,7 +111,7 @@ export type Cadastro = {
   rotulo: (r: Linha) => string;
 };
 
-const CEFR = ['A0', 'A1', 'A1+', 'A2', 'A2+', 'B1', 'B1+', 'B2', 'B2+', 'C1', 'C2'];
+const CEFR = ['A0', 'A1', 'A1+', 'A2', 'A2+', 'B1', 'B1+', 'B2', 'B2+', 'C1', 'C1+', 'C2'];
 const NOTA = ['1', '2', '3', '4', '5'];
 /** colunas @db.Date chegam à meia-noite UTC: formatar no fuso local voltaria um dia */
 const p2 = (n: number) => String(n).padStart(2, '0');
@@ -189,6 +190,10 @@ export const CADASTROS: Cadastro[] = [
     ],
     ordem: [{ id: 'asc' }],
     antes: (x) => (x.nota != null && (Number(x.nota) < 0 || Number(x.nota) > 100) ? 'A nota vai de 0 a 100.' : null),
+    /* 30/09/2026: matrícula de curso por módulos sem módulo recebe o do nível (mesmo CEFR) */
+    depois: async (r) => {
+      await moduloPeloNivel(Number(r.matriculaId), String(r.cefr ?? ''));
+    },
     rotulo: (r) => String(r.cefr),
   },
   {

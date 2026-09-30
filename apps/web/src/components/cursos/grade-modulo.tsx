@@ -2,7 +2,7 @@
 
 import { AlertTriangleIcon } from 'lucide-react';
 import { useState } from 'react';
-import { Aviso } from '@/components/ds';
+import { AlertaIcone } from '@/components/alerta-icone';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { OpcoesCurso } from '@/lib/cursos';
@@ -62,13 +62,13 @@ export function GradeModulo({
   return (
     <div className="grid">
       {semProf.length > 0 && (
-        <Aviso tom="amber" icone="alerta">
-          <b>
-            {semProf.length} {semProf.length === 1 ? 'horário sem professor' : 'horários sem professor'}:
-          </b>{' '}
-          {semProf.map((x) => `${DIAS[x.dia]} ${x.hora}`).join(', ')}. As aulas aparecem na Agenda como sem professor
-          até o vínculo.
-        </Aviso>
+        <div className="mb-2 flex justify-end">
+          <AlertaIcone
+            titulo="Horários sem professor"
+            grupos={[{ itens: semProf.map((x) => `${DIAS[x.dia]} ${x.hora}`) }]}
+            nota="As aulas aparecem na Agenda como sem professor até o vínculo."
+          />
+        </div>
       )}
       <div className="overflow-x-auto rounded-md border border-borda bg-card">
         <table className="w-full min-w-[560px] table-fixed border-collapse text-sm" aria-label={`Grade de ${rotulo}`}>

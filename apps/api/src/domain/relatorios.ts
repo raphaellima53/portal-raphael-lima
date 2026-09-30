@@ -17,7 +17,7 @@ import {
   dispConflitos,
   fxPresenca,
   type Oferta,
-  prDisp,
+  prConflitos,
 } from './agenda.ts';
 import { alSaldo, alTemMod } from './alunos.ts';
 import type { AlunoB, Base } from './base.ts';
@@ -125,8 +125,8 @@ const dispFora = (r: Recorte, nc: NC) =>
     r.b.professores
       .filter((t) => t.active)
       .filter((t) =>
-        dispConflitos(
-          prDisp(r.b, t, r.ofs),
+        prConflitos(
+          t,
           r.ofs.filter((o) => o.prof === t.name),
         ).some(({ o }) => nc(o)),
       )

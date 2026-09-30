@@ -7,6 +7,7 @@ import type { AcessoArea, Areas, TipoPerfil } from './acesso.ts';
 import {
   type Aula,
   agAulasEntre,
+  agCor,
   agHabilitado,
   agHM,
   agRotulo,
@@ -386,6 +387,8 @@ export function aulaModelo(b: Base, a: Aula, p: QuemAula, agora = new Date()) {
     mod: a.mod,
     modRot: a.mod ? (/^Turma /.test(a.mod) ? 'Turma' : 'Módulo') : null,
     corCurso: b.corCurso[a.prod] || '#1a4fd6',
+    /* 30/09/2026: o chip do módulo leva a cor do módulo, a mesma da agenda */
+    corMod: a.mod ? agCor(b, a) : null,
     trava: a.bloqueada ? 'horário bloqueado' : cancelada ? 'aula cancelada' : passou ? 'aula já aconteceu' : '',
     titulo: cur ? cur.x.titulo : (v?.topico ?? agRotulo(a)),
     /* campos da aula (24/09/2026): Tópico, Início e Término separados */

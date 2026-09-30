@@ -2,7 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import type { AgendaResp, AulaItem, EventoItem } from '@/lib/agenda';
-import { corLegivel } from '@/lib/cor';
+import { fundoCor } from '@/lib/cor';
 import { cn } from '@/lib/utils';
 
 type Item = { q: string; ev?: EventoItem; aula?: AulaItem };
@@ -14,6 +14,8 @@ type Abre = {
   agendar?: (iso: string, hora?: number) => void;
 };
 const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
+/** 30/09/2026: célula da agenda com altura padrão e no máximo 3 horários; o resto vai para "+N" */
+const AG_MAX = 3;
 const DOW = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const tecla = (f: () => void) => (e: React.KeyboardEvent) => {
   if (e.key === 'Enter' || e.key === ' ') {
@@ -57,10 +59,7 @@ export function Mensal({ d, abre }: { d: AgendaResp; abre: Abre }) {
             return (
               <div
                 key={`f${i}`}
-                className={cn(
-                  'min-h-[122px] border-b border-borda-suave bg-[#fafbfd] dark:bg-hover',
-                  i % 7 && 'border-l',
-                )}
+                className={cn('h-[152px] border-b border-borda-suave bg-[#fafbfd] dark:bg-hover', i % 7 && 'border-l')}
               />
             );
           const itens: Item[] = [
@@ -81,7 +80,7 @@ export function Mensal({ d, abre }: { d: AgendaResp; abre: Abre }) {
               onClick={clica}
               onKeyDown={tecla(clica)}
               className={cn(
-                'flex min-h-[122px] cursor-pointer flex-col gap-1 border-b border-borda-suave p-1.5 transition-colors hover:bg-hover',
+                'flex h-[152px] cursor-pointer flex-col gap-1 overflow-hidden border-b border-borda-suave p-1.5 transition-colors hover:bg-hover',
                 i % 7 && 'border-l',
                 dia.hoje && 'bg-azul-suave/40',
               )}
@@ -89,7 +88,7 @@ export function Mensal({ d, abre }: { d: AgendaResp; abre: Abre }) {
               <div className="text-center">
                 <NumeroDia n={dia.dia} hoje={dia.hoje} />
               </div>
-              {itens.slice(0, 3).map((x) =>
+              {itens.slice(0, AG_MAX).map((x) =>
                 x.ev ? (
                   <ChipEvento key={x.ev.id} e={x.ev} abre={abre} />
                 ) : (
@@ -101,14 +100,16 @@ export function Mensal({ d, abre }: { d: AgendaResp; abre: Abre }) {
                       abre.aula(x.aula!.k);
                     }}
                     className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded-[6px] px-2 py-0.5 text-left text-white hover:brightness-110"
-                    style={{ background: corLegivel(x.aula!.cor) }}
+                    style={fundoCor(x.aula!.cor)}
                   >
                     <span className="shrink-0">{hh(x.aula!.hora)}</span>
                     <span className="truncate">{x.aula!.rotulo}</span>
                   </button>
                 ),
               )}
-              {itens.length > 3 && <span className="px-1.5 text-apagado">+{itens.length - 3} na agenda do dia</span>}
+              {itens.length > AG_MAX && (
+                <span className="px-1.5 text-apagado">+{itens.length - AG_MAX} na agenda do dia</span>
+              )}
               {!itens.length && (dia.feriado || dia.dow) ? (
                 <span className="mt-auto px-1.5 text-apagado">{dia.feriado ? 'feriado' : 'sem aula'}</span>
               ) : null}
@@ -138,7 +139,6 @@ function ChipEvento({ e, abre }: { e: EventoItem; abre: Abre }) {
 }
 
 /* ---------- Semanal ---------- */
-const AG_SEM_MAX = 4;
 export function Semanal({ d, abre }: { d: AgendaResp; abre: Abre }) {
   const dias = d.dias ?? [];
   return (
@@ -190,15 +190,17 @@ function Linha({ h, dias, d, abre }: { h: number; dias: NonNullable<AgendaResp['
               onKeyDown: tecla(agendar),
             })}
             className={cn(
-              'flex min-h-[152px] min-w-0 flex-col gap-1 border-b border-l border-borda-suave p-1',
+              /* 30/09/2026: linha compacta (76px) para ver pelo menos 8 horas numa tela; até 3 aulas lado a lado,
+                 ocupando a altura toda da hora */
+              'relative flex h-[76px] min-w-0 items-stretch gap-0.5 overflow-hidden border-b border-l border-borda-suave p-1',
               agendar && 'cursor-pointer transition-colors hover:bg-hover',
               dia.hoje && 'bg-azul-suave/40',
               fora && 'bg-[#fafbfd] dark:bg-hover',
             )}
           >
-            {itens.slice(0, AG_SEM_MAX).map((x) =>
+            {itens.slice(0, AG_MAX).map((x) =>
               x.aula ? (
-                <BlocoAula key={x.aula.k} a={x.aula} abre={abre} mini />
+                <BlocoAula key={x.aula.k} a={x.aula} abre={abre} mini curto={itens.length > 1} />
               ) : (
                 <button
                   key={x.ev!.id}
@@ -207,28 +209,26 @@ function Linha({ h, dias, d, abre }: { h: number; dias: NonNullable<AgendaResp['
                     e.stopPropagation();
                     abre.evento(x.ev!.id);
                   }}
-                  className="min-w-0 cursor-pointer rounded-[6px] border border-borda-forte bg-card px-2 py-1 text-left shadow-el-1 hover:shadow-el-2"
+                  title={`${x.ev!.titulo} · ${x.ev!.ini}–${x.ev!.fim} · ${x.ev!.nPart} ${x.ev!.nPart === 1 ? 'pessoa' : 'pessoas'}`}
+                  className="flex min-w-0 flex-1 cursor-pointer flex-col justify-start rounded-[4px] border border-borda-forte bg-card px-1.5 py-1 text-left leading-[18px] hover:shadow-el-1"
                 >
-                  <span className="flex items-center gap-1.5 truncate">
-                    <i className="size-2 shrink-0 rounded-[2px] bg-texto" />
-                    <span className="truncate">{x.ev!.titulo}</span>
-                  </span>
-                  <span className="block truncate text-apagado">
-                    {x.ev!.ini}–{x.ev!.fim} · {x.ev!.nPart} {x.ev!.nPart === 1 ? 'pessoa' : 'pessoas'}
-                  </span>
+                  <span className="block truncate">{x.ev!.titulo}</span>
+                  <span className="block truncate text-apagado">{x.ev!.ini}</span>
                 </button>
               ),
             )}
-            {itens.length > AG_SEM_MAX && (
+            {itens.length > AG_MAX && (
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   abre.dia(dia.iso);
                 }}
-                className="cursor-pointer px-1 text-left text-azul hover:underline"
+                aria-label={`Mais ${itens.length - AG_MAX} na visão diária`}
+                title="ver todas na visão diária"
+                className="absolute right-1.5 bottom-1.5 cursor-pointer rounded-full border border-borda bg-card px-1.5 leading-4 text-azul shadow-el-1 hover:underline"
               >
-                +{itens.length - AG_SEM_MAX} na visão diária
+                +{itens.length - AG_MAX}
               </button>
             )}
           </div>
@@ -238,25 +238,52 @@ function Linha({ h, dias, d, abre }: { h: number; dias: NonNullable<AgendaResp['
   );
 }
 
-function BlocoAula({ a, abre, mini }: { a: AulaItem; abre: Abre; mini?: boolean }) {
+/** sigla do nível para a célula dividida da semanal: Essential 2 → E2, Rise 1 → R1, Confidence → Conf */
+const sigla = (n: string) => {
+  const m = /^(\p{L})\p{L}*\s+(\d+\+?)$/u.exec(n.trim());
+  return m ? `${m[1]}${m[2]}` : n.trim().split(/\s+/).length === 1 && n.length > 6 ? n.slice(0, 4) : n;
+};
+
+function BlocoAula({ a, abre, mini, curto }: { a: AulaItem; abre: Abre; mini?: boolean; curto?: boolean }) {
   return (
     <button
       type="button"
+      title={
+        mini
+          ? `${a.rotulo}${a.topico ? ` - ${a.topico}` : ''}
+${a.prof === '—' ? 'sem professor' : a.prof} - ${a.n}/${a.vagas} assentos · ${a.quem}`
+          : undefined
+      }
       onClick={(e) => {
         e.stopPropagation();
         abre.aula(a.k);
       }}
       className={cn(
         'min-w-0 cursor-pointer rounded-[6px] text-left text-white hover:brightness-110',
-        mini ? 'px-2 py-1' : 'flex-[1_1_300px] rounded-md px-3 py-2',
+        mini
+          ? 'flex flex-1 flex-col justify-start rounded-[4px] px-1.5 py-1 leading-[18px]'
+          : 'flex-[1_1_300px] rounded-md px-3 py-2',
       )}
-      style={{ background: corLegivel(a.cor) }}
+      style={fundoCor(a.cor)}
     >
-      {mini ? (
+      {mini && curto ? (
+        /* célula dividida (2 ou 3 aulas): sigla, primeiro nome do professor e assentos; o tópico fica no título */
         <>
-          <span className="block truncate">{a.rotulo}</span>
+          <b className="block truncate font-semibold">{sigla(a.rotulo)}</b>
+          <span className="block truncate opacity-90">{a.prof === '—' ? '—' : a.prof.split(' ')[0]}</span>
           <span className="block truncate opacity-90">
-            {a.quem} · {a.n}/{a.vagas}
+            {a.n}/{a.vagas}
+          </span>
+        </>
+      ) : mini ? (
+        <>
+          {/* 30/09/2026: Módulo - Tópico / Professor - Assentos */}
+          <span className="block truncate">
+            <b className="font-semibold">{a.rotulo}</b>
+            {a.topico ? ` - ${a.topico}` : ''}
+          </span>
+          <span className="block truncate opacity-90">
+            {a.prof === '—' ? 'sem professor' : a.prof} - {a.n}/{a.vagas}
           </span>
         </>
       ) : (

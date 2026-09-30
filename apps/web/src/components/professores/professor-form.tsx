@@ -18,14 +18,14 @@ import { useAcaoProf, useFormProf, useOpcoesProf } from '@/lib/professores';
 import { cn } from '@/lib/utils';
 
 /*
- * Novo professor (24/09/2026): Nome, CPF, CNPJ, e-mail primário, contato e admissão obrigatórios;
- * e-mail secundário, nascimento e endereço opcionais. Cursos, teto, skills e situação ficam em Habilitação.
+ * Novo professor (24/09/2026): Nome, CPF, CNPJ, e-mail primário e contato obrigatórios; admissão, teto semanal
+ * (30/09/2026), e-mail secundário, nascimento e endereço opcionais. Cursos, teto, skills e situação ficam em Habilitação.
  */
 const Esquema = z
   .object({
     nome: z.string().trim().min(2, 'Informe o nome.'),
     email: z.union([z.literal(''), z.string().trim().email('E-mail inválido.')]),
-    teto: z.string().refine((s) => Number(s) >= 1 && Number(s) <= 80, 'O teto vai de 1 a 80 aulas.'),
+    teto: z.string().refine((s) => !s || (Number(s) >= 1 && Number(s) <= 80), 'O teto vai de 1 a 80 aulas.'),
     cursos: z.array(z.string()),
     ativo: z.boolean(),
     cpf: z.string(),
@@ -43,13 +43,12 @@ const Esquema = z
     if (!cpf) erro('cpf', 'Informe o CPF.');
     if (!cnpj) erro('cnpj', 'Informe o CNPJ.');
     if (!v.email) erro('email', 'Informe o e-mail primário.');
-    if (!v.admissao) erro('admissao', 'Informe a admissão.');
   });
 type Form = z.infer<typeof Esquema>;
 const VAZIO: Form = {
   nome: '',
   email: '',
-  teto: '24',
+  teto: '',
   cursos: [],
   ativo: true,
   cpf: '',
@@ -121,7 +120,11 @@ export function ProfessorFormDialog({
     if (novo && !extra.telefone) return setErroContato('Informe o contato.');
     setErroContato('');
     acao.mutate(
-      { caminho: ed ? `/${id}` : '', method: ed ? 'PUT' : 'POST', json: { ...extra, ...v, teto: Number(v.teto) } },
+      {
+        caminho: ed ? `/${id}` : '',
+        method: ed ? 'PUT' : 'POST',
+        json: { ...extra, ...v, teto: v.teto ? Number(v.teto) : undefined },
+      },
       {
         onSuccess: (r) => {
           aoFechar();
@@ -219,10 +222,7 @@ export function ProfessorFormDialog({
                   />
                 </div>
                 <div className="grid content-start gap-1.5">
-                  <Label htmlFor="pr-adm">
-                    Admissão
-                    <Req on={novo} />
-                  </Label>
+                  <Label htmlFor="pr-adm">Admissão</Label>
                   <Controller
                     control={f.control}
                     name="admissao"
@@ -290,6 +290,7 @@ export function ProfessorFormDialog({
                         type="number"
                         min={1}
                         max={80}
+                        placeholder="padrão: 24"
                         aria-invalid={!!erros.teto}
                         {...f.register('teto')}
                       />

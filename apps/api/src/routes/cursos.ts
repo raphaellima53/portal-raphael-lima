@@ -75,7 +75,7 @@ const exigeCurriculo = (req: FastifyRequest, rep: FastifyReply) => exige(req, re
 const Tempo = z.object({ valor: z.coerce.number().int().min(0).max(100000), unidade: z.enum(['min', 'h']) });
 const minutos = (t: z.infer<typeof Tempo> | null) => (t == null ? null : t.unidade === 'h' ? t.valor * 60 : t.valor);
 const DIAS_CURTO = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-export const CEFR = ['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+export const CEFR = ['A0', 'A1', 'A1+', 'A2', 'A2+', 'B1', 'B1+', 'B2', 'B2+', 'C1', 'C1+', 'C2'];
 /** minutos guardados → o que o formulário mostra (horas quando fecha a conta) */
 const tempoDe = (m: number | null | undefined) =>
   m == null
@@ -112,10 +112,45 @@ const ItemForm = z.object({
 type Item = z.infer<typeof ItemForm>;
 type Grade = { nome: string; horarios: { dia: number; hora: string; professorId: string }[] };
 
-/** obrigatórios do módulo ou da turma (Novo curso, 24/09/2026) */
+/**
+ * 30/09/2026: vincular o professor num horário da grade do módulo leva o vínculo ao perfil dele — habilitação no
+ * curso (recortada no módulo quando o curso é novo para ele, ou somando ao recorte que já existe). A disponibilidade
+ * não é tocada: ela é só a que o professor marca. Só acrescenta; tirar da grade não mexe no perfil.
+ */
+async function vinculaNoPerfil(tx: Tx, curso: string, mods: Grade[]) {
+  const por = new Map<string, { itens: Set<string> }>();
+  for (const m of mods)
+    for (const h of m.horarios) {
+      if (!h.professorId) continue;
+      const x = por.get(h.professorId) ?? { itens: new Set<string>() };
+      x.itens.add(m.nome);
+      por.set(h.professorId, x);
+    }
+  if (!por.size) return [];
+  const nomes: string[] = [];
+  for (const [id, x] of por) {
+    const p = await tx.professor.findUnique({ where: { id } });
+    if (!p) continue;
+    let habil = (p.habilitacao as Record<string, string[]> | null) ?? null;
+    let cursos = p.cursos;
+    if (!cursos.includes(curso)) {
+      cursos = [...cursos, curso];
+      habil = { ...habil, [curso]: [...x.itens] };
+    } else if (habil?.[curso]) habil = { ...habil, [curso]: [...new Set([...habil[curso], ...x.itens])] };
+    const mudou = cursos !== p.cursos || JSON.stringify(habil) !== JSON.stringify(p.habilitacao ?? null);
+    if (!mudou) continue;
+    await tx.professor.update({ where: { id }, data: { cursos, habilitacao: habil ?? undefined } });
+    nomes.push(p.nome);
+  }
+  return nomes;
+}
+const avisoPerfil = (nomes: string[]) =>
+  nomes.length ? ` Habilitação atualizada no perfil: ${nomes.join(', ')}.` : '';
+
+/** obrigatórios do módulo ou da turma (Novo curso, 24/09/2026); CEFR é opcional desde 30/09/2026 (o Flow não tem nível) */
 const faltaNoItem = (m: Item, estrutura: string) =>
-  !CEFR.includes(m.cefr)
-    ? `Escolha o CEFR de ${m.nome}.`
+  m.cefr && !CEFR.includes(m.cefr)
+    ? `CEFR inválido em ${m.nome}.`
     : !m.vagas
       ? `Informe as vagas de ${m.nome}.`
       : estrutura === 'modulos' && (!m.agendamento || !m.cancelamento)
@@ -402,6 +437,7 @@ export default async function rotasCursos(app: FastifyInstance) {
       tipoSala: v.tipoSala,
     };
 
+    let perfis: string[] = [];
     const salvo = await prisma.$transaction(async (tx) => {
       const regrasPadrao = crsRegras({ estrutura, idioma: dados.idioma } as never);
       const curso = antigo
@@ -439,6 +475,7 @@ export default async function rotasCursos(app: FastifyInstance) {
             data: m.horarios.map((h) => ({ moduloId: mod.id, ...h, professorId: h.professorId || null })),
           });
       }
+      perfis = await vinculaNoPerfil(tx, v.nome, mods);
       await tx.cursoAlocacao.deleteMany({ where: { cursoId: curso.id } });
       if (alocacoes.length)
         await tx.cursoAlocacao.createMany({
@@ -502,7 +539,10 @@ export default async function rotasCursos(app: FastifyInstance) {
     const semProf = estrutura === 'modulos' ? itens.flatMap((m) => m.horarios).filter((h) => !h.professorId).length : 0;
     return {
       id: salvo.id,
-      msg: (antigo ? 'Curso salvo.' : 'Curso criado. Confira as regras dele.') + avisoSemProfessor(semProf),
+      msg:
+        (antigo ? 'Curso salvo.' : 'Curso criado. Confira as regras dele.') +
+        avisoSemProfessor(semProf) +
+        avisoPerfil(perfis),
       semProfessor: semProf,
     };
   };
@@ -537,7 +577,7 @@ export default async function rotasCursos(app: FastifyInstance) {
     const problema = foraDaGrade(m, await funcionamento()) ?? choqueDeProfessor([...outros, m]);
     if (problema) return rep.code(400).send({ erro: problema });
 
-    await prisma.$transaction(async (tx) => {
+    const perfis = await prisma.$transaction(async (tx) => {
       if (antigo && antigo.nome !== m.nome) await trocaNomeModulo(tx, curso.id, curso.nome, antigo.nome, m.nome);
       const mod = antigo
         ? await tx.modulo.update({ where: { id: antigo.id }, data: { nome: m.nome, ...dadosModulo(m) } })
@@ -559,11 +599,12 @@ export default async function rotasCursos(app: FastifyInstance) {
         await tx.curso.update({ where: { id: curso.id }, data: { estrutura: 'modulos' } });
         await tx.cursoAlocacao.deleteMany({ where: { cursoId: curso.id } });
       }
+      return vinculaNoPerfil(tx, curso.nome, [m]);
     });
     invalidaBase();
     return {
       nome: m.nome,
-      msg: `${m.nome} salvo.${avisoSemProfessor(m.horarios.filter((h) => !h.professorId).length)}`,
+      msg: `${m.nome} salvo.${avisoSemProfessor(m.horarios.filter((h) => !h.professorId).length)}${avisoPerfil(perfis)}`,
     };
   });
 

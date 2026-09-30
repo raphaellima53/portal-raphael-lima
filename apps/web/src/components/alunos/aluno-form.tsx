@@ -167,17 +167,18 @@ export function AlunoFormDialog({
           empresa: v.empresa,
           contrato: v.contrato,
           modalidades: v.modalidades,
-          matricula: v.ofertaId
-            ? {
-                ofertaId: Number(v.ofertaId),
-                item: v.item || null,
-                modalidade: v.modalidade,
-                contratoId: v.contratoId ? Number(v.contratoId) : null,
-                forma: Number(v.forma),
-                parcelas: Number(v.parcelas),
-              }
-            : null,
-          nivelamento: v.cefr ? { cefr: v.cefr, concluidoEm: v.concluidoEm } : null,
+          matricula:
+            ed && v.ofertaId
+              ? {
+                  ofertaId: Number(v.ofertaId),
+                  item: v.item || null,
+                  modalidade: v.modalidade,
+                  contratoId: v.contratoId ? Number(v.contratoId) : null,
+                  forma: Number(v.forma),
+                  parcelas: Number(v.parcelas),
+                }
+              : null,
+          nivelamento: ed && v.cefr ? { cefr: v.cefr, concluidoEm: v.concluidoEm } : null,
         },
       },
       {
@@ -197,7 +198,7 @@ export function AlunoFormDialog({
         <form onSubmit={enviar} noValidate className="flex min-h-0 flex-col">
           <DialogHead
             titulo={ed ? 'Editar aluno' : 'Novo aluno'}
-            descricao={ed ? d?.email || d?.nome : 'dados, matrícula e nivelamento'}
+            descricao={ed ? d?.email || d?.nome : 'perfil do aluno — matrículas e acesso vêm depois, na ficha'}
           />
           <DialogBody className="grid gap-6 sm:grid-cols-2">
             {ed && !d ? (
@@ -274,204 +275,219 @@ export function AlunoFormDialog({
                   />
                 </Secao>
 
-                <Secao titulo="Matrícula">
-                  {ms.length > 0 && (
-                    <div className="grid gap-2 sm:col-span-2">
-                      <span className="font-semibold text-texto-2">Matrículas ativas</span>
-                      {ms.map((m) => (
-                        <div
-                          key={m.id}
-                          className="flex flex-wrap items-center gap-2.5 rounded-md border border-borda-suave px-3 py-2"
-                        >
-                          {m.item && <ItemBadge item={{ nome: m.item, cor: '' }} />}
-                          <b className="text-texto">{m.curso}</b>
-                          <span className="text-apagado">
-                            · {m.usadas}/{m.total} aulas
-                          </span>
-                          <span className="flex-1" />
-                          <Controller
-                            control={f.control}
-                            name={`modalidades.${m.id}`}
-                            render={({ field }) => (
-                              <Escolha
-                                rotulo={`Modalidade da matrícula em ${m.curso}`}
-                                destacar={false}
-                                valor={field.value ?? m.modalidade}
-                                aoMudar={field.onChange}
-                                opcoes={['Online', 'Presencial'].map((x) => ({ v: x, l: x }))}
-                                className="w-[150px]"
+                {/* 30/09/2026: o Novo aluno cria só o perfil; matrículas e acesso vêm depois, na ficha */}
+                {ed && (
+                  <>
+                    <Secao titulo="Matrícula">
+                      {ms.length > 0 && (
+                        <div className="grid gap-2 sm:col-span-2">
+                          <span className="font-semibold text-texto-2">Matrículas ativas</span>
+                          {ms.map((m) => (
+                            <div
+                              key={m.id}
+                              className="flex flex-wrap items-center gap-2.5 rounded-md border border-borda-suave px-3 py-2"
+                            >
+                              {m.item && <ItemBadge item={{ nome: m.item, cor: '' }} />}
+                              <b className="text-texto">{m.curso}</b>
+                              <span className="text-apagado">
+                                · {m.usadas}/{m.total} aulas
+                              </span>
+                              <span className="flex-1" />
+                              <Controller
+                                control={f.control}
+                                name={`modalidades.${m.id}`}
+                                render={({ field }) => (
+                                  <Escolha
+                                    rotulo={`Modalidade da matrícula em ${m.curso}`}
+                                    destacar={false}
+                                    valor={field.value ?? m.modalidade}
+                                    aoMudar={field.onChange}
+                                    opcoes={['Online', 'Presencial'].map((x) => ({ v: x, l: x }))}
+                                    className="w-[150px]"
+                                  />
+                                )}
                               />
-                            )}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="grid content-start gap-1.5 sm:col-span-2">
-                    <Label className="flex items-center gap-1.5">
-                      {ms.length ? 'Nova matrícula · oferta' : 'Oferta'}
-                      <Vai href="/produtos/dlOfertas" rotulo="Abrir as ofertas" />
-                    </Label>
-                    <Controller
-                      control={f.control}
-                      name="ofertaId"
-                      render={({ field }) => (
-                        <Escolha
-                          rotulo="Oferta"
-                          todos={ms.length ? 'nenhuma nova matrícula' : 'sem matrícula por enquanto'}
-                          destacar={false}
-                          valor={field.value}
-                          aoMudar={(v) => {
-                            field.onChange(v);
-                            const o = op.data?.ofertas.find((x) => String(x.id) === v);
-                            const c = op.data?.cursos.find((x) => x.nome === o?.curso);
-                            f.setValue('item', c?.itens[0] ?? '');
-                            f.setValue('modalidade', c?.modalidades[0] ?? 'Online');
-                            f.setValue('parcelas', '1');
-                          }}
-                          opcoes={(op.data?.ofertas ?? []).map((o) => ({ v: String(o.id), l: o.nome }))}
-                        />
-                      )}
-                    />
-                  </div>
-                  {oferta && (
-                    <>
-                      {!!curso?.itens.length && (
-                        <div className="grid content-start gap-1.5">
-                          <Label>{curso.estrutura === 'turmas' ? 'Turma' : 'Módulo'}</Label>
-                          <Controller
-                            control={f.control}
-                            name="item"
-                            render={({ field }) => (
-                              <Escolha
-                                rotulo="Módulo ou turma"
-                                destacar={false}
-                                valor={field.value}
-                                aoMudar={field.onChange}
-                                opcoes={curso.itens.map((x) => ({ v: x, l: x }))}
-                              />
-                            )}
-                          />
+                            </div>
+                          ))}
                         </div>
                       )}
-                      <div className="grid content-start gap-1.5">
-                        <Label>Modalidade</Label>
+                      <div className="grid content-start gap-1.5 sm:col-span-2">
+                        <Label className="flex items-center gap-1.5">
+                          {ms.length ? 'Nova matrícula · oferta' : 'Oferta'}
+                          <Vai href="/produtos/dlOfertas" rotulo="Abrir as ofertas" />
+                        </Label>
                         <Controller
                           control={f.control}
-                          name="modalidade"
+                          name="ofertaId"
                           render={({ field }) => (
                             <Escolha
-                              rotulo="Modalidade"
+                              rotulo="Oferta"
+                              todos={ms.length ? 'nenhuma nova matrícula' : 'sem matrícula por enquanto'}
                               destacar={false}
                               valor={field.value}
-                              aoMudar={field.onChange}
-                              opcoes={(curso?.modalidades ?? ['Online', 'Presencial']).map((x) => ({ v: x, l: x }))}
+                              aoMudar={(v) => {
+                                field.onChange(v);
+                                const o = op.data?.ofertas.find((x) => String(x.id) === v);
+                                const c = op.data?.cursos.find((x) => x.nome === o?.curso);
+                                /* 30/09/2026: curso por módulos: o módulo sai do nivelamento */
+                                f.setValue('item', c?.estrutura === 'modulos' ? '' : (c?.itens[0] ?? ''));
+                                f.setValue('modalidade', c?.modalidades[0] ?? 'Online');
+                                f.setValue('parcelas', '1');
+                              }}
+                              opcoes={(op.data?.ofertas ?? []).map((o) => ({ v: String(o.id), l: o.nome }))}
                             />
                           )}
                         />
                       </div>
-                      <div className="grid content-start gap-1.5">
-                        <Label>Contrato</Label>
-                        <Controller
-                          control={f.control}
-                          name="contratoId"
-                          render={({ field }) => (
-                            <Escolha
-                              rotulo="Contrato"
-                              todos="Sem contrato empresarial (B2C)"
-                              destacar={false}
-                              valor={field.value}
-                              aoMudar={field.onChange}
-                              opcoes={(op.data?.contratos ?? []).map((c) => ({ v: String(c.id), l: c.nome }))}
+                      {oferta && (
+                        <>
+                          {!!curso?.itens.length &&
+                            (curso.estrutura === 'modulos' && !ed ? (
+                              <div className="grid content-start gap-1.5">
+                                <Label>Módulo</Label>
+                                <p className="m-0 flex min-h-10 items-center text-apagado">
+                                  definido pelo nivelamento (mesmo CEFR)
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="grid content-start gap-1.5">
+                                <Label>{curso.estrutura === 'turmas' ? 'Turma' : 'Módulo'}</Label>
+                                <Controller
+                                  control={f.control}
+                                  name="item"
+                                  render={({ field }) => (
+                                    <Escolha
+                                      rotulo="Módulo ou turma"
+                                      todos={curso.estrutura === 'modulos' ? 'definir pelo nivelamento' : undefined}
+                                      destacar={false}
+                                      valor={field.value}
+                                      aoMudar={field.onChange}
+                                      opcoes={curso.itens.map((x) => ({ v: x, l: x }))}
+                                    />
+                                  )}
+                                />
+                              </div>
+                            ))}
+                          <div className="grid content-start gap-1.5">
+                            <Label>Modalidade</Label>
+                            <Controller
+                              control={f.control}
+                              name="modalidade"
+                              render={({ field }) => (
+                                <Escolha
+                                  rotulo="Modalidade"
+                                  destacar={false}
+                                  valor={field.value}
+                                  aoMudar={field.onChange}
+                                  opcoes={(curso?.modalidades ?? ['Online', 'Presencial']).map((x) => ({ v: x, l: x }))}
+                                />
+                              )}
                             />
-                          )}
-                        />
-                      </div>
-                      <div className="grid content-start gap-1.5">
-                        <Label>Pagamento</Label>
-                        <div className="flex gap-2">
-                          <Controller
-                            control={f.control}
-                            name="forma"
-                            render={({ field }) => (
-                              <Escolha
-                                rotulo="Forma de pagamento"
-                                destacar={false}
-                                valor={field.value}
-                                aoMudar={field.onChange}
-                                opcoes={(op.data?.formas ?? []).map((x) => ({ v: String(x.id), l: x.nome }))}
-                                className="flex-1"
+                          </div>
+                          <div className="grid content-start gap-1.5">
+                            <Label>Contrato</Label>
+                            <Controller
+                              control={f.control}
+                              name="contratoId"
+                              render={({ field }) => (
+                                <Escolha
+                                  rotulo="Contrato"
+                                  todos="Sem contrato empresarial (B2C)"
+                                  destacar={false}
+                                  valor={field.value}
+                                  aoMudar={field.onChange}
+                                  opcoes={(op.data?.contratos ?? []).map((c) => ({ v: String(c.id), l: c.nome }))}
+                                />
+                              )}
+                            />
+                          </div>
+                          <div className="grid content-start gap-1.5">
+                            <Label>Pagamento</Label>
+                            <div className="flex gap-2">
+                              <Controller
+                                control={f.control}
+                                name="forma"
+                                render={({ field }) => (
+                                  <Escolha
+                                    rotulo="Forma de pagamento"
+                                    destacar={false}
+                                    valor={field.value}
+                                    aoMudar={field.onChange}
+                                    opcoes={(op.data?.formas ?? []).map((x) => ({ v: String(x.id), l: x.nome }))}
+                                    className="flex-1"
+                                  />
+                                )}
                               />
-                            )}
-                          />
-                          <Controller
-                            control={f.control}
-                            name="parcelas"
-                            render={({ field }) => (
-                              <Escolha
-                                rotulo="Parcelas"
-                                destacar={false}
-                                valor={field.value}
-                                aoMudar={field.onChange}
-                                opcoes={Array.from({ length: oferta.parcelasMax }, (_, i) => ({
-                                  v: String(i + 1),
-                                  l: `${i + 1}x`,
-                                }))}
-                                className="w-[90px]"
+                              <Controller
+                                control={f.control}
+                                name="parcelas"
+                                render={({ field }) => (
+                                  <Escolha
+                                    rotulo="Parcelas"
+                                    destacar={false}
+                                    valor={field.value}
+                                    aoMudar={field.onChange}
+                                    opcoes={Array.from({ length: oferta.parcelasMax }, (_, i) => ({
+                                      v: String(i + 1),
+                                      l: `${i + 1}x`,
+                                    }))}
+                                    className="w-[90px]"
+                                  />
+                                )}
                               />
-                            )}
-                          />
-                        </div>
-                      </div>
-                      <p className="m-0 text-apagado sm:col-span-2">
-                        {oferta.aulas} aulas de {oferta.curso}. Ao salvar, a matrícula e o pedido (com as parcelas) são
-                        criados.
-                      </p>
-                    </>
-                  )}
-                </Secao>
+                            </div>
+                          </div>
+                          <p className="m-0 text-apagado sm:col-span-2">
+                            {oferta.aulas} aulas de {oferta.curso}. Ao salvar, a matrícula e o pedido (com as parcelas)
+                            são criados.
+                          </p>
+                        </>
+                      )}
+                    </Secao>
 
-                <Secao titulo="Nivelamento">
-                  <div className="grid content-start gap-1.5">
-                    <Label>CEFR</Label>
-                    <Controller
-                      control={f.control}
-                      name="cefr"
-                      render={({ field }) => (
-                        <Escolha
-                          rotulo="CEFR"
-                          todos="sem nivelamento"
-                          destacar={false}
-                          valor={field.value}
-                          aoMudar={field.onChange}
-                          opcoes={(op.data?.cefr ?? []).map((x) => ({ v: x, l: x }))}
+                    <Secao titulo="Nivelamento">
+                      <div className="grid content-start gap-1.5">
+                        <Label>CEFR</Label>
+                        <Controller
+                          control={f.control}
+                          name="cefr"
+                          render={({ field }) => (
+                            <Escolha
+                              rotulo="CEFR"
+                              todos="sem nivelamento"
+                              destacar={false}
+                              valor={field.value}
+                              aoMudar={field.onChange}
+                              opcoes={(op.data?.cefr ?? []).map((x) => ({ v: x, l: x }))}
+                            />
+                          )}
                         />
-                      )}
-                    />
-                    <Erro t={erros.cefr?.message} />
-                  </div>
-                  <div className="grid content-start gap-1.5">
-                    <Label htmlFor="al-niv">Concluído em</Label>
-                    <Controller
-                      control={f.control}
-                      name="concluidoEm"
-                      render={({ field }) => (
-                        <CampoData
-                          id="al-niv"
-                          rotulo="Nivelamento concluído em"
-                          valor={field.value}
-                          aoMudar={field.onChange}
+                        <Erro t={erros.cefr?.message} />
+                      </div>
+                      <div className="grid content-start gap-1.5">
+                        <Label htmlFor="al-niv">Concluído em</Label>
+                        <Controller
+                          control={f.control}
+                          name="concluidoEm"
+                          render={({ field }) => (
+                            <CampoData
+                              id="al-niv"
+                              rotulo="Nivelamento concluído em"
+                              valor={field.value}
+                              aoMudar={field.onChange}
+                            />
+                          )}
                         />
+                      </div>
+                      {ed && (
+                        <p className="m-0 flex items-center gap-1.5 text-apagado sm:col-span-2">
+                          o nivelamento de cada matrícula também fica na ficha, em Matrícula › Nivelamento
+                          <Vai href={`/alunos/${id}/nivelamento`} rotulo="Abrir o nivelamento do aluno" />
+                        </p>
                       )}
-                    />
-                  </div>
-                  {ed && (
-                    <p className="m-0 flex items-center gap-1.5 text-apagado sm:col-span-2">
-                      o nivelamento de cada matrícula também fica na ficha, em Matrícula › Nivelamento
-                      <Vai href={`/alunos/${id}/nivelamento`} rotulo="Abrir o nivelamento do aluno" />
-                    </p>
-                  )}
-                </Secao>
+                    </Secao>
+                  </>
+                )}
 
                 <details className="rounded-md border border-borda px-4 py-3 sm:col-span-2">
                   <summary className="cursor-pointer font-semibold text-texto">Mais dados (opcional)</summary>

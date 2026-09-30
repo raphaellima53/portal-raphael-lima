@@ -2,21 +2,19 @@
  * Community Flow (24/09/2026): adesão ao Community live classes pela matrícula no módulo Community Flow. A cada
  * 5 presenças nas aulas dos níveis (Confidence a Apex 3) desde a adesão, o aluno ganha 1 crédito de aula particular,
  * que ele mesmo agenda num horário com vaga da grade do módulo. Cada horário tem as vagas do módulo (25/09/2026); o
- * professor é o da grade ou sai do cadastro (habilitado no curso e no módulo, com disponibilidade marcada no dia e
- * hora e sem outra aula), e quem agenda depois entra na mesma aula. A aula agendada é uma aula avulsa do módulo;
+ * professor é o vinculado ao horário na grade (desde 30/09/2026 não há escolha automática pelo cadastro), e quem
+ * agenda depois entra na mesma aula. A aula agendada é uma aula avulsa do módulo;
  * cancelada, bloqueada ou com o aluno retirado, o crédito volta.
  */
 import { fmt } from '../lib/fmt.ts';
 import {
   type Aula,
   agAulasEntre,
-  agHabilitado,
   agHM,
   agHoraNum,
   agISO,
   alMat,
   crsRegras,
-  dispK,
   fxPresenca,
   MOD_FLOW,
   type Oferta,
@@ -62,17 +60,11 @@ export const flowVagas = (c: CursoB) => Math.max(1, c.modInfo[MOD_FLOW]?.vagas ?
 /** alunos que ainda ocupam a aula Flow (retirado não conta) */
 const ocupantes = (b: Base, v: AvulsaB) => v.alunos.filter((n) => !b.ajustes[flowChave(v)]?.fora?.[n]);
 
-/** professores que podem dar a aula Flow num horário: habilitados, disponíveis e sem outra aula */
-function profsLivres(b: Base, c: CursoB, quando: Date, dur: number, ocupados: Aula[]) {
-  const k = dispK(quando.getDay(), quando.getHours());
+/** professor já com outra aula que se sobrepõe ao horário */
+const profOcupado = (prof: string, quando: Date, dur: number, ocupados: Aula[]) => {
   const fim = +quando + dur * 6e4;
-  return b.professores.filter(
-    (t) =>
-      agHabilitado(t, c.name, MOD_FLOW) &&
-      !!t.disp?.includes(k) &&
-      !ocupados.some((a) => a.prof === t.name && +a.quando < fim && +a.quando + (a.duracao || 50) * 6e4 > +quando),
-  );
-}
+  return ocupados.some((a) => a.prof === prof && +a.quando < fim && +a.quando + (a.duracao || 50) * 6e4 > +quando);
+};
 
 /** horários livres da grade do Community Flow para um aluno, nos próximos dias */
 export function flowHorarios(b: Base, c: CursoB, a: AlunoB | null, ofs: Oferta[], agora = new Date()): Horario[] {
@@ -119,12 +111,9 @@ export function flowHorarios(b: Base, c: CursoB, a: AlunoB | null, ofs: Oferta[]
         out.push({ data: dia, hora: h.hora, prof: marcada.prof!, vagas: livres, total, avulsa: marcada.id });
         continue;
       }
-      /* professor vinculado ao horário na grade, senão o do cadastro com menos aulas na janela */
-      const ps = profsLivres(b, c, quando, dur, todas).filter((t) => !h.prof || t.name === h.prof);
-      if (!ps.length) continue;
-      const carga = (n: string) => todas.filter((x) => x.prof === n).length;
-      ps.sort((x, y) => carga(x.name) - carga(y.name));
-      out.push({ data: dia, hora: h.hora, prof: ps[0].name, vagas: total, total, avulsa: null });
+      /* 30/09/2026: só o professor vinculado ao horário na grade (sem escolha automática), e livre nessa hora */
+      if (!h.prof || profOcupado(h.prof, quando, dur, todas)) continue;
+      out.push({ data: dia, hora: h.hora, prof: h.prof, vagas: total, total, avulsa: null });
     }
   }
   return out;

@@ -20,6 +20,7 @@ import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { ConfirmaExcluir, Excluir } from '@/components/excluir';
 import { usePaginacao } from '@/components/paginacao';
+import { BotaoPlanilhas } from '@/components/planilhas';
 import { AbasDoMenu } from '@/components/secao-abas';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -194,7 +195,16 @@ export function ListaEquipe() {
 
   return (
     <>
-      <PageHead titulo="Time" acoes={novo} />
+      <PageHead
+        titulo="Time"
+        acoes={
+          <>
+            {/* 30/09/2026: exportar, baixar o modelo e importar professores e colaboradores */}
+            <BotaoPlanilhas ents={veColab ? ['professores', 'colaboradores'] : ['professores']} />
+            {novo}
+          </>
+        }
+      />
       <AbasDoMenu />
       {(q.isError || qc.isError) && (
         <Aviso tom="red" icone="alerta">
@@ -263,7 +273,6 @@ export function ListaEquipe() {
               <Th>Nome</Th>
               <Th>Tipo</Th>
               <Th>Cursos ou cargo</Th>
-              <Th className="text-right">Aulas/sem · teto</Th>
               <Th>Situação</Th>
               <Th className="text-right">Ações</Th>
             </Tr>
@@ -317,20 +326,6 @@ export function ListaEquipe() {
                         <span className="text-apagado">nenhum curso</span>
                       )}
                     </Td>
-                    <Td className="text-right whitespace-nowrap tabular-nums">
-                      {p.tipo === 'Professor' ? (
-                        <>
-                          {p.prof.acimaTeto && (
-                            <Badge tom="amber" className="mr-2">
-                              acima do teto
-                            </Badge>
-                          )}
-                          {p.prof.aulas} de {p.prof.teto}
-                        </>
-                      ) : (
-                        <span className="text-apagado">—</span>
-                      )}
-                    </Td>
                     <Td>
                       <Badge tom={p.ativo ? 'green' : 'gray'}>{p.ativo ? 'Ativo' : 'Inativo'}</Badge>
                     </Td>
@@ -367,7 +362,7 @@ export function ListaEquipe() {
               })
             ) : (
               <Tr>
-                <Td colSpan={7} className="py-10 text-center text-apagado-2">
+                <Td colSpan={6} className="py-10 text-center text-apagado-2">
                   {q.isPending ? 'Carregando…' : 'ninguém neste filtro'}
                 </Td>
               </Tr>

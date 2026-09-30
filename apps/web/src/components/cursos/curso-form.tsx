@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { type Control, Controller, type UseFormRegister, useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { CampoCor } from '@/components/campo-cor';
 import { GradeModulo } from '@/components/cursos/grade-modulo';
 import { Escolha } from '@/components/escolha';
 import { Badge } from '@/components/ui/badge';
@@ -43,12 +44,12 @@ const Esquema = z
     idioma: z.string().min(1, 'Escolha o idioma.'),
     tipo: z.string(),
     estrutura: z.enum(['modulos', 'turmas', 'nenhuma']),
-    cor: z.string(),
+    cor: z.string().regex(/^#[0-9A-F]{6}$/i, 'Use o código HEX, ex.: #003FB0.'),
     itens: z.array(
       z.object({
         nome: z.string(),
         salvoComo: z.string(),
-        cor: z.string(),
+        cor: z.string().regex(/^#[0-9A-F]{6}$/i, 'Use o código HEX, ex.: #003FB0.'),
         sigla: z.string(),
         descricao: z.string(),
         vagas: z.number().int().min(1, 'Vagas: pelo menos 1.').nullable(),
@@ -72,7 +73,6 @@ const Esquema = z
     const qual = v.estrutura === 'modulos' ? 'do módulo' : 'da turma';
     v.itens.forEach((it, k) => {
       if (!it.nome.trim()) erro(['itens', k, 'nome'], `Informe o nome ${qual}.`);
-      if (!it.cefr) erro(['itens', k, 'cefr'], 'Escolha o CEFR.');
       if (!it.vagas) erro(['itens', k, 'vagas'], 'Informe as vagas.');
       if (v.estrutura === 'modulos') {
         if (!it.agendamento) erro(['itens', k, 'agendamento'], 'Informe a regra de agendamento.');
@@ -272,12 +272,20 @@ export function CursoFormDialog({
                 Cor do curso
                 <Req />
               </Label>
-              <input
-                id="cf-cor"
-                type="color"
-                className="h-10 w-full cursor-pointer rounded-md border border-borda-forte bg-card p-1"
-                {...f.register('cor')}
+              <Controller
+                control={f.control}
+                name="cor"
+                render={({ field }) => (
+                  <CampoCor
+                    id="cf-cor"
+                    rotulo="Cor do curso"
+                    valor={field.value}
+                    aoMudar={field.onChange}
+                    invalido={!!e.cor}
+                  />
+                )}
               />
+              <Erro m={e.cor?.message} />
             </div>
             <div className="grid content-start gap-1.5">
               <Label>
@@ -724,25 +732,30 @@ function ItemCard({
           Cor {modulo ? 'do módulo' : 'da turma'}
           <Req />
         </Label>
-        <input
-          id={`cf-it-cor-${k}`}
-          type="color"
-          className="h-10 w-full cursor-pointer rounded-md border border-borda-forte bg-card p-1"
-          {...register(`itens.${k}.cor`)}
+        <Controller
+          control={control}
+          name={`itens.${k}.cor`}
+          render={({ field }) => (
+            <CampoCor
+              id={`cf-it-cor-${k}`}
+              rotulo={`Cor ${modulo ? 'do módulo' : 'da turma'}`}
+              valor={field.value}
+              aoMudar={field.onChange}
+              invalido={!!erros?.cor}
+            />
+          )}
         />
+        <Erro m={erros?.cor?.message} />
       </div>
       <div className="grid content-start gap-1.5">
-        <Label>
-          CEFR
-          <Req />
-        </Label>
+        <Label>CEFR</Label>
         <Controller
           control={control}
           name={`itens.${k}.cefr`}
           render={({ field }) => (
             <Escolha
               rotulo={`CEFR ${modulo ? 'do módulo' : 'da turma'} ${k + 1}`}
-              todos="Selecione…"
+              todos="Sem CEFR"
               destacar={false}
               valor={field.value}
               aoMudar={field.onChange}

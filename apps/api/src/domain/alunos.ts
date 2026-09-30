@@ -28,7 +28,6 @@ import {
   MOD_FLOW,
   type Oferta,
   prazoAte,
-  prDisp,
 } from './agenda.ts';
 import { fxHash } from './aulas.ts';
 import type { AlunoB, Base, CursoB, MatriculaB } from './base.ts';
@@ -274,11 +273,12 @@ export function alocAvalia(
 ): Avaliacao {
   const t = b.professores.find((x) => x.name === prof);
   const ad = new Set(alDisp(b, a, ofs));
-  const pd = new Set(t ? prDisp(b, t, ofs) : []);
+  /* professor sem disponibilidade marcada não acusa "fora" (30/09/2026) */
+  const pd = t?.disp ? new Set(t.disp) : null;
   const esta = (o: Oferta) => o.prod === prod && o.mod === mod && o.alunos.includes(a.name);
   return {
     foraA: dias.filter((d) => !ad.has(dispK(d, hora))),
-    foraP: t ? dias.filter((d) => !pd.has(dispK(d, hora))) : [],
+    foraP: pd ? dias.filter((d) => !pd.has(dispK(d, hora))) : [],
     choqueP: t
       ? dias.filter((d) => ofs.some((o) => !esta(o) && o.prof === prof && o.hora === hora && o.dias.includes(d)))
       : [],
@@ -447,7 +447,9 @@ export const dispChaveValida = (k: string) =>
   (/^h\d{1,2}$/.test(k) && DISP_HORAS.includes(Number(k.slice(1)))) ||
   (/^[1-6]-\d{1,2}$/.test(k) && DISP_HORAS.includes(Number(k.split('-')[1])));
 
-export function dispPainel(disp: string[], meus: Oferta[]) {
+export function dispPainel(disp: string[], meus: Oferta[], soDisp = false) {
+  /* 30/09/2026 (professor): a grade é só disponível/indisponível — sem curso, módulo, turma ou aluno */
+  if (soDisp) meus = [];
   const on = new Set(disp);
   const aula: Record<string, Oferta[]> = {};
   for (const o of meus)
@@ -461,12 +463,17 @@ export function dispPainel(disp: string[], meus: Oferta[]) {
   const conf = dispConflitos(disp, meus);
   const aulas = meus.reduce((s, o) => s + o.dias.length, 0);
   return {
+    soDisp,
     stats: [
       { valor: String(disp.length), rotulo: 'horas disponíveis por semana' },
       { valor: String(new Set(disp.map((k) => k.split('-')[0])).size), rotulo: 'dias com disponibilidade' },
-      { valor: String(aulas), rotulo: 'aulas por semana na grade' },
-      { valor: String(conf.length), rotulo: 'aulas fora da disponibilidade', tom: conf.length ? 'red' : 'green' },
-      { valor: String(Math.max(0, disp.length - aulas)), rotulo: 'horas livres para alocar' },
+      ...(soDisp
+        ? []
+        : [
+            { valor: String(aulas), rotulo: 'aulas por semana na grade' },
+            { valor: String(conf.length), rotulo: 'aulas fora da disponibilidade', tom: conf.length ? 'red' : 'green' },
+            { valor: String(Math.max(0, disp.length - aulas)), rotulo: 'horas livres para alocar' },
+          ]),
     ],
     dias: DISP_DIAS.map(([d, l]) => ({ k: `d${d}`, rotulo: l })),
     linhas: DISP_HORAS.map((h) => ({

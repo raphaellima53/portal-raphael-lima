@@ -114,7 +114,11 @@ const gravaHabil = (id: string, cursos: string[], habil: Record<string, string[]
 const ProfIn = z.object({
   nome: z.string().trim().min(2, 'Informe o nome.').max(160),
   email: z.union([z.literal(''), z.string().trim().email('E-mail inválido.').max(200)]).default(''),
-  teto: z.coerce.number().int().min(1, 'O teto precisa ser de pelo menos 1 aula.').max(80).default(24),
+  /* 30/09/2026: opcional — vazio fica no padrão de 24 aulas */
+  teto: z.preprocess(
+    (x) => (x === '' || x == null ? undefined : x),
+    z.coerce.number().int().min(1, 'O teto precisa ser de pelo menos 1 aula.').max(80).default(24),
+  ),
   cursos: z.array(z.string()).max(40).default([]),
   ativo: z.boolean().default(true),
   /* adequação ao Portal Alumni: CPF, dados pessoais, endereço e skills */
@@ -229,7 +233,7 @@ export default async function rotasProfessores(app: FastifyInstance) {
     } else if (aba === 'cursos') {
       dados = { cursos: prHabilitacao(b, t, ofs) };
     } else if (aba === 'disponibilidade') {
-      dados = { ...dispPainel(prDisp(b, t, ofs), prOfertas(ofs, t)), abrirAlocacao: false };
+      dados = { ...dispPainel(prDisp(b, t, ofs), prOfertas(ofs, t), true), abrirAlocacao: false };
     } else if (aba === 'agenda') {
       if (quando === 'passadas') dados = { quando, ...prHistorico(b, t, hist, ofs, agora) };
       else {
@@ -308,7 +312,7 @@ export default async function rotasProfessores(app: FastifyInstance) {
         [!!v.cnpj, 'Informe o CNPJ.'],
         [!!v.email, 'Informe o e-mail primário.'],
         [!!v.telefone, 'Informe o contato.'],
-        [!!v.admissao, 'Informe a data de admissão.'],
+        /* 30/09/2026: admissão e teto semanal deixaram de ser obrigatórios no Novo professor */
       ]);
       if (falta) return rep.code(400).send({ erro: falta });
     }

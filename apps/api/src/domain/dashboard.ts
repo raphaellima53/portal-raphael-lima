@@ -28,7 +28,7 @@ import {
   FX_ESTADO,
   fxPresenca,
   type Oferta,
-  prDisp,
+  prConflitos,
 } from './agenda.ts';
 import type { Base } from './base.ts';
 import { hrefAgenda, hrefAluno, hrefCurso, hrefProf, hrefTela } from './rotas.ts';
@@ -518,8 +518,8 @@ export const DASH_BLOCOS: Bloco[] = [
         .filter((t) => t.active)
         .map((t) => ({
           t,
-          cf: dispConflitos(
-            prDisp(c.b, t, ofs),
+          cf: prConflitos(
+            t,
             ofs.filter((o) => o.prof === t.name),
           ),
         }))

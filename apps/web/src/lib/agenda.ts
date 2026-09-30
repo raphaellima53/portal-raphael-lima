@@ -18,6 +18,7 @@ export type AulaItem = {
   hora: number;
   quando: string;
   rotulo: string;
+  topico: string;
   cor: string;
   prod: string;
   mod: string | null;
@@ -89,6 +90,7 @@ export type AulaModelo = {
   mod: string | null;
   modRot: string | null;
   corCurso: string;
+  corMod: string | null;
   trava: string;
   titulo: string;
   /* campos da aula (24/09/2026) */

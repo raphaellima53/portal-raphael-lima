@@ -2,6 +2,7 @@
 
 import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { CampoCor } from '@/components/campo-cor';
 import { CampoData } from '@/components/campos-data';
 import {
   AvisoMsg,
@@ -92,19 +93,7 @@ function CampoForm({
   else if (c.tipo === 'data') campo = <CampoData id={id} rotulo={c.rotulo} valor={s} aoMudar={aoMudar} />;
   else if (c.tipo === 'longo')
     campo = <textarea id={id} rows={4} className={textareaCls} value={s} onChange={(e) => aoMudar(e.target.value)} />;
-  else if (c.tipo === 'cor')
-    campo = (
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          aria-label={`${c.rotulo}: escolher`}
-          value={/^#[0-9a-f]{6}$/i.test(s) ? s : '#003FB0'}
-          onChange={(e) => aoMudar(e.target.value.toUpperCase())}
-          className="h-9 w-12 cursor-pointer rounded-md border border-borda-forte bg-card"
-        />
-        <Input id={id} value={s} onChange={(e) => aoMudar(e.target.value)} placeholder="#003FB0" />
-      </div>
-    );
+  else if (c.tipo === 'cor') campo = <CampoCor id={id} rotulo={c.rotulo} valor={s} aoMudar={aoMudar} />;
   else
     campo = (
       <Input

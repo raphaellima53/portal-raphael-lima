@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { Abas } from '@/components/abas';
+import { AlertaIcone } from '@/components/alerta-icone';
 import { AbaContratos } from '@/components/deal/contratos';
 import { Aviso, PageHead, Stat } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
@@ -180,9 +181,9 @@ function Geral({ d }: { d: GeralEmp }) {
         ))}
       </div>
       {d.alertas.length > 0 && (
-        <Aviso tom="amber" icone="alerta">
-          <b>Atenção:</b> {d.alertas.join(' · ')}
-        </Aviso>
+        <div className="mb-4">
+          <AlertaIcone titulo="Pontos de atenção" grupos={[{ itens: d.alertas }]} />
+        </div>
       )}
       <div className="grid gap-4 lg:grid-cols-2">
         <Kv titulo="Contrato" l={d.contrato} />

@@ -14,7 +14,7 @@ import {
   DN,
   dispConflitos,
   type Oferta,
-  prDisp,
+  prConflitos,
 } from './agenda.ts';
 import { folhaPresenca, folhaSit, folhaValor } from './aulas.ts';
 import type { Base } from './base.ts';
@@ -130,8 +130,8 @@ export function acAlocItens(b: Base, ofs: Oferta[] = agOfertas(b)): ItemAloc[] {
       });
   }
   for (const t of b.professores.filter((x) => x.active)) {
-    const fora = dispConflitos(
-      prDisp(b, t, ofs),
+    const fora = prConflitos(
+      t,
       ofs.filter((o) => o.prof === t.name),
     );
     if (!fora.length) continue;

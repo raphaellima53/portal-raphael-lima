@@ -18,8 +18,8 @@ import {
   alMat,
   crsItens,
   dispK,
-  prDisp,
 } from './agenda.ts';
+import { aulaCur, avulsaDe } from './aulas.ts';
 import type { Base } from './base.ts';
 import { agEvEntre, type EventoB, evHora, evPessoas } from './eventos.ts';
 
@@ -42,7 +42,7 @@ export const AG_QUAL: [string, string, (b: Base, a: Aula) => boolean][] = [
     'fora da disponibilidade do professor',
     (b, a) => {
       const t = b.professores.find((x) => x.name === a.prof);
-      return !!t && !prDisp(b, t).includes(dispK(a.quando.getDay(), a.quando.getHours()));
+      return !!t?.disp && !t.disp.includes(dispK(a.quando.getDay(), a.quando.getHours()));
     },
   ],
   [
@@ -90,6 +90,8 @@ export const aulaItem = (b: Base, a: Aula) => ({
   hora: a.quando.getHours(),
   quando: `${a.quando.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}, ${fmt.data(a.quando).slice(0, 5)} · ${agHM(a.quando)}`,
   rotulo: agRotulo(a),
+  /* 30/09/2026: tópico da aula (conteúdo do currículo ou o tópico livre da aula avulsa) para a semanal */
+  topico: aulaCur(b, a)?.x.titulo ?? avulsaDe(b, a)?.topico ?? '',
   cor: agCor(b, a),
   prod: a.prod,
   mod: a.mod,

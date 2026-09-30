@@ -3,6 +3,8 @@
 import { cn } from '@/lib/utils';
 
 export type GradeDisp = {
+  /** 30/09/2026 (professor): só disponível/indisponível, sem aulas na grade */
+  soDisp?: boolean;
   dias: { k: string; rotulo: string }[];
   linhas: {
     k: string;
@@ -37,7 +39,7 @@ export function GradeDisponibilidade({
   return (
     <div className="px-5 pb-5">
       <ul className="mb-3 flex flex-wrap gap-x-5 gap-y-2 text-texto-2" aria-label="Cores da grade">
-        {(['livre', 'aula', 'conflito', 'fechada'] as const).map((k) => (
+        {(g.soDisp ? (['livre', 'fechada'] as const) : (['livre', 'aula', 'conflito', 'fechada'] as const)).map((k) => (
           <li key={k} className="flex items-center gap-2">
             <i className={cn('inline-block size-4 rounded-[5px]', ESTADO[k].cls)} aria-hidden />
             {ESTADO[k].txt}

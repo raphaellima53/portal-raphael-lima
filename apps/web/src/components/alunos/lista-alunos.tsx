@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  DownloadIcon,
   EllipsisIcon,
   EyeIcon,
   PencilIcon,
@@ -18,6 +17,7 @@ import { Confirma } from '@/components/cursos/curriculo-forms';
 import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { usePaginacao } from '@/components/paginacao';
+import { BotaoPlanilhas } from '@/components/planilhas';
 import { AbasDoMenu } from '@/components/secao-abas';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -147,9 +147,17 @@ export function ListaAlunos() {
         titulo="Alunos"
         acoes={
           <>
-            <Button onClick={() => exporta(lista)} disabled={!lista.length}>
-              <DownloadIcon /> Exportar
-            </Button>
+            {/* 30/09/2026: exportar cadastros, baixar o modelo e importar; a lista filtrada com matrículas continua */}
+            <BotaoPlanilhas
+              ents={['alunos']}
+              extra={[
+                {
+                  rotulo: 'Exportar lista filtrada (com matrículas)',
+                  aoClicar: () => exporta(lista),
+                  disabled: !lista.length,
+                },
+              ]}
+            />
             {pode?.criar && (
               <Button variant="primary" onClick={() => setForm({ id: null })}>
                 <PlusIcon /> Novo aluno
@@ -331,7 +339,7 @@ export function ListaAlunos() {
       <AlunoFormDialog
         abre={form}
         aoFechar={() => setForm(null)}
-        aoSalvo={(r, novo) => (novo && r.id ? router.push(`/alunos/${r.id}/cursos`) : setMsg({ txt: r.msg }))}
+        aoSalvo={(r, novo) => (novo && r.id ? router.push(`/alunos/${r.id}/cursos?novo=1`) : setMsg({ txt: r.msg }))}
       />
       <Confirma
         aberto={!!excluir}
@@ -345,8 +353,9 @@ export function ListaAlunos() {
             {excluir?.matriculas.length
               ? `${excluir.matriculas.length} ${excluir.matriculas.length === 1 ? 'matrícula ativa' : 'matrículas ativas'}`
               : 'o cadastro'}
-            , os feedbacks e as datas bloqueadas, e vai para Configurações › Lixeira, de onde dá para restaurar tudo
-            igual. Se a ideia é só tirar da operação, use Desativar.
+            , os feedbacks e as datas bloqueadas{excluir?.persona ? ' e o login de teste da persona' : ''}, e vai para
+            Configurações › Lixeira, de onde dá para restaurar tudo igual. Se a ideia é só tirar da operação, use
+            Desativar.
           </>
         }
         aoFechar={() => setExcluir(null)}
@@ -397,7 +406,7 @@ function MenuLinha({
             {inativo ? <UserCheckIcon /> : <UserXIcon />} {inativo ? 'Reativar' : 'Desativar'}
           </DropdownMenuItem>
         )}
-        {pode.excluir && !a.persona && (
+        {pode.excluir && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem perigo onSelect={excluir}>

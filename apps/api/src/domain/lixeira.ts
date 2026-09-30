@@ -16,6 +16,8 @@ type No = {
   religa?: { modelo: string; fk: string }[];
   /** apaga junto mas não guarda (ex.: sessões de login) */
   semCopia?: boolean;
+  /** filtro a mais nas linhas deste nível (ex.: só o login de persona do aluno) */
+  onde?: Record<string, unknown>;
 };
 export type TipoLixeira = {
   rotulo: string;
@@ -42,21 +44,20 @@ const EXTRATO: No = {
   filhos: [{ modelo: 'lancamentoExtrato', fk: 'extratoId' }],
 };
 
+const USUARIO_FILHOS: No[] = [
+  { modelo: 'usuarioEmail', fk: 'usuarioId' },
+  { modelo: 'usuarioTelefone', fk: 'usuarioId' },
+  { modelo: 'usuarioEndereco', fk: 'usuarioId' },
+  { modelo: 'notificacao', fk: 'usuarioId' },
+  { modelo: 'dashboardConfig', fk: 'usuarioId' },
+  { modelo: 'preferencia', fk: 'usuarioId' },
+  { modelo: 'sessao', fk: 'usuarioId', semCopia: true },
+];
+
 export const TIPOS: Record<string, TipoLixeira> = {
   usuario: {
     rotulo: 'Usuário',
-    raiz: {
-      modelo: 'usuario',
-      filhos: [
-        { modelo: 'usuarioEmail', fk: 'usuarioId' },
-        { modelo: 'usuarioTelefone', fk: 'usuarioId' },
-        { modelo: 'usuarioEndereco', fk: 'usuarioId' },
-        { modelo: 'notificacao', fk: 'usuarioId' },
-        { modelo: 'dashboardConfig', fk: 'usuarioId' },
-        { modelo: 'preferencia', fk: 'usuarioId' },
-        { modelo: 'sessao', fk: 'usuarioId', semCopia: true },
-      ],
-    },
+    raiz: { modelo: 'usuario', filhos: USUARIO_FILHOS },
   },
   aluno: {
     rotulo: 'Aluno',
@@ -69,6 +70,8 @@ export const TIPOS: Record<string, TipoLixeira> = {
         { modelo: 'dataBloqueada', fk: 'alunoId' },
         { modelo: 'feedbackAula', fk: 'alunoId' },
         { modelo: 'bolsa', fk: 'alunoId' },
+        /* 30/09/2026: aluno de persona de teste leva o login junto (volta junto na restauração) */
+        { modelo: 'usuario', fk: 'alunoId', onde: { personaLetra: { not: null } }, filhos: USUARIO_FILHOS },
       ],
     },
   },
@@ -191,6 +194,9 @@ const PLURAL: Record<string, [string, string]> = {
   extratoProfessor: ['extrato', 'extratos'],
   lancamentoExtrato: ['lançamento', 'lançamentos'],
   avaliacaoProfessor: ['avaliação', 'avaliações'],
+  usuario: ['login', 'logins'],
+  preferencia: ['preferência', 'preferências'],
+  dashboardConfig: ['painel personalizado', 'painéis personalizados'],
   usuarioEmail: ['e-mail', 'e-mails'],
   usuarioTelefone: ['telefone', 'telefones'],
   usuarioEndereco: ['endereço', 'endereços'],
@@ -247,7 +253,7 @@ async function coleta(
     })) as Record<string, unknown>[];
     if (outros.length) c.religa.push({ ...r, pares: outros.map((o) => [o.id, o[r.fk]]) });
   }
-  for (const f of no.filhos ?? []) if (ids.length) await coleta(tx, f, { [f.fk!]: { in: ids } }, c);
+  for (const f of no.filhos ?? []) if (ids.length) await coleta(tx, f, { ...f.onde, [f.fk!]: { in: ids } }, c);
 }
 
 const ondeRaiz = (t: TipoLixeira, id: string) => ({ [t.pk ?? 'id']: t.idTexto ? id : Number(id) });
