@@ -134,18 +134,24 @@ export type AulaLinha = {
   profId: string | null;
   estadoTag: [string, Tom];
 };
-export type AgendamentosAba =
-  | { quando: 'proximas'; dias: number; aulas: (AulaLinha & { sala: string; agendarAte: string; limite: string })[] }
-  | {
-      quando: 'passadas';
-      dias: number;
-      stats: { aulas: number; presencas: number; faltas: number; pct: number | null; canceladas: number };
-      aulas: (AulaLinha & {
-        sub?: string;
-        estado: string;
-        presenca: 'presente' | 'falta' | 'pendente' | null;
-      })[];
-    };
+/** Histórico › Aulas (02/10/2026): passadas e próximas numa lista só, do período De/Até */
+export type AgendamentosAba = {
+  de: string;
+  ate: string;
+  aulas: {
+    k: string;
+    data: string;
+    hora: string;
+    modulo: string;
+    cor: string;
+    prod: string;
+    aula: string;
+    prof: string;
+    profId: string | null;
+    sub: string | null;
+    status: { rotulo: string; tom: Tom };
+  }[];
+};
 export type Ponto = {
   k: string;
   t: string;

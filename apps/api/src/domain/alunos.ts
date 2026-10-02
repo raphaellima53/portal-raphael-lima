@@ -29,7 +29,7 @@ import {
   type Oferta,
   prazoAte,
 } from './agenda.ts';
-import { fxHash } from './aulas.ts';
+import { AULA_EST, aulaCur, avulsaDe, fxHash } from './aulas.ts';
 import type { AlunoB, Base, CursoB, MatriculaB } from './base.ts';
 import { SIT_TOM } from './cursos.ts';
 
@@ -555,6 +555,67 @@ export function alHistorico(b: Base, a: AlunoB, dias: number, ofs: Oferta[], ago
       estadoTag: FX_ESTADO[x.estado],
       presenca: fxPresenca(b, a.name, x),
     })),
+  };
+}
+
+/**
+ * Histórico da ficha (02/10/2026, pelo print do usuário): uma lista só, passadas e próximas, da mais nova para a mais
+ * antiga, com Data/Hora · Módulo · Aula (o conteúdo do currículo) · Professor · Status. O período vem de De/Até
+ * (AAAA-MM-DD); sem eles, de 90 dias atrás a 30 dias à frente. A busca e o Status filtram na tela.
+ */
+export function alAulas(b: Base, a: AlunoB, de: string, ate: string, ofs: Oferta[], agora = new Date()) {
+  const ISO = /^\d{4}-\d{2}-\d{2}$/;
+  const temDe = ISO.test(de);
+  const temAte = ISO.test(ate);
+  const somaDias = (d: Date, n: number) => {
+    const x = new Date(d);
+    x.setDate(x.getDate() + n);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  };
+  /* só um dos lados informado: o outro acompanha (90 dias antes do Até, 30 depois do De) */
+  let ini = temDe ? new Date(`${de}T00:00:00`) : somaDias(agora, -90);
+  let fim = temAte ? new Date(`${ate}T00:00:00`) : somaDias(agora, 30);
+  if (!temDe && fim < ini) ini = somaDias(fim, -90);
+  if (!temAte && fim < ini) fim = somaDias(ini, 30);
+  /* no máximo um ano de aulas por vez */
+  if (+fim - +ini > 366 * 864e5) fim = somaDias(ini, 366);
+  const ls = fim < ini ? [] : agAulasEntre(b, ini, fim, agora, ofs).filter((x) => x.alunos.includes(a.name));
+  return {
+    /* o que foi pedido (vazio = padrão), para os campos De/Até começarem em branco */
+    de: temDe ? de : '',
+    ate: temAte ? fmt.iso(fim) : '',
+    aulas: ls.reverse().map((x) => {
+      const [rot, tom] = AULA_EST[x.estado];
+      const pres = fxPresenca(b, a.name, x);
+      const status =
+        pres === 'presente' || pres === 'falta'
+          ? {
+              rotulo: `${rot} · ${pres === 'presente' ? 'Presente' : 'Falta'}`,
+              tom: pres === 'presente' ? 'green' : 'red',
+            }
+          : x.estado === 'comAlunos'
+            ? { rotulo: rot, tom: 'gray' }
+            : { rotulo: rot, tom: x.estado === 'cancelada' ? 'red' : tom };
+      return {
+        k: x.k,
+        data: x.quando.toLocaleDateString('pt-BR', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        }),
+        hora: agHM(x.quando),
+        modulo: agRotulo(x),
+        cor: (x.mod && b.corModulo[x.mod]) || b.corCurso[x.prod] || '#1e46c8',
+        prod: x.prod,
+        aula: aulaCur(b, x)?.x.titulo ?? avulsaDe(b, x)?.topico ?? '',
+        prof: x.prof,
+        profId: b.professores.find((t) => t.name === x.prof)?.id ?? null,
+        sub: x.sub,
+        status,
+      };
+    }),
   };
 }
 

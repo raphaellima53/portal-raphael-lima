@@ -591,7 +591,8 @@ export const NAV_EQUIPE: ItemDef[] = [
     secoes: [
       /* 24/09/2026: Cursos e Ofertas primeiro (pirâmide nova); Materiais e Serviços continuam depois */
       sec('Cursos', { tela: 'cursos', label: 'Catálogo' }, 'turmas'),
-      sec('Ofertas', 'dlOfertas', 'dlPresets'),
+      /* 02/10/2026: Ofertas oculta até ser definida; para voltar, descomentar */
+      // sec('Ofertas', 'dlOfertas', 'dlPresets'),
       sec('Materiais', { tela: 'curriculo', label: 'Currículos e acervos' }, 'conteudos', 'ciclos', 'calendarios'),
       sec('Serviços', 'servicos'),
     ],
@@ -669,17 +670,18 @@ export const NAV_EQUIPE: ItemDef[] = [
       ),
     ],
   },
-  /* Financeiro do Deal (23/09/2026): faturamento, recebimento e posição; os contratos ficam nas fichas */
-  {
-    id: 'financeiro',
-    nome: 'Financeiro',
-    icon: 'money',
-    secoes: [
-      sec('Faturamento', 'dlOrdens', 'dlFechamento', 'dlNotas'),
-      sec('Recebimento', 'dlCobrancas', 'dlLiquidacao', 'dlConciliacao'),
-      sec('Posição', 'dlPosicao', 'dlContas', 'dlConferencia'),
-    ],
-  },
+  /* 02/10/2026: Financeiro oculto do menu até ser definido; para voltar, descomentar */
+  // /* Financeiro do Deal (23/09/2026): faturamento, recebimento e posição; os contratos ficam nas fichas */
+  // {
+  //   id: 'financeiro',
+  //   nome: 'Financeiro',
+  //   icon: 'money',
+  //   secoes: [
+  //     sec('Faturamento', 'dlOrdens', 'dlFechamento', 'dlNotas'),
+  //     sec('Recebimento', 'dlCobrancas', 'dlLiquidacao', 'dlConciliacao'),
+  //     sec('Posição', 'dlPosicao', 'dlContas', 'dlConferencia'),
+  //   ],
+  // },
   /* Auditoria e Configurações voltam ao menu lateral, só para o Admin (a regra de acesso já é essa) */
   {
     id: 'auditoria',

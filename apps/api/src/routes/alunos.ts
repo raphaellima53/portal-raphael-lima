@@ -17,9 +17,8 @@ import {
   MOD_FLOW,
 } from '../domain/agenda.ts';
 import {
-  alAgenda,
   alAlocacoes,
-  alHistorico,
+  alAulas,
   alLog,
   alMatriculas,
   alOfertas,
@@ -480,11 +479,8 @@ export default async function rotasAlunos(app: FastifyInstance) {
         abrirAlocacao: podeChave(u, 'aluno.alocacao'),
       };
     } else if (aba === 'agendamentos') {
-      if (quando === 'passadas') dados = { quando, ...alHistorico(b, a, hist, ofs, agora) };
-      else {
-        const dias = [7, 14, 30].includes(Number(q.dias)) ? Number(q.dias) : 14;
-        dados = { quando, ...alAgenda(b, a, dias, ofs, agora) };
-      }
+      /* 02/10/2026: uma lista só (passadas e próximas) com Busca, De, Até e Status */
+      dados = alAulas(b, a, String(q.de ?? ''), String(q.ate ?? ''), ofs, agora);
     } else if (ABA_CADASTRO[aba]) {
       dados = { cadastro: ABA_CADASTRO[aba], pai: a.id };
     } else if (aba === 'contratos') {

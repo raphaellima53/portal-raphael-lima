@@ -60,7 +60,7 @@ describe('menus e formulários (24/09/2026)', () => {
     assert.deepEqual(labels.slice(0, 4), ['Início', 'Produtos e serviços', 'Usuários', 'Agenda']);
     const secoes = (k: string) =>
       me.nav.find((n: { label: string }) => n.label === k).secoes.map((x: { etapa: string }) => x.etapa);
-    assert.deepEqual(secoes('Produtos e serviços').slice(0, 2), ['Cursos', 'Ofertas']);
+    assert.deepEqual(secoes('Produtos e serviços').slice(0, 2), ['Cursos', 'Materiais']);
     assert.deepEqual(secoes('Usuários'), ['Alunos', 'Time', 'Departamentos', 'Cargos', 'Empresas']);
   });
 

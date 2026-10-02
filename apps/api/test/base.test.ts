@@ -87,7 +87,6 @@ describe('menu e acesso', () => {
         'Usuários',
         'Agenda',
         'Atividades',
-        'Financeiro',
         'Auditoria',
         'Configurações',
         'conta:Engenharia',
@@ -95,11 +94,10 @@ describe('menu e acesso', () => {
     );
     const secoes = (k: string) => me.nav.find((n: N) => n.label === k).secoes.map((x: { etapa: string }) => x.etapa);
     assert.deepEqual(secoes('Usuários'), ['Alunos', 'Time', 'Departamentos', 'Cargos', 'Empresas']);
-    assert.deepEqual(secoes('Produtos e serviços'), ['Cursos', 'Ofertas', 'Materiais', 'Serviços']);
+    assert.deepEqual(secoes('Produtos e serviços'), ['Cursos', 'Materiais', 'Serviços']);
     assert.deepEqual(secoes('Configurações').slice(0, 2), ['Painel', 'Acessos']);
-    /* 23/09/2026: Atividades em cartões (Dashboard · Comercial · Operações) e o Financeiro do Deal */
+    /* 23/09/2026: Atividades em cartões (Dashboard · Comercial · Operações); Ofertas e Financeiro ocultos desde 02/10/2026 */
     assert.deepEqual(secoes('Atividades'), ['Dashboard', 'Comercial', 'Operações']);
-    assert.deepEqual(secoes('Financeiro'), ['Faturamento', 'Recebimento', 'Posição']);
   });
 
   test('professor: Agenda, Histórico de aulas e Meu perfil; o histórico é o das aulas dele', async () => {

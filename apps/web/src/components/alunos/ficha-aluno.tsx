@@ -2,7 +2,7 @@
 
 import { ChevronLeftIcon, PencilIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Abas } from '@/components/abas';
 import { AcessoDaPessoa, type AcessoPessoa } from '@/components/acesso-pessoa';
@@ -13,54 +13,50 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
+  type AbaAluno,
   type AgendamentosAba,
   type CursosAba,
   type DispAba,
   type FeedbacksAba,
+  type FichaResp,
   type FinanceiroAba,
   type LogAba,
   type Perfil,
   useFicha,
 } from '@/lib/alunos';
-import { AbaAgendamentos, AbaDisponibilidade, AbaFinanceiro, AbaLog, AbaPerfil } from './abas-aluno';
+import { AbaAgendamentos, AbaDisponibilidade, AbaFinanceiro, AbaLog, AbaPerfil, type Vai } from './abas-aluno';
 import { AlunoFormDialog } from './aluno-form';
 import type { Msg } from './comum';
 import { AbaCursos } from './cursos-aluno';
 import { AbaFeedbacks } from './feedbacks-aluno';
 
-/** Alunos › ficha: Dados (Perfil · Log) · Matrículas (Cursos · Disponibilidade) · Histórico (Agendamentos · Feedbacks) */
+/**
+ * Alunos › ficha: uma linha de abas (Dados · Matrícula · Financeiro · Contratos · Histórico · Acesso).
+ * Sem subabas (02/10/2026): cada aba mostra as suas partes em blocos, um abaixo do outro.
+ */
 export function FichaAluno() {
   const { id, aba } = useParams<{ id: string; aba: string }>();
-  const sp = useSearchParams();
-  const caminho = usePathname();
   const router = useRouter();
-  const params = { aba, quando: sp.get('quando') ?? '', dias: sp.get('dias') ?? '', hist: sp.get('hist') ?? '' };
-  const q = useFicha(Number(id), params);
+  const q = useFicha(Number(id), { aba });
   const [msg, setMsg] = useState<Msg>(null);
   const [editar, setEditar] = useState<{ id: number } | null>(null);
   const f = q.data;
 
   useEffect(() => {
     if (f) document.title = `${f.nome} · Portal Raphael Lima`;
-    /* aba antiga ou sem acesso: cai na subaba que vale */
-    if (f && f.aba !== aba)
-      router.replace(
-        `/alunos/${f.id}/${f.aba}${f.aba === 'agendamentos' && f.quando === 'passadas' ? '?quando=passadas' : ''}`,
-      );
+    /* aba antiga ou sem acesso: cai na que vale */
+    if (f && f.aba !== aba) router.replace(`/alunos/${f.id}/${f.aba}`);
   }, [f, aba, router]);
+  /* link para uma parte que não é a primeira da aba (ex.: /alunos/1/log): rola até o bloco */
+  const alvo = f?.aba;
+  useEffect(() => {
+    if (!alvo) return;
+    const el = document.getElementById(`bloco-${alvo}`);
+    if (el?.previousElementSibling) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [alvo]);
   /* a mensagem de uma ação vale para a tela em que foi dada */
   // biome-ignore lint/correctness/useExhaustiveDependencies: limpa ao trocar de aba
   useEffect(() => setMsg(null), [aba, id]);
-
-  const vai = (p: Record<string, string | undefined>) => {
-    const n = new URLSearchParams(sp.toString());
-    for (const [k, v] of Object.entries(p)) {
-      if (v) n.set(k, v);
-      else n.delete(k);
-    }
-    const s = n.toString();
-    router.push(`${caminho}${s ? `?${s}` : ''}`, { scroll: false });
-  };
 
   if (q.isError)
     return (
@@ -129,17 +125,11 @@ export function FichaAluno() {
 
       <Abas
         rotulo="Abas da ficha"
-        className="mb-0"
         itens={f.grupos.map((g) => ({
           href: `/alunos/${f.id}/${g.abas[0].k}`,
           rotulo: g.rotulo,
           ativa: g.k === grupoAtivo.k,
         }))}
-      />
-      <Abas
-        rotulo={grupoAtivo.rotulo}
-        className="border-borda-suave"
-        itens={grupoAtivo.abas.map((a) => ({ href: `/alunos/${f.id}/${a.k}`, rotulo: a.rotulo, ativa: a.k === f.aba }))}
       />
       {msg && (
         <Aviso tom={msg.erro ? 'red' : 'blue'} icone={msg.erro ? 'alerta' : 'ok'}>
@@ -147,20 +137,63 @@ export function FichaAluno() {
         </Aviso>
       )}
 
-      <div aria-busy={q.isFetching}>
-        {f.aba === 'perfil' && <AbaPerfil d={f.dados as Perfil} />}
-        {f.aba === 'log' && <AbaLog d={f.dados as LogAba} />}
-        {f.aba === 'cursos' && <AbaCursos f={f} d={f.dados as CursosAba} setMsg={setMsg} />}
-        {f.aba === 'disponibilidade' && <AbaDisponibilidade f={f} d={f.dados as DispAba} setMsg={setMsg} />}
-        {f.aba === 'financeiro' && <AbaFinanceiro d={f.dados as FinanceiroAba} />}
-        {f.aba === 'acesso' && <AcessoDaPessoa d={f.dados as AcessoPessoa} />}
-        {f.aba === 'contratos' && <AbaContratos alunoId={f.id} volta={`/alunos/${f.id}/contratos`} rot={f.nome} />}
-        <AbaCadastro key={f.aba} dados={f.dados} />
-        {f.aba === 'agendamentos' && <AbaAgendamentos f={f} d={f.dados as AgendamentosAba} vai={vai} />}
-        {f.aba === 'feedbacks' && <AbaFeedbacks f={f} d={f.dados as FeedbacksAba} vai={vai} setMsg={setMsg} />}
+      <div className="grid gap-10">
+        {blocosDe(grupoAtivo.abas).map((b) => (
+          <Bloco key={b.id} f={f} b={b} setMsg={setMsg} />
+        ))}
       </div>
 
       <AlunoFormDialog abre={editar} aoFechar={() => setEditar(null)} aoSalvo={(res) => setMsg({ txt: res.msg })} />
     </>
+  );
+}
+
+type BlocoDef = { id: string; aba: AbaAluno; titulo: string };
+
+/** as partes de uma aba; no Histórico, Agendamentos é a lista de Aulas (passadas e próximas) */
+const blocosDe = (abas: FichaResp['grupos'][number]['abas']): BlocoDef[] =>
+  abas.map((a) => ({ id: a.k, aba: a.k, titulo: a.k === 'agendamentos' ? 'Aulas' : a.rotulo }));
+
+/** um bloco da aba: título e o conteúdo da parte; os filtros (dias, hist) valem só para ele */
+function Bloco({ f: topo, b, setMsg }: { f: FichaResp; b: BlocoDef; setMsg: (m: Msg) => void }) {
+  const [filtros, setFiltros] = useState<Record<string, string>>({});
+  const q = useFicha(topo.id, { aba: b.aba, ...filtros });
+  const vai: Vai = (p) =>
+    setFiltros((ant) => {
+      const n = { ...ant };
+      for (const [k, v] of Object.entries(p)) {
+        if (v) n[k] = v;
+        else delete n[k];
+      }
+      return n;
+    });
+  /* sem os dados da parte ainda (ou a API devolveu outra parte): espera */
+  const f = q.data?.aba === b.aba ? q.data : null;
+  return (
+    <section id={`bloco-${b.id}`} aria-labelledby={`titulo-${b.id}`} className="scroll-mt-4">
+      <h2 id={`titulo-${b.id}`} className="mb-3 text-lg font-bold text-texto">
+        {b.titulo}
+      </h2>
+      {q.isError ? (
+        <Aviso tom="red" icone="alerta">
+          {q.error.message}
+        </Aviso>
+      ) : !f ? (
+        <p className="text-apagado">Carregando…</p>
+      ) : (
+        <div aria-busy={q.isFetching}>
+          {f.aba === 'perfil' && <AbaPerfil d={f.dados as Perfil} />}
+          {f.aba === 'log' && <AbaLog d={f.dados as LogAba} />}
+          {f.aba === 'cursos' && <AbaCursos f={f} d={f.dados as CursosAba} setMsg={setMsg} />}
+          {f.aba === 'disponibilidade' && <AbaDisponibilidade f={f} d={f.dados as DispAba} setMsg={setMsg} />}
+          {f.aba === 'financeiro' && <AbaFinanceiro d={f.dados as FinanceiroAba} />}
+          {f.aba === 'acesso' && <AcessoDaPessoa d={f.dados as AcessoPessoa} />}
+          {f.aba === 'contratos' && <AbaContratos alunoId={f.id} volta={`/alunos/${f.id}/contratos`} rot={f.nome} />}
+          <AbaCadastro dados={f.dados} />
+          {f.aba === 'agendamentos' && <AbaAgendamentos f={f} d={f.dados as AgendamentosAba} vai={vai} />}
+          {f.aba === 'feedbacks' && <AbaFeedbacks f={f} d={f.dados as FeedbacksAba} vai={vai} setMsg={setMsg} />}
+        </div>
+      )}
+    </section>
   );
 }

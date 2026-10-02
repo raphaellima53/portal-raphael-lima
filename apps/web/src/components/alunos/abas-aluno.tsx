@@ -1,9 +1,9 @@
 'use client';
 
-import { CalendarIcon } from 'lucide-react';
+import { CircleCheckIcon, CircleIcon, SearchIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { PRESENCA } from '@/components/agenda/aula-comum';
+import { CampoData } from '@/components/campos-data';
 import { Stats } from '@/components/cursos/abas-curso';
 import { GradeDisponibilidade } from '@/components/disponibilidade';
 import { Aviso } from '@/components/ds';
@@ -12,10 +12,12 @@ import { usePaginacao } from '@/components/paginacao';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardHead, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import type { AgendamentosAba, DispAba, FichaResp, FinanceiroAba, LogAba, Perfil, Vinculos } from '@/lib/alunos';
 import { useAcaoAluno } from '@/lib/alunos';
-import { corDeTexto } from '@/lib/cor';
+import { fundoCor } from '@/lib/cor';
 import { cn } from '@/lib/utils';
 import type { Msg } from './comum';
 
@@ -263,14 +265,6 @@ export function AbaDisponibilidade({ f, d, setMsg }: { f: FichaResp; d: DispAba;
 }
 
 /* ---------------- Agendamentos ---------------- */
-const CHIPS: [string, string][] = [
-  ['', 'Todas'],
-  ['executada', 'Executadas'],
-  ['substituida', 'Substituídas'],
-  ['naoFinalizada', 'Não finalizadas'],
-  ['cancelada', 'Canceladas'],
-];
-
 export function Segmento({
   valor,
   opcoes,
@@ -339,182 +333,128 @@ export function Chips({
   );
 }
 
+const semAcento = (t: string) =>
+  t
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+
+/** ícone do status da aula: check na concluída com presença, círculo nos demais (na cor do status) */
+function StatusAula({ s }: { s: AgendamentosAba['aulas'][number]['status'] }) {
+  const Icone = s.tom === 'green' ? CircleCheckIcon : CircleIcon;
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', TOM_STATUS[s.tom] ?? 'text-texto-2')}>
+      <Icone className="size-4 shrink-0" aria-hidden />
+      {s.rotulo}
+    </span>
+  );
+}
+const TOM_STATUS: Partial<Record<string, string>> = {
+  green: 'text-verde',
+  red: 'text-vermelho',
+  amber: 'text-ambar',
+  purple: 'text-roxo',
+  gray: 'text-texto-2',
+};
+
+/**
+ * Histórico › Aulas (02/10/2026, pelo print do usuário): Busca · De · Até · Status e a tabela
+ * Data/Hora · Módulo · Aula · Professor · Status · Ações. De/Até buscam na API; Busca e Status filtram na tela.
+ */
 export function AbaAgendamentos({ f, d, vai }: { f: FichaResp; d: AgendamentosAba; vai: Vai }) {
-  return (
-    <>
-      <div className="mb-4">
-        <Segmento
-          rotulo="Aulas"
-          valor={d.quando}
-          aoMudar={(v) => vai({ quando: v === 'passadas' ? 'passadas' : undefined, dias: undefined })}
-          opcoes={[
-            ['proximas', 'Próximas'],
-            ['passadas', 'Passadas'],
-          ]}
-        />
-      </div>
-      {d.quando === 'proximas' ? <Proximas f={f} d={d} vai={vai} /> : <Passadas d={d} vai={vai} />}
-    </>
+  const [busca, setBusca] = useState('');
+  const [status, setStatus] = useState('');
+  const b = semAcento(busca.trim());
+  const ls = d.aulas.filter(
+    (x) =>
+      (!status || x.status.rotulo === status) &&
+      (!b || semAcento(`${x.aula} ${x.modulo} ${x.prod} ${x.prof}`).includes(b)),
   );
-}
-
-function Proximas({ f, d, vai }: { f: FichaResp; d: Extract<AgendamentosAba, { quando: 'proximas' }>; vai: Vai }) {
-  const { fatia, rodape } = usePaginacao(d.aulas);
-  return (
-    <>
-      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
-        <Escolha
-          rotulo="Período"
-          destacar={false}
-          valor={String(d.dias)}
-          aoMudar={(v) => vai({ dias: v === '14' ? undefined : v })}
-          opcoes={[
-            { v: '7', l: 'próximos 7 dias' },
-            { v: '14', l: 'próximos 14 dias' },
-            { v: '30', l: 'próximos 30 dias' },
-          ]}
-          className="w-[190px]"
-        />
-        {f.pode.agenda && (
-          <Button asChild>
-            <Link href={`/agenda?vista=semanal&aluno=${encodeURIComponent(f.nome)}`}>
-              <CalendarIcon /> Abrir na Agenda
-            </Link>
-          </Button>
-        )}
-      </div>
-      <Card className="overflow-hidden">
-        <CardHead>
-          <CardTitle>Próximas aulas</CardTitle>
-          <Badge tom="blue">{d.aulas.length}</Badge>
-        </CardHead>
-        <Table>
-          <THead>
-            <Tr>
-              <Th>Data</Th>
-              <Th>Horário</Th>
-              <Th>Aula</Th>
-              <Th>Professor</Th>
-              <Th>Sala</Th>
-              <Th>Situação</Th>
-              <Th>Agendar até</Th>
-              <Th>Cancelar sem débito até</Th>
-            </Tr>
-          </THead>
-          <TBody>
-            {fatia.length ? (
-              fatia.map((x) => (
-                <Tr key={x.k}>
-                  <Td className="font-medium whitespace-nowrap text-texto">{x.data}</Td>
-                  <Td className="whitespace-nowrap">{x.horario}</Td>
-                  <Td>
-                    <b className="texto-cor" style={corDeTexto(x.cor)}>
-                      {x.rotulo}
-                    </b>
-                    <div className="text-apagado">{x.prod}</div>
-                  </Td>
-                  <Td>
-                    {x.prof === '—' ? (
-                      <span className="text-vermelho">sem professor</span>
-                    ) : x.profId ? (
-                      <Link href={`/professores/${x.profId}/perfil`} className="text-azul hover:underline">
-                        {x.prof}
-                      </Link>
-                    ) : (
-                      x.prof
-                    )}
-                  </Td>
-                  <Td>{x.sala}</Td>
-                  <Td>
-                    <Badge tom={x.estadoTag[1]}>{x.estadoTag[0]}</Badge>
-                  </Td>
-                  <Td className="whitespace-nowrap">{x.agendarAte}</Td>
-                  <Td className="whitespace-nowrap">{x.limite}</Td>
-                </Tr>
-              ))
-            ) : (
-              <Vazio n={8} txt="nenhuma aula no período" />
-            )}
-          </TBody>
-        </Table>
-        {rodape}
-      </Card>
-    </>
-  );
-}
-
-function Passadas({ d, vai }: { d: Extract<AgendamentosAba, { quando: 'passadas' }>; vai: Vai }) {
-  const [est, setEst] = useState('');
-  const ls = est ? d.aulas.filter((x) => x.estado === est) : d.aulas;
   const { fatia, rodape, setPag } = usePaginacao(ls);
-  const s = d.stats;
+  const opcoes = [...new Set(d.aulas.map((x) => x.status.rotulo))].sort().map((v) => ({ v, l: v }));
+  const volta = `/alunos/${f.id}/agendamentos`;
   return (
     <>
-      <Stats
-        s={[
-          { valor: String(s.aulas), rotulo: 'aulas no período' },
-          { valor: String(s.presencas), rotulo: 'presenças', tom: 'green' },
-          { valor: String(s.faltas), rotulo: 'faltas', tom: s.faltas ? 'red' : undefined },
-          { valor: s.pct != null ? `${s.pct}%` : '—', rotulo: 'de presença' },
-          { valor: String(s.canceladas), rotulo: 'canceladas' },
-        ]}
-      />
-      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
-        <Chips
-          rotulo="Estado da aula"
-          valor={est}
-          aoMudar={(v) => {
-            setEst(v);
-            setPag(1);
-          }}
-          opcoes={CHIPS.map(([k, l]) => ({
-            k,
-            l,
-            n: k ? d.aulas.filter((x) => x.estado === k).length : d.aulas.length,
-          }))}
-        />
-        <Escolha
-          rotulo="Período"
-          destacar={false}
-          valor={String(d.dias)}
-          aoMudar={(v) => vai({ hist: v === '60' ? undefined : v })}
-          opcoes={[
-            { v: '30', l: 'últimos 30 dias' },
-            { v: '60', l: 'últimos 60 dias' },
-            { v: '90', l: 'últimos 90 dias' },
-          ]}
-          className="w-[180px]"
-        />
+      <div className="mb-3 flex flex-wrap items-end gap-4">
+        <div className="grid w-[340px] max-w-full gap-1.5">
+          <Label htmlFor="hist-busca">Busca</Label>
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-apagado" />
+            <Input
+              id="hist-busca"
+              type="search"
+              placeholder="Busque por aula, curso…"
+              className="pl-9"
+              value={busca}
+              onChange={(e) => {
+                setBusca(e.target.value);
+                setPag(1);
+              }}
+            />
+          </div>
+        </div>
+        <div className="grid w-[190px] gap-1.5">
+          <Label htmlFor="hist-de">De</Label>
+          <CampoData id="hist-de" rotulo="De" valor={d.de} aoMudar={(v) => vai({ de: v })} />
+        </div>
+        <div className="grid w-[190px] gap-1.5">
+          <Label htmlFor="hist-ate">Até</Label>
+          <CampoData id="hist-ate" rotulo="Até" valor={d.ate} aoMudar={(v) => vai({ ate: v })} />
+        </div>
+        <div className="grid w-[200px] gap-1.5">
+          <Label>Status</Label>
+          <Escolha
+            rotulo="Status"
+            todos="Todos"
+            valor={status}
+            aoMudar={(v) => {
+              setStatus(v);
+              setPag(1);
+            }}
+            opcoes={opcoes}
+          />
+        </div>
       </div>
+      <p className="mb-3 text-apagado" aria-live="polite">
+        {ls.length} {ls.length === 1 ? 'aula' : 'aulas'}.
+      </p>
       <Card className="overflow-hidden">
         <Table>
           <THead>
             <Tr>
-              <Th>Data</Th>
-              <Th>Horário</Th>
+              <Th>Data/Hora</Th>
+              <Th>Módulo</Th>
               <Th>Aula</Th>
               <Th>Professor</Th>
-              <Th>Estado</Th>
-              <Th>Presença</Th>
+              <Th>Status</Th>
+              <Th>Ações</Th>
             </Tr>
           </THead>
           <TBody>
             {fatia.length ? (
               fatia.map((x) => (
                 <Tr key={x.k}>
-                  <Td className="font-medium whitespace-nowrap text-texto">{x.data}</Td>
-                  <Td className="whitespace-nowrap">{x.horario}</Td>
-                  <Td>
-                    <b className="texto-cor" style={corDeTexto(x.cor)}>
-                      {x.rotulo}
-                    </b>
-                    <div className="text-apagado">{x.prod}</div>
+                  <Td className="whitespace-nowrap text-texto">
+                    {x.data} <span className="text-azul">às {x.hora}</span>
                   </Td>
+                  <Td>
+                    <span
+                      className="inline-block rounded-[6px] px-2 py-0.5 font-semibold whitespace-nowrap"
+                      style={fundoCor(x.cor)}
+                      title={x.prod}
+                    >
+                      {x.modulo}
+                    </span>
+                  </Td>
+                  <Td className="text-texto">{x.aula || <span className="text-apagado">—</span>}</Td>
                   <Td>
                     {x.prof === '—' ? (
                       <span className="text-vermelho">sem professor</span>
                     ) : x.profId ? (
-                      <Link href={`/professores/${x.profId}/perfil`} className="text-azul hover:underline">
+                      <Link
+                        href={`/professores/${x.profId}/perfil`}
+                        className="text-texto hover:text-azul hover:underline"
+                      >
                         {x.prof}
                       </Link>
                     ) : (
@@ -523,21 +463,20 @@ function Passadas({ d, vai }: { d: Extract<AgendamentosAba, { quando: 'passadas'
                     {x.sub && <div className="text-apagado">no lugar de {x.sub}</div>}
                   </Td>
                   <Td>
-                    <Badge tom={x.estadoTag[1]}>{x.estadoTag[0]}</Badge>
+                    <StatusAula s={x.status} />
                   </Td>
                   <Td>
-                    {x.presenca ? (
-                      <Badge tom={x.presenca === 'pendente' ? 'amber' : PRESENCA[x.presenca][1]}>
-                        {PRESENCA[x.presenca][0]}
-                      </Badge>
-                    ) : (
-                      <span className="text-apagado">—</span>
-                    )}
+                    <Link
+                      href={`/agenda/aula?k=${encodeURIComponent(x.k)}&volta=${encodeURIComponent(volta)}`}
+                      className="whitespace-nowrap text-texto-2 hover:text-azul hover:underline"
+                    >
+                      Ver detalhes
+                    </Link>
                   </Td>
                 </Tr>
               ))
             ) : (
-              <Vazio n={6} txt="nenhuma aula neste recorte" />
+              <Vazio n={6} txt={d.aulas.length ? 'nenhuma aula com esses filtros' : 'nenhuma aula no período'} />
             )}
           </TBody>
         </Table>

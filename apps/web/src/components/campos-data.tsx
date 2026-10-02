@@ -80,6 +80,8 @@ export function CampoData({
               const iso = brParaIso(t);
               setErro(t.length === 10 && !iso ? 'Data inválida' : '');
               if (iso) aoMudar(iso);
+              /* campo apagado: limpa o valor (num filtro De/Até, volta ao padrão) */
+              if (!t) aoMudar('');
             }}
             onKeyDown={(e) => {
               if (e.altKey && e.key === 'ArrowDown') {

@@ -135,9 +135,8 @@ export function AbaFeedbacks({
                     <Button asChild size="sm" variant="ghost">
                       <Link
                         href={
-                          p.ir === 'passadas'
-                            ? `/alunos/${f.id}/agendamentos?quando=passadas${d.dias !== 60 ? `&hist=${d.dias}` : ''}`
-                            : `/alunos/${f.id}/cursos`
+                          /* as aulas ficam no bloco Aulas, no alto da mesma aba Histórico */
+                          p.ir === 'passadas' ? '#bloco-agendamentos' : `/alunos/${f.id}/cursos`
                         }
                       >
                         {p.rot}
