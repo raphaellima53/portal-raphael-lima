@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { TELA_CADASTRO, TelaCadastro } from '@/components/cadastro/cadastro';
+import { TelaCiclos } from '@/components/cursos/ciclos';
 import { TelaOfertas, TelaPresets } from '@/components/deal/financeiro';
 import { Aviso, PageHead } from '@/components/ds';
 import { SecaoAbas } from '@/components/secao-abas';
@@ -21,6 +22,9 @@ export default function TelaPendente() {
   const item = itemDoCaminho(me.data.nav, caminho);
   const tela = caminho.split('/')[2];
   const folha = item?.secoes?.flatMap((s) => s.telas).find((t) => t.tela === tela);
+
+  /* Ciclos de aprendizagem (02/10/2026): fora do menu, abre pelo botão da edição do módulo ou da turma; a API confere o acesso */
+  if (caminho.startsWith('/produtos/ciclos')) return <TelaCiclos />;
 
   if (!item || (item.secoes && tela && !folha)) {
     const inicio = inicioDe(me.data.usuario);

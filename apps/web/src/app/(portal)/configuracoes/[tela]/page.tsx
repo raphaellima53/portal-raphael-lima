@@ -28,7 +28,6 @@ const CATALOGOS = [
   'categoriasservico',
   'tiposconteudo',
   'fontes',
-  'categoriascurriculo',
   'progressoes',
   'tiposgeracao',
   'visibilidades',

@@ -10,6 +10,7 @@ import { Aviso, PageHead } from '@/components/ds';
 import { Escolha } from '@/components/escolha';
 import { Excluir } from '@/components/excluir';
 import { usePaginacao } from '@/components/paginacao';
+import { BotaoPlanilhas } from '@/components/planilhas';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -779,9 +780,13 @@ export function TelaCurriculos({ abas }: { abas: React.ReactNode }) {
       <PageHead
         titulo="Currículos e acervos"
         acoes={
-          <Button variant="primary" onClick={() => setNovo({ grupo: '' })}>
-            <PlusIcon /> Novo acervo
-          </Button>
+          <>
+            {/* 02/10/2026: exportar, modelo e importar por CSV, como em Usuários */}
+            <BotaoPlanilhas ents={['curriculos']} />
+            <Button variant="primary" onClick={() => setNovo({ grupo: '' })}>
+              <PlusIcon /> Novo acervo
+            </Button>
+          </>
         }
       />
       {abas}

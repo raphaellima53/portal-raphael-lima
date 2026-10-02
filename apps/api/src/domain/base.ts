@@ -218,6 +218,8 @@ export type Base = {
   fechadas: Set<string>;
   corModulo: Record<string, string>;
   corCurso: Record<string, string>;
+  /** 02/10/2026: conteúdo de cada data dos ciclos ativos — chave curso|módulo ou turma|AAAA-MM-DD */
+  ciclos: Record<string, { cur: string; i: number }>;
 };
 
 let cache: Promise<Base> | null = null;
@@ -258,6 +260,7 @@ async function carrega(): Promise<Base> {
     colaboradores,
     fechadas,
     avulsas,
+    ciclos,
   ] = await Promise.all([
     prisma.curso.findMany({
       orderBy: { ordem: 'asc' },
@@ -287,6 +290,11 @@ async function carrega(): Promise<Base> {
     prisma.colaborador.findMany({ orderBy: { ordem: 'asc' }, select: { nome: true, ativo: true } }),
     prisma.fechamentoCompetencia.findMany({ select: { ym: true } }),
     prisma.aulaAvulsa.findMany({ orderBy: { inicio: 'asc' }, include: { curso: { select: { nome: true } } } }),
+    prisma.cicloAprendizagem.findMany({
+      where: { ativo: true, curriculoId: { not: null } },
+      orderBy: { id: 'asc' },
+      select: { item: true, curriculoId: true, datas: true, curso: { select: { nome: true } } },
+    }),
   ]);
   const permiteModulos = new Map(
     tipos.map((t) => [t.nome, !!(t.dados as { allowsModules?: boolean } | null)?.allowsModules]),
@@ -428,6 +436,14 @@ async function carrega(): Promise<Base> {
     })),
     colaboradores: colaboradores.map((c) => ({ nome: c.nome, ativo: c.ativo })),
     fechadas: new Set(fechadas.map((f) => f.ym)),
+    ciclos: Object.fromEntries(
+      ciclos.flatMap((c) =>
+        (c.datas as { data: string; i: number }[]).map((d) => [
+          `${c.curso.nome}|${c.item}|${d.data}`,
+          { cur: c.curriculoId as string, i: d.i },
+        ]),
+      ),
+    ),
     ajustes: Object.fromEntries(ajustes.map((a) => [a.chave, a.dados as AjusteAula])),
     avulsas: avulsas.map((v) => ({
       id: v.id,

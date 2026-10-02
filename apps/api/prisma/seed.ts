@@ -29,7 +29,6 @@ const CATALOGOS_ALUMNI: Record<string, string[]> = {
   categoriasServico: ['Atendimento', 'Acompanhamento', 'Consultoria'],
   tiposConteudo: ['Vídeo', 'Áudio', 'PDF', 'Link', 'Exercício', 'SCORM'],
   fontes: ['Própria', 'Parceiro', 'Livro didático', 'Internet'],
-  categoriasCurriculo: ['Geral', 'Business', 'Conversação', 'Preparatório'],
   progressoes: ['Linear', 'Por módulo', 'Livre'],
   tiposGeracao: ['Automática', 'Manual'],
   visibilidadesOferta: ['Pública', 'Só convidados', 'Interna'],

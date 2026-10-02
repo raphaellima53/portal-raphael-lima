@@ -46,12 +46,6 @@ export const CAT = {
     tela: 'tiposconteudo',
   },
   fontes: { t: 'Fontes de conteúdo', um: 'fonte', novo: 'Nova fonte', tela: 'fontes' },
-  categoriascurriculo: {
-    t: 'Categorias de currículo',
-    um: 'categoria de currículo',
-    novo: 'Nova categoria de currículo',
-    tela: 'categoriascurriculo',
-  },
   progressoes: { t: 'Progressões', um: 'progressão', novo: 'Nova progressão', tela: 'progressoes' },
   tiposgeracao: { t: 'Tipos de geração', um: 'tipo de geração', novo: 'Novo tipo de geração', tela: 'tiposgeracao' },
   visibilidades: {
@@ -73,7 +67,6 @@ export const CAT_TIPO: Record<Exclude<CatK, 'departamentos' | 'cargos'>, string>
   categoriasservico: 'categoriasServico',
   tiposconteudo: 'tiposConteudo',
   fontes: 'fontes',
-  categoriascurriculo: 'categoriasCurriculo',
   progressoes: 'progressoes',
   tiposgeracao: 'tiposGeracao',
   visibilidades: 'visibilidadesOferta',

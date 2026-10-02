@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CheckIcon, ExternalLinkIcon, PlusIcon, XIcon } from 'lucide-react';
+import { CheckIcon, ExternalLinkIcon, PlusIcon, RepeatIcon, XIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -367,6 +367,11 @@ export function CursoFormDialog({
                       setMsgModulo(null);
                     }}
                     estado={estadoDe(valoresItens[k])}
+                    ciclos={
+                      cursoId != null && valoresItens[k]?.salvoComo
+                        ? { cursoId, item: valoresItens[k].salvoComo }
+                        : null
+                    }
                     salvando={salvando === k}
                     ocupado={salvando != null || salvar.isPending}
                     aoSalvar={() => salvaModulo(k)}
@@ -640,6 +645,7 @@ export function ModuloDialog({
               register={f.register}
               op={opcoes.data}
               erros={e.itens?.[0] as Record<string, { message?: string }> | undefined}
+              ciclos={nome ? { cursoId, item: nome } : null}
             />
           </DialogBody>
           <DialogFoot>
@@ -676,6 +682,7 @@ function ItemCard({
   aoSalvar,
   msg,
   solto = false,
+  ciclos,
 }: {
   k: number;
   modulo: boolean;
@@ -691,6 +698,8 @@ function ItemCard({
   msg?: { ok: boolean; txt: string } | null;
   /** só os campos, sem cabeçalho nem botão de salvar (diálogo de módulo da aba Módulos) */
   solto?: boolean;
+  /** módulo ou turma já gravado: botão para os ciclos de aprendizagem dele */
+  ciclos?: { cursoId: number; item: string } | null;
 }) {
   const qual = modulo ? 'módulo' : 'turma';
   return (
@@ -839,6 +848,20 @@ function ItemCard({
             </Button>
           </div>
         </>
+      )}
+      {ciclos && (
+        /* 02/10/2026: os ciclos de aprendizagem moram na edição do módulo ou da turma */
+        <div className="flex flex-wrap items-center gap-3 border-t border-borda-suave pt-3 sm:col-span-2">
+          <span className="text-texto-2">
+            Ciclos de aprendizagem: qual conteúdo do currículo cai em cada data{' '}
+            {modulo ? 'deste módulo' : 'desta turma'}
+          </span>
+          <Button asChild size="sm" className="ml-auto">
+            <Link href={`/produtos/ciclos?curso=${ciclos.cursoId}&item=${encodeURIComponent(ciclos.item)}`}>
+              <RepeatIcon /> Ciclos de aprendizagem
+            </Link>
+          </Button>
+        </div>
       )}
     </div>
   );

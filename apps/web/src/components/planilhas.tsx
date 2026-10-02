@@ -19,14 +19,28 @@ import {
 import { Table, TBody, Td, THead, Th, Tr } from '@/components/ui/table';
 import { API_URL, api } from '@/lib/api';
 
-export type EntPlanilha = 'alunos' | 'professores' | 'colaboradores';
+export type EntPlanilha = 'alunos' | 'professores' | 'colaboradores' | 'curriculos';
 const NOME: Record<EntPlanilha, [string, string]> = {
   alunos: ['aluno', 'alunos'],
   professores: ['professor', 'professores'],
   colaboradores: ['colaborador', 'colaboradores'],
+  curriculos: ['currículo', 'currículos'],
+};
+/** como preencher o modelo (subtítulo do Importar) */
+const DICA: Partial<Record<EntPlanilha, string>> = {
+  curriculos:
+    'use o modelo (Planilha › Baixar modelo): uma linha por lição; as linhas com o mesmo Currículo formam um currículo, na ordem do arquivo. Importar publica uma versão nova — a anterior fica no histórico',
 };
 type LinhaImp = { linha: number; nome: string; erros: string[]; ok?: boolean };
-type Resp = { linhas: LinhaImp[]; total: number; validas?: number; criados?: number; msg?: string };
+type Resp = {
+  linhas: LinhaImp[];
+  total: number;
+  validas?: number;
+  criados?: number;
+  msg?: string;
+  /** currículos: a unidade importada agrupa várias linhas (lições) */
+  unidades?: { total: number; validas: number; novos: number };
+};
 
 /** baixa um CSV da API (exportar ou modelo) com o cookie de sessão */
 async function baixa(caminho: string, nome: string) {
@@ -155,7 +169,9 @@ function ImportarDialog({ ent, aoFechar }: { ent: EntPlanilha | null; aoFechar: 
       <DialogContent tamanho="lg">
         <DialogHead
           titulo={`Importar ${n[1]}`}
-          descricao="use o modelo (Planilha › Baixar modelo): uma linha por cadastro, datas em dd/mm/aaaa"
+          descricao={
+            (ent && DICA[ent]) ?? 'use o modelo (Planilha › Baixar modelo): uma linha por cadastro, datas em dd/mm/aaaa'
+          }
         />
         <DialogBody className="grid gap-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -190,6 +206,8 @@ function ImportarDialog({ ent, aoFechar }: { ent: EntPlanilha | null; aoFechar: 
                 <p className="m-0 text-texto-2">
                   {res.total} {res.total === 1 ? 'linha' : 'linhas'} no arquivo · <b>{validas} prontas</b> para importar
                   {res.total - validas ? ` · ${res.total - validas} com erro (ficam de fora)` : ''}
+                  {res.unidades &&
+                    ` · ${res.unidades.validas} de ${res.unidades.total} ${res.unidades.total === 1 ? n[0] : n[1]} (${res.unidades.novos} ${res.unidades.novos === 1 ? 'novo' : 'novos'})`}
                 </p>
               )}
               <div className="overflow-hidden rounded-md border border-borda">
@@ -227,10 +245,14 @@ function ImportarDialog({ ent, aoFechar }: { ent: EntPlanilha | null; aoFechar: 
           {!gravado && (
             <Button
               variant="primary"
-              disabled={!arquivo || !validas || ocupado}
+              disabled={!arquivo || !validas || ocupado || res?.unidades?.validas === 0}
               onClick={() => arquivo && envia(arquivo.texto, true)}
             >
-              {ocupado ? 'Importando…' : `Importar ${validas} ${validas === 1 ? n[0] : n[1]}`}
+              {ocupado
+                ? 'Importando…'
+                : res?.unidades
+                  ? `Importar ${res.unidades.validas} ${res.unidades.validas === 1 ? n[0] : n[1]}`
+                  : `Importar ${validas} ${validas === 1 ? n[0] : n[1]}`}
             </Button>
           )}
         </DialogFoot>

@@ -253,7 +253,6 @@ export const MENUS: Menu[] = [
               { t: 'Categorias de serviço', tela: 'categoriasservico' },
               { t: 'Tipos de conteúdo', tela: 'tiposconteudo' },
               { t: 'Fontes de conteúdo', tela: 'fontes' },
-              { t: 'Categorias de currículo', tela: 'categoriascurriculo' },
               { t: 'Progressões', tela: 'progressoes' },
               { t: 'Tipos de geração', tela: 'tiposgeracao' },
               { t: 'Visibilidades de oferta', tela: 'visibilidades' },
@@ -593,7 +592,8 @@ export const NAV_EQUIPE: ItemDef[] = [
       sec('Cursos', { tela: 'cursos', label: 'Catálogo' }, 'turmas'),
       /* 02/10/2026: Ofertas oculta até ser definida; para voltar, descomentar */
       // sec('Ofertas', 'dlOfertas', 'dlPresets'),
-      sec('Materiais', { tela: 'curriculo', label: 'Currículos e acervos' }, 'conteudos', 'ciclos', 'calendarios'),
+      /* 02/10/2026: Ciclos de aprendizagem saiu daqui e mora na edição do módulo ou da turma, no curso */
+      sec('Materiais', { tela: 'curriculo', label: 'Currículos e acervos' }, 'conteudos', 'calendarios'),
       sec('Serviços', 'servicos'),
     ],
   },
@@ -713,7 +713,6 @@ export const NAV_EQUIPE: ItemDef[] = [
           'categoriasservico',
           'tiposconteudo',
           'fontes',
-          'categoriascurriculo',
           'progressoes',
           'tiposgeracao',
           'visibilidades',

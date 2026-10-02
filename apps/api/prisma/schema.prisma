@@ -871,6 +871,20 @@ model CicloAprendizagem {
   nascimento   Boolean     @default(false)
   ativo        Boolean     @default(true)
   criadoEm     DateTime    @default(now())
+  /// 02/10/2026: o ciclo vale para um módulo ou turma do curso e define o conteúdo de cada data
+  item         String      @default("")
+  inicio       DateTime?   @db.Date
+  /// "periodo" (até a data de fim) ou "quantidade" (até N conteúdos)
+  modo         String      @default("periodo")
+  fim          DateTime?   @db.Date
+  quantidade   Int?
+  porSemana    Int         @default(1)
+  /// "repeticao" (o conteúdo ocupa dias seguidos) ou "livre" (os conteúdos se intercalam)
+  distribuicao String      @default("repeticao")
+  /// currículo publicado de onde saem os conteúdos
+  curriculoId  String?
+  /// [{ data: AAAA-MM-DD, s: posição na sequência, i: conteúdo do currículo }], validado na tela
+  datas        Json        @default("[]")
 
   @@unique([cursoId, nome])
 }

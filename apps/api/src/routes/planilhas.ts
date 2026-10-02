@@ -1,6 +1,6 @@
 /**
- * Planilhas (30/09/2026): exportar em CSV, baixar o modelo e importar o modelo preenchido — alunos, professores e
- * colaboradores. O CSV usa ; e BOM (o Excel em pt-BR abre certo) e aceita , na importação. Datas em dd/mm/aaaa;
+ * Planilhas (30/09/2026): exportar em CSV, baixar o modelo e importar o modelo preenchido — alunos, professores,
+ * colaboradores e (02/10/2026) currículos, uma linha por lição. O CSV usa ; e BOM (o Excel em pt-BR abre certo) e aceita , na importação. Datas em dd/mm/aaaa;
  * listas (cursos do professor) separadas por |.
  *
  * A importação grava cada linha pela mesma rota do cadastro da tela (POST /alunos, /professores,
@@ -10,7 +10,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db.ts';
-import { AL_SIT } from '../domain/agenda.ts';
+import { AL_SIT, crsItens } from '../domain/agenda.ts';
+import { base } from '../domain/base.ts';
 import { podeChave } from '../domain/mapa.ts';
 import { dataUTC, GENEROS } from '../lib/pessoa.ts';
 import { exigeCfg } from './config-acessos.ts';
@@ -228,6 +229,13 @@ async function linhasExport(ent: Ent): Promise<unknown[][]> {
 }
 
 /* ---------------- importar: prévia ---------------- */
+/** as linhas abaixo do cabeçalho com o número delas no arquivo; a de exemplo ("Exemplo…") fica de fora */
+const corpoDe = (tab: string[][]) =>
+  tab
+    .slice(1)
+    .map((l, i) => ({ l, n: i + 2 }))
+    .filter(({ l }) => !/^exemplo/i.test((l[0] ?? '').trim()));
+
 type Previa = { linha: number; nome: string; erros: string[]; dados: Linha };
 
 async function existentes(ent: Ent) {
@@ -252,7 +260,7 @@ async function previa(ent: Ent, texto: string): Promise<{ erro: string } | { lin
   const idx = cols.map((c) => cab.indexOf(norm(c.t)));
   const faltam = cols.filter((c, i) => c.req === true && idx[i] < 0).map((c) => c.t);
   if (faltam.length) return { erro: `Faltam colunas do modelo: ${faltam.join(', ')}. Baixe o modelo e preencha nele.` };
-  const corpo = tab.slice(1).filter((l) => !/^exemplo/i.test((l[0] ?? '').trim()));
+  const corpo = corpoDe(tab);
   if (corpo.length > 300) return { erro: 'Importe até 300 linhas por arquivo.' };
   const ja = await existentes(ent);
   const cargos =
@@ -265,7 +273,7 @@ async function previa(ent: Ent, texto: string): Promise<{ erro: string } | { lin
       : null;
   const noArquivo = { email: new Map<string, number>(), cpf: new Map<string, number>() };
   return {
-    linhas: corpo.map((l, n) => {
+    linhas: corpo.map(({ l, n }) => {
       const d: Linha = {};
       cols.forEach((c, i) => {
         d[c.k] = idx[i] >= 0 ? (l[idx[i]] ?? '').trim() : '';
@@ -310,9 +318,9 @@ async function previa(ent: Ent, texto: string): Promise<{ erro: string } | { lin
         erros.push('Já existe professor com este nome.');
       if (email && noArquivo.email.has(email)) erros.push(`E-mail repetido na linha ${noArquivo.email.get(email)}.`);
       if (cpf && noArquivo.cpf.has(cpf)) erros.push(`CPF repetido na linha ${noArquivo.cpf.get(cpf)}.`);
-      if (email) noArquivo.email.set(email, n + 2);
-      if (cpf) noArquivo.cpf.set(cpf, n + 2);
-      return { linha: n + 2, nome: d.nome || '—', erros, dados: d };
+      if (email) noArquivo.email.set(email, n);
+      if (cpf) noArquivo.cpf.set(cpf, n);
+      return { linha: n, nome: d.nome || '—', erros, dados: d };
     }),
   };
 }
@@ -357,13 +365,144 @@ function corpoDoCadastro(ent: Ent, d: Linha) {
   };
 }
 
+/* ---------------- currículos (02/10/2026) ---------------- */
+/*
+ * Uma linha por lição; as linhas com o mesmo Currículo formam um currículo, na ordem do arquivo. Importar cria o
+ * currículo (ou abre uma versão nova do que já existe), troca os conteúdos e publica — a versão anterior fica no
+ * histórico. Uma linha sem título de lição cria o currículo vazio (sem publicar).
+ */
+type CurConteudo = {
+  titulo: string;
+  formato: string;
+  gram: string;
+  voc: [string, string][];
+  links: { pre: string; in: string; post: string };
+};
+type CurVersao = [string, string, string, CurConteudo[]];
+
+const CUR_COLS: Col[] = [
+  { k: 'curriculo', t: 'Currículo', req: true, ex: 'Community live classes · Confidence' },
+  { k: 'grupo', t: 'Curso ou acervo', req: true, ex: 'Community live classes' },
+  { k: 'idioma', t: 'Idioma (só acervo)', ex: '', opcoes: ['Inglês', 'Espanhol'] },
+  { k: 'aplicado', t: 'Aplicado em (separados por |)', ex: 'Confidence' },
+  { k: 'titulo', t: 'Título da lição', ex: 'Is it going to rain?' },
+  { k: 'formato', t: 'Formato', ex: 'Interativa', opcoes: ['Interativa', 'Simples'] },
+  { k: 'gram', t: 'Gramática', ex: 'Present simple' },
+  { k: 'voc', t: 'Vocabulário', ex: 'forecast (n); get along (v)' },
+  { k: 'pre', t: 'Link Pre-class', ex: 'https://materiais.exemplo.com/aula-1/pre' },
+  { k: 'in', t: 'Link In-class', ex: 'https://materiais.exemplo.com/aula-1/in' },
+  { k: 'post', t: 'Link Post-class', ex: '' },
+];
+const LICAO = ['titulo', 'formato', 'gram', 'voc', 'pre', 'in', 'post'];
+const linkOk = (u: string) => !u || /^https?:\/\/\S+$/i.test(u);
+
+async function curExport(): Promise<unknown[][]> {
+  const xs = await prisma.curriculo.findMany({ orderBy: { ordem: 'asc' } });
+  return xs.flatMap((c) => {
+    const vs = c.versoes as CurVersao[];
+    /* a versão publicada (o que as aulas leem); sem ela, o rascunho */
+    const ls = vs.filter((v) => v[1] === 'Publicada').pop()?.[3] ?? vs[vs.length - 1]?.[3] ?? [];
+    const cab = [c.nome, c.grupo, c.tipo === 'acervo' ? c.idioma : '', c.aplicado.join(' | ')];
+    if (!ls.length) return [[...cab, '', '', '', '', '', '', '']];
+    return ls.map((x) => [
+      ...cab,
+      x.titulo,
+      x.formato,
+      x.gram,
+      (x.voc ?? []).map(([p, t]) => `${p} (${t})`).join('; '),
+      x.links?.pre ?? '',
+      x.links?.in ?? '',
+      x.links?.post ?? '',
+    ]);
+  });
+}
+
+type CurGrupo = { nome: string; linhas: Previa[]; existe: { id: string } | null; produto: boolean };
+
+async function curPrevia(texto: string): Promise<{ erro: string } | { grupos: CurGrupo[] }> {
+  const tab = leCsv(texto);
+  if (tab.length < 2) return { erro: 'O arquivo não tem linhas preenchidas abaixo do cabeçalho.' };
+  const cab = tab[0].map(norm);
+  const idx = CUR_COLS.map((c) => cab.indexOf(norm(c.t)));
+  const faltam = CUR_COLS.filter((c, i) => (c.req === true || c.k === 'titulo') && idx[i] < 0).map((c) => c.t);
+  if (faltam.length) return { erro: `Faltam colunas do modelo: ${faltam.join(', ')}. Baixe o modelo e preencha nele.` };
+  const corpo = corpoDe(tab);
+  if (corpo.length > 2000) return { erro: 'Importe até 2.000 linhas por arquivo.' };
+  const b = await base();
+  const cursos = new Map(b.cursos.map((c) => [norm(c.name), c]));
+  const ja = new Map(
+    (await prisma.curriculo.findMany({ select: { id: true, nome: true } })).map((c) => [c.nome.toLowerCase(), c]),
+  );
+  const grupos = new Map<string, CurGrupo>();
+  corpo.forEach(({ l, n }) => {
+    const d: Linha = {};
+    CUR_COLS.forEach((c, i) => {
+      d[c.k] = idx[i] >= 0 ? (l[idx[i]] ?? '').trim() : '';
+    });
+    const erros: string[] = [];
+    for (const c of CUR_COLS) {
+      const v = d[c.k];
+      if (!v) {
+        if (c.req === true) erros.push(`${c.t} é obrigatório.`);
+        continue;
+      }
+      if (c.opcoes && !c.opcoes.some((o) => norm(o) === norm(v))) erros.push(`${c.t}: use ${c.opcoes.join(', ')}.`);
+      else if (c.opcoes) d[c.k] = c.opcoes.find((o) => norm(o) === norm(v)) ?? v;
+    }
+    if (!d.titulo && LICAO.some((k) => d[k])) erros.push('Título da lição é obrigatório quando a lição tem dados.');
+    for (const [k, rot] of [
+      ['pre', 'Pre-class'],
+      ['in', 'In-class'],
+      ['post', 'Post-class'],
+    ])
+      if (!linkOk(d[k])) erros.push(`Link ${rot}: use um endereço completo, começando com https://.`);
+    const chave = d.curriculo.toLowerCase();
+    let g = grupos.get(chave);
+    if (!g) {
+      const curso = cursos.get(norm(d.grupo));
+      g = { nome: d.curriculo, linhas: [], existe: ja.get(chave) ?? null, produto: !!curso };
+      grupos.set(chave, g);
+    }
+    g.linhas.push({ linha: n, nome: `${d.curriculo || '—'} · ${d.titulo || 'sem lição'}`, erros, dados: d });
+  });
+  /* conferências do currículo inteiro: o 1º preenchimento de cada coluna vale para todas as linhas dele */
+  for (const g of grupos.values()) {
+    const prim = (k: string) => g.linhas.find((l) => l.dados[k])?.dados[k] ?? '';
+    const erros: string[] = [];
+    const grupo = prim('grupo');
+    if (g.linhas.some((l) => l.dados.grupo && norm(l.dados.grupo) !== norm(grupo)))
+      erros.push('O mesmo currículo aparece com cursos ou acervos diferentes.');
+    const curso = cursos.get(norm(grupo));
+    const aplicado = prim('aplicado')
+      .split('|')
+      .map((x) => x.trim())
+      .filter(Boolean);
+    if (curso) {
+      const itens = crsItens(curso);
+      const fora = aplicado.filter((x) => !itens.some((i) => norm(i) === norm(x)));
+      if (fora.length) erros.push(`${fora.join(', ')} não existe em ${curso.name}.`);
+    } else if (!prim('idioma') && !g.existe) erros.push('Acervo novo: informe o Idioma (Inglês ou Espanhol).');
+    if (g.linhas.filter((l) => !l.dados.titulo).length && g.linhas.some((l) => l.dados.titulo))
+      erros.push('Linha sem título de lição num currículo que tem lições.');
+    if (erros.length) for (const l of g.linhas) l.erros.push(...erros);
+  }
+  return { grupos: [...grupos.values()] };
+}
+
 /* ---------------- rotas ---------------- */
-const EntP = z.object({ ent: z.enum(['alunos', 'professores', 'colaboradores']) });
+const EntP = z.object({ ent: z.enum(['alunos', 'professores', 'colaboradores', 'curriculos']) });
 
 async function exigeEnt(req: FastifyRequest, rep: FastifyReply) {
   const p = EntP.safeParse(req.params);
   if (!p.success) return rep.code(404).send({ erro: 'Planilha não encontrada.' });
   if (p.data.ent === 'colaboradores') return exigeCfg(req, rep);
+  if (p.data.ent === 'curriculos') {
+    const u = req.usuario;
+    if (!u) return rep.code(401).send({ erro: 'Sessão expirada. Entre de novo.' });
+    if (u.ehAluno || !['curso.curriculo', 'cfg'].some((c) => podeChave(u, c)))
+      return rep.code(403).send({ erro: 'Sem acesso a esta tela.' });
+    return;
+  }
   const u = req.usuario;
   if (!u) return rep.code(401).send({ erro: 'Sessão expirada. Entre de novo.' });
   if (u.ehAluno || !podeChave(u, ENT[p.data.ent].chave)) return rep.code(403).send({ erro: 'Sem acesso a esta tela.' });
@@ -376,20 +515,114 @@ const anexo = (rep: FastifyReply, nome: string, texto: string) =>
     .header('content-disposition', `attachment; filename="${nome}"`)
     .send(texto);
 
+/** prévia ou gravação dos currículos: cada currículo pelas rotas da tela (criar, editar, conteúdos, publicar) */
+async function importaCurriculos(
+  app: FastifyInstance,
+  req: FastifyRequest,
+  rep: FastifyReply,
+  texto: string,
+  gravar: boolean,
+) {
+  const p = await curPrevia(texto);
+  if ('erro' in p) return rep.code(400).send(p);
+  const todas = p.grupos.flatMap((g) => g.linhas);
+  const curs = p.grupos.length;
+  const ok = p.grupos.filter((g) => g.linhas.every((l) => !l.erros.length));
+  if (!gravar)
+    return {
+      linhas: todas.map(({ linha, nome, erros }) => ({ linha, nome, erros })),
+      total: todas.length,
+      validas: ok.reduce((s, g) => s + g.linhas.length, 0),
+      unidades: { total: curs, validas: ok.length, novos: ok.filter((g) => !g.existe).length },
+    };
+  const chama = async (method: 'POST' | 'PUT', url: string, corpo: unknown) => {
+    const r = await app.inject({
+      method,
+      url,
+      headers: { cookie: req.headers.cookie ?? '', 'content-type': 'application/json' },
+      payload: JSON.stringify(corpo),
+    });
+    return { ok: r.statusCode < 300, j: r.json() as { id?: string; erro?: string } };
+  };
+  const out: { linha: number; nome: string; erros: string[]; ok?: boolean }[] = [];
+  let feitos = 0;
+  for (const g of p.grupos) {
+    const marca = (erro?: string) => {
+      for (const l of g.linhas)
+        out.push({ linha: l.linha, nome: l.nome, erros: erro ? [erro] : l.erros, ok: !erro && !l.erros.length });
+    };
+    if (g.linhas.some((l) => l.erros.length)) {
+      marca();
+      continue;
+    }
+    const prim = (k: string) => g.linhas.find((l) => l.dados[k])?.dados[k] ?? '';
+    const aplicado = prim('aplicado')
+      ? prim('aplicado')
+          .split('|')
+          .map((x) => x.trim())
+          .filter(Boolean)
+      : undefined;
+    const cab = { nome: g.nome, aplicado };
+    const r = g.existe
+      ? await chama('PUT', `/curriculos/${g.existe.id}`, cab)
+      : await chama(
+          'POST',
+          '/curriculos',
+          g.produto
+            ? { ...cab, curso: prim('grupo') }
+            : { ...cab, grupo: prim('grupo'), idioma: prim('idioma') || undefined },
+        );
+    const id = g.existe?.id ?? r.j.id;
+    if (!r.ok || !id) {
+      marca(r.j.erro ?? 'Não foi possível gravar o currículo.');
+      continue;
+    }
+    const licoes = g.linhas.filter((l) => l.dados.titulo).map((l) => l.dados);
+    if (licoes.length) {
+      const c = await chama('PUT', `/curriculos/${id}/conteudos`, {
+        conteudos: licoes.map((d) => ({
+          titulo: d.titulo,
+          formato: d.formato || 'Interativa',
+          gram: d.gram,
+          voc: d.voc,
+          pre: d.pre,
+          in: d.in,
+          post: d.post,
+        })),
+      });
+      const pub = c.ok ? await chama('POST', `/curriculos/${id}/publicar`, {}) : c;
+      if (!pub.ok) {
+        marca(pub.j.erro ?? 'Não foi possível gravar as lições.');
+        continue;
+      }
+    }
+    marca();
+    feitos++;
+  }
+  return {
+    linhas: out,
+    total: out.length,
+    criados: feitos,
+    msg: `${feitos} de ${curs} ${curs === 1 ? 'currículo importado e publicado' : 'currículos importados e publicados'} (a versão anterior fica no histórico).`,
+  };
+}
+
 export default async function rotasPlanilhas(app: FastifyInstance) {
   app.get('/planilhas/:ent/exportar', { preHandler: exigeEnt }, async (req, rep) => {
     const { ent } = EntP.parse(req.params);
+    if (ent === 'curriculos')
+      return anexo(rep, `curriculos-${hoje()}.csv`, csv([CUR_COLS.map((c) => c.t), ...(await curExport())]));
     const cols = ENT[ent].cols;
     return anexo(rep, `${ENT[ent].titulo}-${hoje()}.csv`, csv([cols.map((c) => c.t), ...(await linhasExport(ent))]));
   });
 
   app.get('/planilhas/:ent/modelo', { preHandler: exigeEnt }, async (req, rep) => {
     const { ent } = EntP.parse(req.params);
-    const cols = ENT[ent].cols;
+    const cols = ent === 'curriculos' ? CUR_COLS : ENT[ent].cols;
     /* cabeçalho com * nos obrigatórios e uma linha de exemplo (começa com "Exemplo", a importação ignora) */
-    const cab = cols.map((c) => (c.req === true ? `${c.t}*` : c.t));
+    const cab = cols.map((c) => (c.req === true || (ent === 'curriculos' && c.k === 'titulo') ? `${c.t}*` : c.t));
     const ex = cols.map((c, i) => (i === 0 ? `Exemplo - ${c.ex}` : c.ex));
-    return anexo(rep, `modelo-${ENT[ent].titulo}.csv`, csv([cab, ex]));
+    return anexo(rep, `modelo-${ent === 'curriculos' ? 'curriculos' : ENT[ent].titulo}.csv`, csv([cab, ex]));
   });
 
   app.post('/planilhas/:ent/importar', { preHandler: exigeEnt, bodyLimit: 5 * 1024 * 1024 }, async (req, rep) => {
@@ -398,6 +631,7 @@ export default async function rotasPlanilhas(app: FastifyInstance) {
       .object({ csv: z.string().min(1).max(5_000_000), gravar: z.boolean().default(false) })
       .safeParse(req.body);
     if (!b.success) return rep.code(400).send({ erro: 'Envie o arquivo CSV.' });
+    if (ent === 'curriculos') return importaCurriculos(app, req, rep, b.data.csv, b.data.gravar);
     const p = await previa(ent, b.data.csv);
     if ('erro' in p) return rep.code(400).send(p);
     const resumo = (ls: { erros: string[] }[]) => ({

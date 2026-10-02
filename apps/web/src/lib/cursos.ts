@@ -287,8 +287,7 @@ export type CurriculoFormOpcoes = {
   curso: { nome: string; estrutura: string; itens: string[] } | null;
   copiar: { id: string; nome: string }[];
   acervos: string[];
-  atual: { nome: string; aplicado: string[]; categoria: string } | null;
-  categorias: string[];
+  atual: { nome: string; aplicado: string[] } | null;
 };
 
 export const useCurriculo = (id: string) =>

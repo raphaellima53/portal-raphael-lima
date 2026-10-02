@@ -73,6 +73,12 @@ export function aulaCur(b: Base, a: Aula): { c: CurriculoB; x: ConteudoCur; troc
     const c = cur ? b.curriculos.find((x) => x.id === cur) : undefined;
     return c?.conteudos[Number(i)] ? { c, x: c.conteudos[Number(i)] } : null;
   }
+  /* 02/10/2026: a data validada num ciclo de aprendizagem do módulo ou turma define o conteúdo */
+  const ci = a.mod ? b.ciclos[`${a.prod}|${a.mod}|${fmt.iso(a.quando)}`] : undefined;
+  if (ci) {
+    const c = b.curriculos.find((x) => x.id === ci.cur);
+    if (c?.conteudos[ci.i]) return { c, x: c.conteudos[ci.i] };
+  }
   const cs = b.curriculos.filter((x) => x.grupo === a.prod && (!a.mod || x.aplicado.includes(a.mod)));
   const c = cs[0] || b.curriculos.find((x) => x.grupo === a.prod);
   if (!c?.conteudos.length) return null;

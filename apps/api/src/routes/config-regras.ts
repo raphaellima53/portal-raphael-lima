@@ -365,8 +365,6 @@ export default async function rotasConfigRegras(app: FastifyInstance) {
           await prisma.servico.updateMany({ where: { categoria: antes }, data: { categoria: v.nome } });
         if (k === 'tiposconteudo') await prisma.conteudo.updateMany({ where: { tipo: antes }, data: { tipo: v.nome } });
         if (k === 'fontes') await prisma.conteudo.updateMany({ where: { fonte: antes }, data: { fonte: v.nome } });
-        if (k === 'categoriascurriculo')
-          await prisma.curriculo.updateMany({ where: { categoria: antes }, data: { categoria: v.nome } });
         if (k === 'progressoes')
           await prisma.cicloAprendizagem.updateMany({ where: { progressao: antes }, data: { progressao: v.nome } });
         if (k === 'tiposgeracao')

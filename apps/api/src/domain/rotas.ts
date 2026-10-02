@@ -67,7 +67,6 @@ const MENU_DAS_TELAS: Record<string, string[]> = {
     'categoriasservico',
     'tiposconteudo',
     'fontes',
-    'categoriascurriculo',
     'progressoes',
     'tiposgeracao',
     'visibilidades',

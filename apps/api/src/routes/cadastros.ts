@@ -91,15 +91,7 @@ async function linhas(c: Cadastro, pai: string | null, ops: Record<string, Opcao
 }
 
 /** catálogos que os formulários da equipe podem ler (nomes ativos) */
-const CATALOGOS_LIVRES = [
-  'genders',
-  'finResp',
-  'skills',
-  'roomTypes',
-  'languages',
-  'visibilidadesOferta',
-  'categoriasCurriculo',
-];
+const CATALOGOS_LIVRES = ['genders', 'finResp', 'skills', 'roomTypes', 'languages', 'visibilidadesOferta'];
 
 export default async function rotasCadastros(app: FastifyInstance) {
   /* opções dos catálogos para os formulários: /catalogo-opcoes?tipos=genders,finResp */

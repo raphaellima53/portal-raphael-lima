@@ -725,7 +725,7 @@ export default async function rotasCursos(app: FastifyInstance) {
     const b = await base();
     const todos = await prisma.curriculo.findMany({
       orderBy: { ordem: 'asc' },
-      select: { id: true, nome: true, grupo: true, tipo: true, aplicado: true, categoria: true },
+      select: { id: true, nome: true, grupo: true, tipo: true, aplicado: true },
     });
     const c = id ? todos.find((x) => x.id === id) : null;
     const g = c ? c.grupo : grupo;
@@ -739,14 +739,7 @@ export default async function rotasCursos(app: FastifyInstance) {
         .filter((x) => x.grupo === g || (!prod && x.tipo === 'acervo'))
         .map((x) => ({ id: x.id, nome: x.nome })),
       acervos: [...new Set(todos.filter((x) => x.tipo === 'acervo').map((x) => x.grupo))],
-      atual: c ? { nome: c.nome, aplicado: c.aplicado, categoria: c.categoria } : null,
-      /* adequação ao Portal Alumni: catálogo Categorias de currículo */
-      categorias: (
-        await prisma.catalogo.findMany({
-          where: { tipo: 'categoriasCurriculo', ativo: true },
-          orderBy: [{ ordem: 'asc' }, { nome: 'asc' }],
-        })
-      ).map((x) => x.nome),
+      atual: c ? { nome: c.nome, aplicado: c.aplicado } : null,
     };
   });
 
@@ -758,7 +751,6 @@ export default async function rotasCursos(app: FastifyInstance) {
     idioma: z.enum(['Inglês', 'Espanhol']).optional(),
     copia: z.string().optional(),
     curso: z.string().optional(),
-    categoria: z.string().trim().max(80).optional(),
   });
 
   const aplicaEm = async (alvo: { id: string; grupo: string }, ap: string[] | undefined) => {
@@ -814,7 +806,6 @@ export default async function rotasCursos(app: FastifyInstance) {
         tipo,
         idioma,
         ordem,
-        categoria: v.categoria ?? '',
         aplicado: curso?.estrutura === 'nenhuma' ? ['cada contrato particular'] : [],
         versoes: [['v1', 'Rascunho', '—', conteudosCopia]] as never,
         conteudos: [],
@@ -845,7 +836,7 @@ export default async function rotasCursos(app: FastifyInstance) {
       return rep.code(400).send({ erro: 'Já existe um currículo com esse nome.' });
     await prisma.curriculo.update({
       where: { id: c.id },
-      data: { nome: v.nome, ...(v.categoria != null ? { categoria: v.categoria } : {}) },
+      data: { nome: v.nome },
     });
     const movidos = await aplicaEm(c, v.aplicado);
     const ap = v.aplicado ?? c.aplicado;
@@ -954,6 +945,34 @@ export default async function rotasCursos(app: FastifyInstance) {
       const pos = v.pos == null ? l.length : Math.min(v.pos, l.length);
       l.splice(pos, 0, novo);
       return { msg: '', log: ['Conteúdo criado', `${novo.titulo} · posição ${pos + 1}`] };
+    });
+  });
+
+  /** 02/10/2026 (planilha de currículos): troca todos os conteúdos do rascunho de uma vez, na ordem enviada */
+  app.put('/curriculos/:id/conteudos', { preHandler: exigeCurriculo }, async (req, rep) => {
+    if (!podeAcao(req.usuario!.nivel, 'editar'))
+      return rep.code(403).send({ erro: 'Seu acesso não permite editar conteúdo.' });
+    const p = z.object({ conteudos: z.array(ConteudoForm.omit({ pos: true })).max(500) }).safeParse(req.body);
+    if (!p.success) return erro400(rep, p.error);
+    for (const v of p.data.conteudos)
+      for (const [m, rot] of MOMENTOS)
+        if (!linkOk(v[m]))
+          return rep.code(400).send({
+            erro: `${v.titulo}: o link de ${rot} precisa ser um endereço completo, começando com https://.`,
+          });
+    return noRascunho(req, rep, (l) => {
+      l.splice(
+        0,
+        l.length,
+        ...p.data.conteudos.map((v) => ({
+          titulo: v.titulo,
+          formato: v.formato,
+          gram: v.gram,
+          voc: vocLer(v.voc),
+          links: { pre: v.pre, in: v.in, post: v.post },
+        })),
+      );
+      return { msg: '', log: ['Conteúdos importados', `${l.length} conteúdos pela planilha`] };
     });
   });
 
