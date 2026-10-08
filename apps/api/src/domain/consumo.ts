@@ -5,7 +5,8 @@ const DIA = 864e5;
 /** o futuro conta só até o limite de agendamento (720 h = 30 dias, 2.13.2.6) ou o fim da vigência, o que vier antes:
     a grade fixa se repete sem fim e não deve consumir o pacote meses antes da aula */
 export const CONSUMO_HORIZONTE_DIAS = 30;
-/** sem início de vigência, conta os últimos 90 dias (a mesma janela do Community Flow) */
+/** sem início de vigência, conta os últimos 90 dias (a mesma janela do Community Flow), nunca antes do cadastro do aluno:
+    a grade fixa põe o aluno também nas aulas passadas, e o aluno criado ontem não pode chegar com 30 aulas usadas */
 export const CONSUMO_SEM_INICIO_DIAS = 90;
 /** teto da janela, para a base em memória não varrer anos de agenda */
 const TETO_DIAS = 730;
@@ -30,7 +31,8 @@ export function aplicaConsumo(b: Base, agora = new Date()) {
   for (const a of b.alunos)
     for (const e of a.matriculas) {
       if (e.desativadoEm) continue;
-      const ini = Math.max(piso, e.inicio ? +dia(e.inicio) : +hoje - CONSUMO_SEM_INICIO_DIAS * DIA);
+      const cadastro = a.criadoEm ? new Date(a.criadoEm).setHours(0, 0, 0, 0) : piso;
+      const ini = Math.max(piso, e.inicio ? +dia(e.inicio) : Math.max(cadastro, +hoje - CONSUMO_SEM_INICIO_DIAS * DIA));
       const fim = Math.min(teto, +hoje + CONSUMO_HORIZONTE_DIAS * DIA, e.fim ? +dia(e.fim) : teto) + DIA - 1;
       if (fim < ini) {
         e.agendadas = 0;

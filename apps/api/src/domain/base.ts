@@ -132,6 +132,8 @@ export type AlunoB = {
   empresa: string | null;
   contratoFim: Date | null;
   disp: string[] | null;
+  /** data do cadastro: sem início de vigência, o consumo não conta aula de antes dele */
+  criadoEm?: Date;
   matriculas: MatriculaB[];
 };
 export type ConteudoCur = {
@@ -408,6 +410,7 @@ async function carrega(): Promise<Base> {
       empresa: a.empresa?.nome ?? null,
       contratoFim: diaLocal(a.contratoFim),
       disp: a.dispDefinida ? a.disponibilidade : null,
+      criadoEm: a.criadoEm,
       matriculas: a.matriculas.map((m) => ({
         id: m.id,
         curso: m.curso.nome,

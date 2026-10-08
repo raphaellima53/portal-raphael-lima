@@ -192,6 +192,36 @@ describe('decisões de 05/10/2026', () => {
     assert.equal(linha?.semTurma, true);
   });
 
+  test('3.4.3.1: sem início de vigência, o saldo não conta aula de antes do cadastro do aluno', async () => {
+    const adm = await entra('admin@alumni.teste', 'alumni-admin');
+    const alunoId = criados.alunos[0];
+    const novo = await req(adm, 'POST', '/cursos', {
+      nome: `Curso cadastro ${sufixo}`,
+      cor: '#123456',
+      estrutura: 'turmas',
+      idioma: 'Inglês',
+      itens: [{ nome: 'Turma Z', cor: '#123456', cefr: 'A1', vagas: 8 }],
+    });
+    assert.equal(novo.status, 200, novo.json?.erro);
+    /* no começo da lista: o teste de troca de tipo usa o último curso criado (o de turmas) */
+    criados.cursos.unshift(novo.json.id);
+    await prisma.turma.updateMany({ where: { cursoId: novo.json.id }, data: { grade: 'Seg e Qua · 10:00' } });
+    const mat = await req(adm, 'POST', `/alunos/${alunoId}/matriculas`, {
+      curso: `Curso cadastro ${sufixo}`,
+      item: 'Turma Z',
+      modalidade: 'Online',
+      total: 40,
+    });
+    assert.equal(mat.status, 200, mat.json?.erro);
+    invalidaBase();
+    const b = await base();
+    const e = b.alunos.find((a) => a.id === alunoId)!.matriculas.find((m) => m.modulo === 'Turma Z')!;
+    assert.equal(e.inicio ?? null, null, 'a matrícula do teste não tem início de vigência');
+    /* o aluno nasceu hoje: só a grade Seg e Qua dos próximos 30 dias conta (no máximo 10), nada dos últimos 90 */
+    assert.ok((e.agendadas ?? 0) > 0);
+    assert.ok((e.agendadas ?? 0) <= 10, `contou ${e.agendadas} aulas`);
+  });
+
   test('2.2.3.4: trocar o tipo com itens pede confirmação e não grava sem ela', async () => {
     const adm = await entra('admin@alumni.teste', 'alumni-admin');
     const id = criados.cursos.at(-1)!;
