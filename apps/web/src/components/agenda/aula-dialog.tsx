@@ -358,7 +358,7 @@ function Detalhe({
             </Button>
           )}
         </div>
-        {ger && a.podeGerenciar && (
+        {ger && a.podeAdicionar && (
           <AdicionarAluno
             candidatos={a.candidatos}
             ocupado={acao.isPending}

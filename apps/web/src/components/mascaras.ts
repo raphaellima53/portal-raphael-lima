@@ -10,6 +10,18 @@ export const mascaraCpf = (v: string) => {
     .replace(/\.(\d{3})(\d{1,2})$/, '.$1-$2');
 };
 
+/** CPF com os dois dígitos verificadores certos (05/10/2026, decisão 3.2.3.3); igual ao cpfValido da API */
+export const cpfValido = (cpf: string) => {
+  const c = cpf.replace(/\D/g, '');
+  if (!/^\d{11}$/.test(c) || /^(\d)\1{10}$/.test(c)) return false;
+  const dv = (n: number) => {
+    let s = 0;
+    for (let i = 0; i < n; i++) s += Number(c[i]) * (n + 1 - i);
+    return ((s * 10) % 11) % 10 === Number(c[n]);
+  };
+  return dv(9) && dv(10);
+};
+
 /** CNPJ: xx.xxx.xxx/xxxx-xx */
 export const mascaraCnpj = (v: string) => {
   const d = dig(v, 14);

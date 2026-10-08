@@ -65,7 +65,7 @@ import { podeChave } from '../domain/mapa.ts';
 import { vinculosDe } from '../domain/vinculos.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
-import { diaUTC, faltando, isoUTC, PessoaIn, pessoaDoBanco, pessoaParaBanco } from '../lib/pessoa.ts';
+import { cpfValido, diaUTC, faltando, isoUTC, PessoaIn, pessoaDoBanco, pessoaParaBanco } from '../lib/pessoa.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
 import { flowJson } from './flow.ts';
 import { ehAdmin, moveParaLixeira } from './lixeira.ts';
@@ -627,6 +627,26 @@ export default async function rotasAlunos(app: FastifyInstance) {
       ]);
       if (falta) return rep.code(400).send({ erro: falta });
     }
+    /* decisão 3.2.3.3 (05/10/2026): CPF com dígito verificador, CPF e e-mail únicos entre os alunos.
+       Vale para o CPF novo ou alterado; cadastro antigo com CPF de exemplo continua editável. */
+    const atual =
+      id == null ? null : await prisma.aluno.findUnique({ where: { id }, select: { cpf: true, email: true } });
+    if (v.cpf && v.cpf !== atual?.cpf && !cpfValido(v.cpf))
+      return rep.code(400).send({ erro: 'CPF inválido: confira os dígitos.' });
+    if (v.cpf) {
+      const dono = await prisma.aluno.findFirst({
+        where: { cpf: v.cpf, NOT: { id: id ?? 0 } },
+        select: { nome: true },
+      });
+      if (dono) return rep.code(409).send({ erro: `Este CPF já é do aluno ${dono.nome}.` });
+    }
+    if (v.email) {
+      const dono = await prisma.aluno.findFirst({
+        where: { email: { equals: v.email, mode: 'insensitive' }, emailPlaceholder: false, NOT: { id: id ?? 0 } },
+        select: { nome: true },
+      });
+      if (dono) return rep.code(409).send({ erro: `Este e-mail já é do aluno ${dono.nome}.` });
+    }
     /* a Matrícula do Novo aluno sai da oferta escolhida */
     const of = v.matricula ? await prisma.ofertaPadrao.findUnique({ where: { id: v.matricula.ofertaId } }) : null;
     if (v.matricula && !of) return rep.code(400).send({ erro: 'Oferta não encontrada.' });
@@ -899,8 +919,8 @@ export default async function rotasAlunos(app: FastifyInstance) {
     const itens = c ? crsItens(c) : [];
     if (itens.length && (!p.data.item || !itens.includes(p.data.item)))
       return rep.code(400).send({ erro: 'Escolha o módulo ou a turma.' });
-    const usadas = Math.max(0, p.data.usadas ?? 0);
-    if (usadas > p.data.total) return rep.code(400).send({ erro: 'Aulas usadas não podem passar do pacote.' });
+    /* decisão 3.4.3.1 (05/10/2026): aulas usadas saem da agenda (consumo.ts); o valor enviado é ignorado */
+    const usadas = e.usadas;
     if (c && !crsRegras(c).modalidades.includes(p.data.modalidade))
       return rep.code(400).send({ erro: 'Modalidade não aceita nas regras do curso.' });
     const item = itens.length ? p.data.item! : null;
@@ -919,7 +939,6 @@ export default async function rotasAlunos(app: FastifyInstance) {
       where: { id: mid },
       data: {
         modulo: item,
-        usadas,
         total: p.data.total,
         modalidade: p.data.modalidade,
         ...(mesmo ? {} : { alocacao: undefined }),
@@ -928,11 +947,7 @@ export default async function rotasAlunos(app: FastifyInstance) {
     });
     if (!mesmo) await prisma.$executeRaw`UPDATE "Matricula" SET alocacao = NULL WHERE id = ${mid}`;
     const mudou =
-      !mesmo ||
-      contratoMudou ||
-      usadas !== e.usadas ||
-      p.data.total !== e.total ||
-      p.data.modalidade !== (e.modalidade || 'Online');
+      !mesmo || contratoMudou || p.data.total !== e.total || p.data.modalidade !== (e.modalidade || 'Online');
     if (mudou)
       await loga(
         u,

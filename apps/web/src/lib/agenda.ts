@@ -134,6 +134,8 @@ export type AulaModelo = {
   alunos: { nome: string; email: string; fora: boolean; incluido: boolean }[];
   extra: number;
   podeGerenciar: boolean;
+  /** incluir aluno na aula (até Editor); cancelar o aluno vale também para o colaborador */
+  podeAdicionar: boolean;
   cancelada: boolean;
   podeCancelar: boolean;
   podeReabrir: boolean;

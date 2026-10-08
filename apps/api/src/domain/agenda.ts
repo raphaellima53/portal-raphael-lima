@@ -358,7 +358,15 @@ export function agOfertas(b: Base): Oferta[] {
 }
 
 /** as aulas de um intervalo, com o estado de cada uma — mesma data, mesmo estado, sempre */
-export function agAulasEntre(b: Base, ini: Date, fim: Date, agora = new Date(), ofertas = agOfertas(b)): Aula[] {
+export function agAulasEntre(
+  b: Base,
+  ini: Date,
+  fim: Date,
+  agora = new Date(),
+  ofertas = agOfertas(b),
+  /** o consumo do pacote (consumo.ts) não precisa da sala do Zoom, e distribuir um ano inteiro é caro */
+  distribuiZoom = true,
+): Aula[] {
   const out: Aula[] = [];
   const d = new Date(ini);
   d.setHours(0, 0, 0, 0);
@@ -469,7 +477,7 @@ export function agAulasEntre(b: Base, ini: Date, fim: Date, agora = new Date(), 
       });
     });
   }
-  return zoomDistribui(b, out).sort((a, c) => +a.quando - +c.quando);
+  return (distribuiZoom ? zoomDistribui(b, out) : out).sort((a, c) => +a.quando - +c.quando);
 }
 
 /** até quantas aulas ao mesmo tempo uma conta (sala) do Zoom recebe — regra do usuário, 30/09/2026 */
@@ -569,4 +577,47 @@ export function fxPresenca(b: Base, nome: string, a: Aula): 'presente' | 'falta'
   let h = 0;
   for (const ch of nome) h = (h * 31 + ch.charCodeAt(0)) % 9973;
   return (h + a.quando.getDate() * 7 + a.quando.getMonth() * 11 + a.quando.getHours()) % 9 === 0 ? 'falta' : 'presente';
+}
+
+/**
+ * Decisão 2.5.3.3 (05/10/2026): o professor pode estar em qualquer curso e módulo, mas nunca no mesmo dia e horário
+ * em duas aulas, em nenhuma situação. Procura, na grade semanal de todos os cursos (módulos, turmas e alocações),
+ * uma oferta do professor que se sobreponha ao horário pedido. `fora` tira da busca o curso que está sendo salvo.
+ */
+export function choqueNaGrade(
+  b: Base,
+  prof: string,
+  dia: number,
+  hora: number,
+  duracaoMin: number,
+  fora?: (o: Oferta) => boolean,
+): Oferta | undefined {
+  const fim = hora + duracaoMin / 60;
+  /* só vínculos gravados: horário de grade com professor, turma com titular e alocação individual salva
+     (as ofertas geradas para módulo sem grade ou aluno sem alocação não prendem o professor) */
+  const turmas = new Set(b.cursos.filter((c) => c.estrutura === 'turmas').map((c) => c.name));
+  const gravada = (o: Oferta) => !!o.grade || !!o.alocada || turmas.has(o.prod);
+  return agOfertas(b).find(
+    (o) =>
+      o.prof === prof &&
+      gravada(o) &&
+      !o.ate &&
+      o.dias.includes(dia) &&
+      !(fora?.(o) ?? false) &&
+      o.hora < fim &&
+      hora < o.hora + (o.duracao || 60) / 60,
+  );
+}
+
+/** Decisão 2.5.3.3 nas aulas do dia: as aulas não canceladas do professor que se sobrepõem ao horário pedido */
+export function choquesDaAula(b: Base, prof: string, inicio: Date, duracaoMin: number, ignorar: string[] = []): Aula[] {
+  const fim = +inicio + duracaoMin * 6e4;
+  return agAulasEntre(b, inicio, inicio).filter(
+    (a) =>
+      a.prof === prof &&
+      a.estado !== 'cancelada' &&
+      !ignorar.includes(a.k) &&
+      +a.quando < fim &&
+      +a.quando + (a.duracao || 50) * 6e4 > +inicio,
+  );
 }

@@ -102,6 +102,17 @@ export const CnpjIn = z
   .transform((s) => s.replace(/\D/g, ''))
   .refine((s) => !s || s.length === 14, 'O CNPJ precisa de 14 dígitos.')
   .default('');
+/** CPF (05/10/2026, decisão 3.2.3.3): 11 dígitos com os dois verificadores certos; sequências repetidas não valem */
+export const cpfValido = (cpf: string) => {
+  const c = cpf.replace(/\D/g, '');
+  if (!/^\d{11}$/.test(c) || /^(\d)\1{10}$/.test(c)) return false;
+  const dv = (n: number) => {
+    let s = 0;
+    for (let i = 0; i < n; i++) s += Number(c[i]) * (n + 1 - i);
+    return ((s * 10) % 11) % 10 === Number(c[n]);
+  };
+  return dv(9) && dv(10);
+};
 /** obrigatórios do cadastro novo (24/09/2026): devolve a mensagem do primeiro que faltar */
 export const faltando = (campos: [boolean, string][]) => campos.find(([ok]) => !ok)?.[1] ?? null;
 /** gênero (24/09/2026): as quatro opções do Novo aluno */

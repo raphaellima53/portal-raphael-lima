@@ -240,7 +240,12 @@ export function alMatriculas(b: Base, a: AlunoB, ofs: Oferta[]) {
       usadas: e.usadas,
       total: e.total,
       saldo: e.total - e.usadas,
+      /* decisão 3.4.3.1: saldo = total − agendadas + canceladas */
+      agendadas: e.agendadas ?? e.usadas,
+      canceladas: e.canceladas ?? 0,
       flow: e.modulo === MOD_FLOW,
+      /* decisão 2.6.3.2 (05/10/2026): curso de turmas sem turma (a turma foi excluída) pede nova alocação */
+      semTurma: !e.modulo && b.cursos.find((c) => c.name === e.curso)?.estrutura === 'turmas',
       horarios: meus
         .filter((x) => x.prod === e.curso && x.mod === e.modulo)
         .map((x) => ({ txt: `${agDiasTxt(x)} · ${agFaixa(x)}`, prof: x.prof === '—' ? null : x.prof })),

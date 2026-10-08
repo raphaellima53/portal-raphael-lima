@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db.ts';
 import { podeAcao } from '../domain/acesso.ts';
-import { crsItens, crsRegras } from '../domain/agenda.ts';
+import { choqueNaGrade, crsItens, crsRegras } from '../domain/agenda.ts';
 import { base, invalidaBase } from '../domain/base.ts';
 import {
   CONFIG_AGENDA,
@@ -17,6 +17,7 @@ import {
 } from '../domain/cursos.ts';
 import { funcionamento } from '../domain/funcionamento.ts';
 import { podeChave } from '../domain/mapa.ts';
+import { type Desvinculo, desvinculaTurmas, registraDesvinculos } from '../domain/turmas.ts';
 import { registra } from '../lib/log.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
 import { ehAdmin, moveParaLixeira } from './lixeira.ts';
@@ -88,6 +89,8 @@ const ItemForm = z.object({
   nome: z.string().trim(),
   /* 24/09/2026: nome com que o módulo já está gravado ('' se ainda não foi salvo) — renomear mantém o módulo */
   salvoComo: z.string().trim().max(120).default(''),
+  /** decisão 2.2.3.4: salvar módulo num curso Particular com alocações pede confirmação em tela */
+  confirmarTroca: z.boolean().default(false),
   cor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   /* adequação ao Portal Alumni: sigla, descrição e vagas do módulo */
   sigla: z.string().trim().max(20).default(''),
@@ -182,6 +185,26 @@ const choqueDeProfessor = (mods: Grade[]) => {
     }
   return null;
 };
+/**
+ * Decisão 2.5.3.3 (05/10/2026): além de um módulo só na mesma hora dentro do curso, o professor não pode ter
+ * aula no mesmo dia e horário em nenhum outro curso (módulos, turmas e alocações da grade semanal).
+ */
+const choqueEntreCursos = async (mods: Grade[], cursoNomes: string[]) => {
+  const b = await base();
+  const c = b.cursos.find((x) => cursoNomes.includes(x.name));
+  const dur = c ? crsRegras(c).duracao : 60;
+  for (const m of mods)
+    for (const h of m.horarios) {
+      if (!h.professorId) continue;
+      const prof = b.professores.find((p) => p.id === h.professorId)?.name;
+      if (!prof) continue;
+      const [hh, mm] = h.hora.split(':').map(Number);
+      const o = choqueNaGrade(b, prof, h.dia, hh + mm / 60, dur, (x) => cursoNomes.includes(x.prod));
+      if (o)
+        return `${prof} já tem aula em ${o.prod}${o.mod ? ` · ${o.mod}` : ''} na ${DIAS_CURTO[h.dia]} às ${h.hora}: o professor não pode estar em dois lugares no mesmo dia e horário.`;
+    }
+  return null;
+};
 const avisoSemProfessor = (n: number) =>
   n
     ? ` Atenção: ${n} ${n === 1 ? 'horário da grade está' : 'horários da grade estão'} sem professor; as aulas aparecem na Agenda como sem professor.`
@@ -196,7 +219,14 @@ const dadosModulo = (m: Item) => ({
   cancelamentoMin: minutos(m.cancelamento),
 });
 
+const TIPO_NOME: Record<string, string> = {
+  modulos: 'Grupo Open-Entry',
+  turmas: 'Grupo Regular',
+  nenhuma: 'Particular',
+};
 const CursoForm = z.object({
+  /** decisão 2.2.3.4: a troca de tipo com itens só grava depois da confirmação em tela */
+  confirmarTroca: z.boolean().default(false),
   nome: z.string().trim().min(1, 'Informe o nome do curso.').max(120),
   descricao: z.string().trim().max(500).default(''),
   idioma: z.string().max(80).default(''),
@@ -407,6 +437,33 @@ export default async function rotasCursos(app: FastifyInstance) {
     const estrutura = itens.length ? (v.estrutura === 'nenhuma' ? 'modulos' : v.estrutura) : 'nenhuma';
     /* obrigatórios do Novo curso (24/09/2026) */
     if (!v.idioma) return rep.code(400).send({ erro: 'Escolha o idioma do curso.' });
+    /* decisão 2.2.3.4 (05/10/2026): trocar o tipo com módulos, turmas, alocações ou matrículas pede confirmação
+       em tela, mostrando o que vai ser adequado ou excluído; sem confirmar, nada é gravado */
+    if (antigo && antigo.estrutura !== estrutura && !v.confirmarTroca) {
+      const sai = [
+        ...(estrutura !== 'modulos' ? antigo.modulos.map((m) => `módulo ${m.nome}`) : []),
+        ...(estrutura !== 'turmas' ? antigo.turmas.map((t) => `turma ${t.nome}`) : []),
+      ];
+      const aloc =
+        antigo.estrutura === 'nenhuma' ? await prisma.cursoAlocacao.count({ where: { cursoId: antigo.id } }) : 0;
+      const mats = await prisma.matricula.count({ where: { cursoId: antigo.id, desativadoEm: null } });
+      if (sai.length || aloc || mats)
+        return rep.code(409).send({
+          confirmar: true,
+          erro:
+            `Trocar o tipo de ${TIPO_NOME[antigo.estrutura] ?? antigo.estrutura} para ${TIPO_NOME[estrutura]} ` +
+            [
+              sai.length ? `exclui ${sai.join(', ')} (com a grade)` : '',
+              aloc ? `exclui ${aloc} ${aloc === 1 ? 'alocação' : 'alocações'}` : '',
+              mats
+                ? `deixa ${mats} ${mats === 1 ? 'matrícula ativa' : 'matrículas ativas'} para adequar (nova alocação no módulo ou na turma)`
+                : '',
+            ]
+              .filter(Boolean)
+              .join('; ') +
+            '. Confirme para salvar.',
+        });
+    }
     for (const m of itens) {
       const falta = faltaNoItem(m, estrutura);
       if (falta) return rep.code(400).send({ erro: falta });
@@ -415,7 +472,10 @@ export default async function rotasCursos(app: FastifyInstance) {
        em um módulo só na mesma hora */
     if (estrutura === 'modulos') {
       const fn = await funcionamento();
-      const problema = itens.map((m) => foraDaGrade(m, fn)).find(Boolean) ?? choqueDeProfessor(itens);
+      const problema =
+        itens.map((m) => foraDaGrade(m, fn)).find(Boolean) ??
+        choqueDeProfessor(itens) ??
+        (await choqueEntreCursos(itens, [v.nome, ...(antigo ? [antigo.nome] : [])]));
       if (problema) return rep.code(400).send({ erro: problema });
     }
     const alocacoes = estrutura === 'nenhuma' ? v.alocacoes.filter((x) => x.responsavel || x.vagas) : [];
@@ -438,6 +498,7 @@ export default async function rotasCursos(app: FastifyInstance) {
     };
 
     let perfis: string[] = [];
+    let desv: Desvinculo[] = [];
     const salvo = await prisma.$transaction(async (tx) => {
       const regrasPadrao = crsRegras({ estrutura, idioma: dados.idioma } as never);
       const curso = antigo
@@ -489,6 +550,12 @@ export default async function rotasCursos(app: FastifyInstance) {
       /* turma que já existia mantém grade, professor e vagas; a nova entra em branco */
       const ts = estrutura === 'turmas' ? itens : [];
       const nomes = ts.map((x) => x.nome);
+      /* decisão 2.6.3.2: quem estava na turma que saiu fica sem turma e o perfil avisa da nova alocação */
+      desv = await desvinculaTurmas(
+        tx,
+        curso.id,
+        (antigo?.turmas ?? []).map((t) => t.nome).filter((n) => !nomes.includes(n)),
+      );
       await tx.turma.deleteMany({ where: { cursoId: curso.id, nome: { notIn: nomes } } });
       for (const [k, it] of ts.entries()) {
         const nome = it.nome;
@@ -536,13 +603,17 @@ export default async function rotasCursos(app: FastifyInstance) {
       return curso;
     });
     invalidaBase();
+    await registraDesvinculos(desv, u.nome);
     const semProf = estrutura === 'modulos' ? itens.flatMap((m) => m.horarios).filter((h) => !h.professorId).length : 0;
     return {
       id: salvo.id,
       msg:
         (antigo ? 'Curso salvo.' : 'Curso criado. Confira as regras dele.') +
         avisoSemProfessor(semProf) +
-        avisoPerfil(perfis),
+        avisoPerfil(perfis) +
+        (desv.length
+          ? ` ${desv.length} ${desv.length === 1 ? 'aluno ficou' : 'alunos ficaram'} sem turma: o perfil avisa da nova alocação.`
+          : ''),
       semProfessor: semProf,
     };
   };
@@ -566,6 +637,18 @@ export default async function rotasCursos(app: FastifyInstance) {
     if (!curso) return rep.code(404).send({ erro: 'Curso não encontrado.' });
     if (curso.estrutura === 'turmas')
       return rep.code(400).send({ erro: 'Este curso é de turmas; troque o tipo e salve o curso antes.' });
+    if (curso.estrutura === 'nenhuma' && !m.confirmarTroca) {
+      const aloc = await prisma.cursoAlocacao.count({ where: { cursoId: curso.id } });
+      if (aloc)
+        return rep.code(409).send({
+          confirmar: true,
+          erro:
+            'Salvar um módulo troca o tipo de Particular para Grupo Open-Entry e exclui ' +
+            aloc +
+            (aloc === 1 ? ' alocação' : ' alocações') +
+            '. Confirme para salvar.',
+        });
+    }
     const antigo = m.salvoComo ? curso.modulos.find((x) => x.nome === m.salvoComo) : undefined;
     if (curso.modulos.some((x) => x.id !== antigo?.id && x.nome.toLowerCase() === m.nome.toLowerCase()))
       return rep.code(400).send({ erro: `Já existe um módulo chamado ${m.nome} neste curso.` });
@@ -574,7 +657,10 @@ export default async function rotasCursos(app: FastifyInstance) {
     const outros = curso.modulos
       .filter((x) => x.id !== antigo?.id)
       .map((x) => ({ nome: x.nome, horarios: x.horarios.map((h) => ({ ...h, professorId: h.professorId ?? '' })) }));
-    const problema = foraDaGrade(m, await funcionamento()) ?? choqueDeProfessor([...outros, m]);
+    const problema =
+      foraDaGrade(m, await funcionamento()) ??
+      choqueDeProfessor([...outros, m]) ??
+      (await choqueEntreCursos([m], [curso.nome]));
     if (problema) return rep.code(400).send({ erro: problema });
 
     const perfis = await prisma.$transaction(async (tx) => {

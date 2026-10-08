@@ -97,6 +97,11 @@ export type MatriculaB = {
   aloc: { prof?: string; dias?: number[]; hora?: number; valor?: number } | null;
   /** início da vigência (AAAA-MM-DD): a adesão ao Community Flow conta presenças daqui */
   inicio?: string | null;
+  /** fim da vigência (AAAA-MM-DD) */
+  fim?: string | null;
+  /** decisão 3.4.3.1 (consumo.ts): aulas agendadas e canceladas na vigência; usadas = agendadas − canceladas */
+  agendadas?: number;
+  canceladas?: number;
 };
 /**
  * cor oficial de cada nível, definida pelo usuário em 30/09/2026 (não alterar). A tela usa a cor gravada no módulo;
@@ -234,10 +239,16 @@ export function invalidaBase() {
 export function base(): Promise<Base> {
   if (!cache || Date.now() - carregadaEm > VALIDADE_MS) {
     carregadaEm = Date.now();
-    cache = carrega().catch((e) => {
-      cache = null;
-      throw e;
-    });
+    /* decisão 3.4.3.1 (05/10/2026): o consumo do pacote sai da agenda (import dinâmico: consumo.ts usa agenda.ts) */
+    cache = carrega()
+      .then(async (b) => {
+        (await import('./consumo.ts')).aplicaConsumo(b);
+        return b;
+      })
+      .catch((e) => {
+        cache = null;
+        throw e;
+      });
   }
   return cache;
 }
@@ -407,6 +418,7 @@ async function carrega(): Promise<Base> {
         desativadoEm: m.desativadoEm,
         aloc: (m.alocacao as MatriculaB['aloc']) ?? null,
         inicio: m.inicio ? iso(m.inicio) : null,
+        fim: m.fim ? iso(m.fim) : null,
       })),
     })),
     curriculos: curriculos.map((c) => ({

@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { type ContratoL, type ParcelaL, type PedidoL, type StatD, useDeal, useDealAcao } from '@/lib/deal';
 import { idCadastro } from '@/lib/ids';
 import { cn } from '@/lib/utils';
+import { BotoesPdf } from './botoes-pdf';
 import { Lk, Nada, Quadro, SitB, Stats, Sub, TabelaDeal } from './comum';
 import { Cronograma } from './pedido';
 
@@ -228,6 +229,7 @@ export function FichaContrato({ id, aba }: { id: string; aba: string }) {
         acoes={
           <>
             {botaoVolta}
+            <BotoesPdf caminho={`/deal/contratos/${c.id}/pdf`} nome={`o contrato ${c.nome}`} />
             {c.status === 'Ativo' && c.podeOperar && (
               <Button onClick={() => setEncerrar(true)}>Encerrar contrato</Button>
             )}

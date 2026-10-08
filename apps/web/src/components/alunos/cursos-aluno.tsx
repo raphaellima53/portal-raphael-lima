@@ -4,6 +4,7 @@ import { CheckIcon, PlusIcon, XIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { AlertaIcone } from '@/components/alerta-icone';
 import { CampoData } from '@/components/campos-data';
 import { Chave } from '@/components/config/comum';
 import { Aviso } from '@/components/ds';
@@ -79,6 +80,24 @@ export function AbaCursos({ f, d, setMsg }: { f: FichaResp; d: CursosAba; setMsg
         <CardHead>
           <CardTitle>Matrículas ativas</CardTitle>
           <Badge tom="blue">{d.ativas.length}</Badge>
+          {/* decisão 2.6.3.2 (05/10/2026): a turma foi excluída — o perfil avisa da nova alocação */}
+          <AlertaIcone
+            titulo="Nova alocação pendente"
+            grupos={[
+              {
+                titulo: 'Matrículas sem turma',
+                itens: d.ativas
+                  .filter((e) => e.semTurma)
+                  .map((e) => <span key={e.id}>{e.curso}: a turma foi excluída; escolha a nova turma.</span>),
+              },
+            ]}
+            nota="Em Editar, use Mudar de turma."
+            acao={
+              op && d.ativas.some((e) => e.semTurma)
+                ? { rotulo: 'Alocar agora', aoClicar: () => setMat({ e: d.ativas.find((e) => e.semTurma)! }) }
+                : undefined
+            }
+          />
           <span className="flex-1" />
           {op && (
             <Button size="sm" variant="primary" onClick={() => setMat({ e: null })}>
@@ -506,7 +525,6 @@ function MatriculaDialog({
   const [item, setItem] = useState('');
   const [modalidade, setModalidade] = useState('Online');
   const [total, setTotal] = useState('');
-  const [usadas, setUsadas] = useState('0');
   const [erro, setErro] = useState('');
   /* adequação ao Portal Alumni: contrato da matrícula */
   const ct = useContratoMatricula(f.id, e?.id ?? null, !!abre);
@@ -524,7 +542,6 @@ function MatriculaDialog({
     setItem(e?.item?.nome ?? '');
     setModalidade(e?.modalidade ?? 'Online');
     setTotal(e ? String(e.total) : '');
-    setUsadas(e ? String(e.usadas) : '0');
     setErro('');
   }, [abre]);
 
@@ -541,7 +558,6 @@ function MatriculaDialog({
     if (!curso) return setErro('Escolha o curso.');
     if (c?.itens.length && !item && c.estrutura !== 'modulos') return setErro('Escolha a turma.');
     if (!(Number(total) > 0)) return setErro('Informe o pacote de aulas.');
-    if (e && Number(usadas) > Number(total)) return setErro('Aulas usadas não podem passar do pacote.');
     acao.mutate(
       {
         caminho: e ? `/${f.id}/matriculas/${e.id}` : `/${f.id}/matriculas`,
@@ -551,7 +567,6 @@ function MatriculaDialog({
           item: item || null,
           modalidade,
           total: Number(total),
-          usadas: Number(usadas) || 0,
           ...(contrato ? { contrato } : {}),
         },
       },
@@ -630,9 +645,15 @@ function MatriculaDialog({
             {!e && <span className="text-apagado">vem do pacote padrão do curso</span>}
           </div>
           {e && (
-            <div className="grid gap-1.5">
-              <Label htmlFor="mat-usadas">Aulas usadas</Label>
-              <Input id="mat-usadas" type="number" min={0} value={usadas} onChange={(x) => setUsadas(x.target.value)} />
+            <div className="grid content-start gap-1.5">
+              <span className="font-semibold text-texto-2">Aulas usadas</span>
+              <b>
+                {e.usadas} de {e.total} · saldo {e.saldo}
+              </b>
+              {/* decisão 3.4.3.1 (05/10/2026): o consumo sai da agenda, não é digitado */}
+              <span className="text-apagado">
+                {e.agendadas} agendadas − {e.canceladas} canceladas, do início da vigência até daqui a 30 dias
+              </span>
             </div>
           )}
           {contrato && ct.data && (

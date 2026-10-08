@@ -114,13 +114,13 @@ describe('cursos', () => {
         ['Turma B', 20, '—'],
       ],
     );
-    const semItens = await req(adm, 'PUT', `/cursos/${novo.json.id}`, {
-      nome: 'Curso de teste api 2',
-      cor: '#123456',
-      estrutura: 'turmas',
-      idioma: 'Inglês',
-      itens: [],
-    });
+    const sem = { nome: 'Curso de teste api 2', cor: '#123456', estrutura: 'turmas', idioma: 'Inglês', itens: [] };
+    /* decisão 2.2.3.4 (05/10/2026): tirar todas as turmas troca o tipo e pede confirmação em tela */
+    const pede = await req(adm, 'PUT', `/cursos/${novo.json.id}`, sem);
+    assert.equal(pede.status, 409);
+    assert.match(pede.json.erro, /exclui turma Turma A, turma Turma B/);
+    assert.equal(await prisma.turma.count({ where: { cursoId: novo.json.id } }), 2);
+    const semItens = await req(adm, 'PUT', `/cursos/${novo.json.id}`, { ...sem, confirmarTroca: true });
     assert.equal(semItens.status, 200);
     assert.equal((await prisma.curso.findUnique({ where: { id: novo.json.id } }))?.estrutura, 'nenhuma');
   });

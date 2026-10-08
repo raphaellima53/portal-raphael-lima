@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import { CampoData } from '@/components/campos-data';
 import { Campo } from '@/components/config/comum';
 import { Escolha } from '@/components/escolha';
@@ -82,6 +83,41 @@ export function CamposEndereco({
   aoMudar: (v: Endereco) => void;
 }) {
   const set = (k: keyof Endereco, x: string) => aoMudar({ ...valor, [k]: x });
+  /* CEP com auto preenchimento (05/10/2026, decisão 3.2.3.3): com 8 dígitos busca no ViaCEP e preenche
+     rua, bairro, cidade e UF; número e complemento ficam com quem digita. */
+  const [busca, setBusca] = useState<'' | 'buscando' | 'nao-achou' | 'falhou'>('');
+  const ultimo = useRef(valor);
+  ultimo.current = valor;
+  const mudaCep = async (texto: string) => {
+    const cep = mascaraCep(texto);
+    const comCep = { ...valor, cep };
+    aoMudar(comCep);
+    const d = cep.replace(/\D/g, '');
+    if (d.length !== 8) return setBusca('');
+    setBusca('buscando');
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${d}/json/`);
+      const j = (await r.json()) as {
+        erro?: boolean;
+        logradouro?: string;
+        bairro?: string;
+        localidade?: string;
+        uf?: string;
+      };
+      if (ultimo.current.cep !== cep) return; /* o CEP mudou enquanto buscava */
+      if (!r.ok || j.erro) return setBusca('nao-achou');
+      aoMudar({
+        ...ultimo.current,
+        rua: j.logradouro || ultimo.current.rua,
+        bairro: j.bairro || ultimo.current.bairro,
+        cidade: j.localidade || ultimo.current.cidade,
+        uf: j.uf || ultimo.current.uf,
+      });
+      setBusca('');
+    } catch {
+      setBusca('falhou');
+    }
+  };
   const campo = (k: keyof Endereco, rotulo: string, extra: React.ComponentProps<typeof Input> = {}, cls = '') => (
     <Campo id={`${prefixo}-${k}`} rotulo={rotulo} className={cls}>
       <Input id={`${prefixo}-${k}`} value={valor[k]} onChange={(e) => set(k, e.target.value)} {...extra} />
@@ -89,11 +125,29 @@ export function CamposEndereco({
   );
   return (
     <>
-      {campo('cep', 'CEP', {
-        inputMode: 'numeric',
-        placeholder: '00000-000',
-        onChange: (e) => set('cep', mascaraCep(e.target.value)),
-      })}
+      <Campo id={`${prefixo}-cep`} rotulo="CEP">
+        <Input
+          id={`${prefixo}-cep`}
+          value={valor.cep}
+          inputMode="numeric"
+          placeholder="00000-000"
+          aria-describedby={busca ? `${prefixo}-cep-st` : undefined}
+          onChange={(e) => mudaCep(e.target.value)}
+        />
+        {busca && (
+          <span
+            id={`${prefixo}-cep-st`}
+            role="status"
+            className={busca === 'buscando' ? 'text-apagado' : 'font-medium text-vermelho'}
+          >
+            {busca === 'buscando'
+              ? 'Buscando o endereço…'
+              : busca === 'nao-achou'
+                ? 'CEP não encontrado: preencha o endereço.'
+                : 'Não deu para buscar o CEP agora: preencha o endereço.'}
+          </span>
+        )}
+      </Campo>
       {campo('rua', 'Rua')}
       {campo('numero', 'Número')}
       {campo('complemento', 'Complemento')}

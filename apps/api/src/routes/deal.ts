@@ -32,6 +32,7 @@ import { finPct, finR } from '../domain/financeiro.ts';
 import { podeChave } from '../domain/mapa.ts';
 import { fmt } from '../lib/fmt.ts';
 import { registra } from '../lib/log.ts';
+import { geraPdf } from '../lib/pdf.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
 
 export const DEAL_CH = { vendas: 'acFunil', contratos: 'acFechamento', fin: 'acCobranca', cat: 'catalogo' };
@@ -608,6 +609,193 @@ export default async function rotasDeal(app: FastifyInstance) {
       contratos: cts.map((ct) => contratoLinha(c, ct)),
       pedidos,
     };
+  });
+
+  /*
+   * Decisão 3.5.3.2 (05/10/2026): visualizar e baixar o contrato e o pedido em PDF. Os dados vêm da própria ficha
+   * (mesma rota, mesma chave de acesso, pela sessão de quem pede); ?ver=1 abre no navegador em vez de baixar.
+   */
+  const fichaJson = async (req: FastifyRequest, url: string) => {
+    const r = await app.inject({ method: 'GET', url, headers: { cookie: req.headers.cookie ?? '' } });
+    return { status: r.statusCode, json: r.json() as Record<string, unknown> };
+  };
+  const enviaPdf = (req: FastifyRequest, rep: FastifyReply, nome: string, pdf: Buffer) =>
+    rep
+      .header('Content-Type', 'application/pdf')
+      .header(
+        'Content-Disposition',
+        `${(req.query as { ver?: string }).ver ? 'inline' : 'attachment'}; filename="${nome}.pdf"`,
+      )
+      .send(pdf);
+  /* situação vem como [rótulo, cor] em algumas listas: no PDF entra só o rótulo */
+  const rotPdf = (v: unknown) => (Array.isArray(v) ? String(v[0] ?? '') : String(v ?? ''));
+  const rodapePdf = (req: FastifyRequest) => `Portal · gerado por ${req.usuario!.nome} em ${fmt.dataHora(new Date())}`;
+  type ParcelaJson = {
+    parcela: string | number;
+    competencia: string;
+    venc: string;
+    valor: string;
+    pago: string | null;
+    situacao: string;
+    pagador?: string;
+  };
+
+  app.get('/deal/contratos/:id/pdf', { preHandler: exige(DEAL_CH.contratos, DEAL_CH.vendas) }, async (req, rep) => {
+    const { status, json: c } = await fichaJson(req, `/deal/contratos/${idN(req)}`);
+    if (status !== 200) return rep.code(status).send(c);
+    const s = (k: string) => rotPdf(c[k]);
+    const ofertas =
+      (c.ofertas as {
+        nome: string;
+        curso: string;
+        aulas: number;
+        preco: string;
+        forma: string;
+        matriculas: number;
+      }[]) ?? [];
+    const benef = (c.benefLista as { nome: string; cpf: string; situacao: string }[]) ?? [];
+    const pedidos =
+      (c.pedidos as {
+        id: number;
+        data: string;
+        cliente: string;
+        oferta: string;
+        forma: string;
+        total: string;
+        situacao: string;
+      }[]) ?? [];
+    const crono = (c.cronograma as ParcelaJson[]) ?? [];
+    const pdf = geraPdf(
+      `Contrato ${s('nome')}`,
+      `${s('empresa')}${s('cnpj') ? ` · CNPJ ${s('cnpj')}` : ''} · ${s('status')}`,
+      [
+        {
+          titulo: 'Dados do contrato',
+          pares: [
+            ['Empresa', s('empresa')],
+            ['CNPJ', s('cnpj')],
+            ['Vigência', s('vigencia')],
+            ['Preset', `${s('preset')}${s('presetDesc') ? ` · ${s('presetDesc')}` : ''}`],
+            ['Regime', s('regime')],
+            ['Beneficiários', s('beneficiarios')],
+            ['Gerente da conta', s('kam')],
+            ['Vendido', s('vendido')],
+            ['Vencido', s('vencido')],
+            ['Situação', s('status')],
+            ...(s('motivoFim') ? ([['Motivo do encerramento', s('motivoFim')]] as [string, string][]) : []),
+          ],
+        },
+        {
+          titulo: 'Ofertas',
+          tabela: {
+            colunas: ['Oferta', 'Curso', 'Aulas', 'Preço', 'Pagamento', 'Matrículas'],
+            larguras: [3, 2.4, 1, 1.4, 2, 1.2],
+            linhas: ofertas.map((o) => [o.nome, o.curso, String(o.aulas), o.preco, o.forma, String(o.matriculas)]),
+          },
+        },
+        {
+          titulo: 'Beneficiários',
+          tabela: {
+            colunas: ['Nome', 'CPF', 'Situação'],
+            larguras: [3, 2, 1.6],
+            linhas: benef.map((b) => [b.nome, b.cpf, rotPdf(b.situacao)]),
+          },
+        },
+        {
+          titulo: 'Pedidos',
+          tabela: {
+            colunas: ['Pedido', 'Data', 'Cliente', 'Oferta', 'Valor', 'Situação'],
+            larguras: [1, 1.3, 2.4, 2.6, 1.4, 1.4],
+            linhas: pedidos.map((p) => [`#${p.id}`, p.data, p.cliente, p.oferta, p.total, rotPdf(p.situacao)]),
+          },
+        },
+        {
+          titulo: 'Cronograma',
+          tabela: {
+            colunas: ['Parcela', 'Competência', 'Vencimento', 'Valor', 'Pago em', 'Situação'],
+            larguras: [1, 1.6, 1.4, 1.4, 1.4, 1.6],
+            linhas: crono.map((x) => [
+              String(x.parcela),
+              x.competencia,
+              x.venc,
+              x.valor,
+              x.pago ?? '—',
+              rotPdf(x.situacao),
+            ]),
+          },
+        },
+      ],
+      rodapePdf(req),
+    );
+    return enviaPdf(req, rep, `contrato-${idN(req)}`, pdf);
+  });
+
+  app.get('/deal/pedidos/:id/pdf', { preHandler: exige(DEAL_CH.vendas) }, async (req, rep) => {
+    const { status, json: p } = await fichaJson(req, `/deal/pedidos/${idN(req)}`);
+    if (status !== 200) return rep.code(status).send(p);
+    const s = (k: string) => rotPdf(p[k]);
+    const pag = (p.pagamento as Record<string, string | null>) ?? {};
+    const acordo = (p.acordo as Record<string, string>) ?? {};
+    const itens =
+      (p.itens as { tipologia: string; descricao: string; qtd: number; unitario: string; total: string }[]) ?? [];
+    const crono = (p.cronograma as ParcelaJson[]) ?? [];
+    const pdf = geraPdf(
+      `Pedido #${s('id')}`,
+      `${s('cliente')} · ${s('data')} · ${s('situacao')}`,
+      [
+        {
+          titulo: 'Dados do pedido',
+          pares: [
+            ['Cliente', s('cliente')],
+            ['Data', s('data')],
+            ['Tipo de venda', s('tipo')],
+            ['Curso', s('curso')],
+            ['Oferta', s('oferta')],
+            ['Contrato', (p.contrato as { nome?: string } | null)?.nome ?? 'pedido B2C (o pedido é o contrato)'],
+            ['Vendedor', s('vendedor')],
+            ['Renovação', acordo.renovacao ?? ''],
+            ['Preset', `${acordo.preset ?? ''}${acordo.presetDesc ? ` · ${acordo.presetDesc}` : ''}`],
+            ['Situação', s('situacao')],
+            ...(p.cancelado ? ([['Motivo do cancelamento', s('motivoCancel')]] as [string, string][]) : []),
+          ],
+        },
+        {
+          titulo: 'Itens',
+          tabela: {
+            colunas: ['Tipologia', 'Descrição', 'Qtd.', 'Unitário', 'Total'],
+            larguras: [1.6, 3.4, 0.8, 1.4, 1.4],
+            linhas: itens.map((i) => [i.tipologia, i.descricao, String(i.qtd), i.unitario, i.total]),
+          },
+        },
+        {
+          titulo: 'Pagamento',
+          pares: [
+            ['Total', pag.total ?? ''],
+            ['Forma', `${pag.forma ?? ''}${pag.gateway ? ` · ${pag.gateway}` : ''}`],
+            ['Parcelas', pag.parcelas ?? ''],
+            ...(pag.cupom ? ([['Cupom', pag.cupom]] as [string, string][]) : []),
+          ],
+        },
+        {
+          titulo: 'Cronograma',
+          tabela: {
+            colunas: ['Parcela', 'Competência', 'Vencimento', 'Valor', 'Pago em', 'Situação'],
+            larguras: [1, 1.6, 1.4, 1.4, 1.4, 1.6],
+            linhas: crono.map((x) => [
+              String(x.parcela),
+              x.competencia,
+              x.venc,
+              x.valor,
+              x.pago ?? '—',
+              rotPdf(x.situacao),
+            ]),
+          },
+        },
+        ...(s('obs') ? [{ titulo: 'Observação', texto: s('obs') }] : []),
+      ],
+      rodapePdf(req),
+    );
+    return enviaPdf(req, rep, `pedido-${idN(req)}`, pdf);
   });
 
   app.get('/deal/contratos/:id', { preHandler: exige(DEAL_CH.contratos, DEAL_CH.vendas) }, async (req, rep) => {

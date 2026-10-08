@@ -16,6 +16,7 @@ import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { ErroApi } from '@/lib/api';
 import {
   type CursoForm as Form,
   type OpcoesCurso,
@@ -201,7 +202,9 @@ export function CursoFormDialog({
     if (criado) router.push(`/cursos/${cursoId}/regras`);
   };
 
-  const salvaModulo = async (k: number) => {
+  /* decisão 2.2.3.4 (05/10/2026): trocar o tipo do curso pede confirmação em tela (a API responde 409 com o que muda) */
+  const [troca, setTroca] = useState<{ msg: string; refaz: () => void } | null>(null);
+  const salvaModulo = async (k: number, confirmarTroca = false) => {
     const campos = cursoId == null ? (['nome', 'idioma', `itens.${k}`] as const) : ([`itens.${k}`] as const);
     if (!(await f.trigger(campos))) return;
     const it = f.getValues(`itens.${k}`);
@@ -214,30 +217,38 @@ export function CursoFormDialog({
         const r = await criar.mutateAsync({ ...f.getValues(), itens: [it], id: null });
         setCursoId(r.id);
         txt = `Curso criado com ${it.nome.trim()}. Siga com os outros módulos.`;
-      } else txt = (await salvarModulo.mutateAsync({ ...it, cursoId })).msg;
+      } else txt = (await salvarModulo.mutateAsync({ ...it, cursoId, confirmarTroca })).msg;
       const nome = it.nome.trim();
       f.setValue(`itens.${k}.salvoComo`, nome);
       setSalvos((s) => ({ ...s, [nome]: assina(it) }));
       setMsgModulo({ k, ok: true, txt });
     } catch (err) {
+      if (err instanceof ErroApi && err.status === 409)
+        return setTroca({ msg: err.message, refaz: () => salvaModulo(k, true) });
       setMsgModulo({ k, ok: false, txt: (err as Error).message });
     } finally {
       setSalvando(null);
     }
   };
 
-  const enviar = f.handleSubmit((d) =>
+  const grava = (d: Form, confirmarTroca = false) =>
     salvar.mutate(
-      { ...d, id: cursoId },
+      { ...d, id: cursoId, confirmarTroca },
       {
         onSuccess: (r) => {
           aoFechar();
           if (id == null) router.push(`/cursos/${r.id}/regras`);
           else aoSalvo?.(r.msg);
         },
+        onError: (e) => {
+          if (e instanceof ErroApi && e.status === 409) {
+            salvar.reset();
+            setTroca({ msg: e.message, refaz: () => grava(d, true) });
+          }
+        },
       },
-    ),
-  );
+    );
+  const enviar = f.handleSubmit((d) => grava(d));
   const op = opcoes.data;
 
   return (
@@ -580,6 +591,31 @@ export function CursoFormDialog({
             </Button>
           </DialogFoot>
         </form>
+        <Dialog open={!!troca} onOpenChange={(v) => !v && setTroca(null)}>
+          <DialogContent tamanho="sm" role="alertdialog">
+            <DialogHead titulo="Trocar o tipo do curso?" descricao="Confira o que será adequado ou excluído." />
+            <DialogBody>
+              <p className="text-texto-2">{troca?.msg}</p>
+            </DialogBody>
+            <DialogFoot>
+              <Button type="button" onClick={() => setTroca(null)}>
+                Voltar
+              </Button>
+              <Button
+                type="button"
+                variant="perigo"
+                disabled={salvar.isPending || salvando != null}
+                onClick={() => {
+                  const r = troca?.refaz;
+                  setTroca(null);
+                  r?.();
+                }}
+              >
+                Confirmar e salvar
+              </Button>
+            </DialogFoot>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );

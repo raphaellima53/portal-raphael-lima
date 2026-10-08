@@ -10,6 +10,7 @@ import {
   agOfertas,
   agRotulo,
   alMat,
+  choquesDaAula,
   crsItens,
   crsRegras,
   FX_ESTADO,
@@ -34,6 +35,7 @@ import {
   aulaRot,
   aulaSala,
   avulsaDe,
+  cancelaPeloAluno,
   FOLHA_MOTIVOS,
   folhaPodeSuporte,
   folhaPodeValor,
@@ -439,18 +441,12 @@ export default async function rotasAgenda(app: FastifyInstance) {
     if (semMat.length) return rep.code(400).send({ erro: `Sem matrícula ativa em ${c.name}: ${semMat.join(', ')}.` });
     const inicio = new Date(`${v.data}T${v.ini}:00`);
     const fim = new Date(`${v.data}T${v.fim}:00`);
-    /* professor já com aula no horário: avisa e só grava com "Salvar mesmo assim" */
-    if (prof && !v.confirmar) {
-      const choques = agAulasEntre(b, inicio, inicio).filter(
-        (a) =>
-          a.prof === prof.name &&
-          a.estado !== 'cancelada' &&
-          a.quando < fim &&
-          +a.quando + (a.duracao || 50) * 6e4 > +inicio,
-      );
+    /* decisão 2.5.3.3 (05/10/2026): professor já com aula no horário não grava, nem confirmando */
+    if (prof) {
+      const choques = choquesDaAula(b, prof.name, inicio, (+fim - +inicio) / 6e4);
       if (choques.length)
-        return rep.code(409).send({
-          erro: `${prof.name} já tem aula nesse horário: ${choques.map((a) => aulaRot(a)).join('; ')}.`,
+        return rep.code(400).send({
+          erro: `${prof.name} já tem aula nesse horário: ${choques.map((a) => aulaRot(a)).join('; ')}. O professor não pode estar em dois lugares no mesmo dia e horário.`,
           choques: choques.length,
         });
     }
@@ -561,6 +557,13 @@ export default async function rotasAgenda(app: FastifyInstance) {
             .code(400)
             .send({ erro: `${d.prof} não está habilitado em ${a.prod}${a.mod ? ` · ${a.mod}` : ''}.` });
         if (d.prof === a.prof) return { msg: '' };
+        {
+          const ch = choquesDaAula(b, d.prof, a.quando, a.duracao || 50, [a.k]);
+          if (ch.length)
+            return rep.code(400).send({
+              erro: `${d.prof} já tem aula nesse horário: ${ch.map((x) => aulaRot(x)).join('; ')}. O professor não pode estar em dois lugares no mesmo dia e horário.`,
+            });
+        }
         await gravaAjuste(a.k, (o) => {
           o.prof = d.prof;
         });
@@ -711,7 +714,8 @@ export default async function rotasAgenda(app: FastifyInstance) {
         };
       }
       case 'agendamento': {
-        if (nv > 3 || cancelada || passou || !a.alunos.includes(d.aluno)) return negado();
+        /* sem trava de prazo para a equipe (decisão 2.4.3.2); o prazo vale só para o próprio aluno */
+        if ((nv > 3 && !cancelaPeloAluno(p)) || cancelada || passou || !a.alunos.includes(d.aluno)) return negado();
         /* incluído só nesta aula: remover tira da lista */
         if (ov.extras?.includes(d.aluno)) {
           await gravaAjuste(a.k, (o) => {
@@ -951,6 +955,26 @@ export default async function rotasAgenda(app: FastifyInstance) {
       const prof = r.data.prof;
       if (!prof) return rep.code(400).send({ erro: 'Escolha o novo professor.' });
       if (nv > 3) return rep.code(403).send({ erro: 'Seu acesso não permite trocar o professor.' });
+      /* decisão 2.5.3.3: nenhuma troca se o novo professor ficaria em duas aulas no mesmo horário
+         (contra a agenda dele e entre as próprias aulas marcadas) */
+      const marcadas = fut.filter((a) => a.prof !== prof);
+      const ks = marcadas.map((a) => a.k);
+      const choque = marcadas
+        .map((a) => {
+          const fora = choquesDaAula(b, prof, a.quando, a.duracao || 50, ks)[0];
+          const entre = marcadas.find(
+            (x) =>
+              x.k !== a.k &&
+              +x.quando < +a.quando + (a.duracao || 50) * 6e4 &&
+              +x.quando + (x.duracao || 50) * 6e4 > +a.quando,
+          );
+          return fora ? `${aulaRot(a)} × ${aulaRot(fora)}` : entre ? `${aulaRot(a)} × ${aulaRot(entre)}` : '';
+        })
+        .find(Boolean);
+      if (choque)
+        return rep.code(400).send({
+          erro: `${prof} ficaria em duas aulas no mesmo horário (${choque}). Nenhuma troca foi feita.`,
+        });
       for (const a of fut) {
         if (a.prof === prof) continue;
         await gravaAjuste(a.k, (o) => {

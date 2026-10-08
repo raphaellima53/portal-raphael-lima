@@ -8,7 +8,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { CampoData } from '@/components/campos-data';
 import { Escolha } from '@/components/escolha';
-import { mascaraCpf } from '@/components/mascaras';
+import { cpfValido, mascaraCpf } from '@/components/mascaras';
 import { CamposEndereco, CamposPessoa } from '@/components/pessoa-campos';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFoot, DialogHead } from '@/components/ui/dialog';
@@ -46,11 +46,19 @@ const Esquema = z
     const erro = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
     const cpf = v.cpf.replace(/\D/g, '').length;
     if (cpf && cpf !== 11) erro('cpf', 'O CPF precisa de 11 dígitos.');
+    /* no cadastro novo o dígito verificador já é conferido aqui; na edição, a API confere se o CPF mudou */ else if (
+      v.novo &&
+      cpf &&
+      !cpfValido(v.cpf)
+    )
+      erro('cpf', 'CPF inválido: confira os dígitos.');
     if (v.novo && !cpf) erro('cpf', 'Informe o CPF.');
     if (v.novo && !v.email) erro('email', 'Informe o e-mail primário.');
     if (v.cefr && !v.ofertaId) erro('cefr', 'O nivelamento fica na matrícula: escolha a oferta.');
   });
 type Form = z.infer<typeof Esquema>;
+/** decisão 3.6.3.1 (05/10/2026): Pagamento do aluno oculto; o pedido nasce com o padrão (integral, 1x) e se ajusta nele */
+const PAGAMENTO_VISIVEL = false;
 const VAZIO: Form = {
   nome: '',
   cpf: '',
@@ -401,45 +409,47 @@ export function AlunoFormDialog({
                               )}
                             />
                           </div>
-                          <div className="grid content-start gap-1.5">
-                            <Label>Pagamento</Label>
-                            <div className="flex gap-2">
-                              <Controller
-                                control={f.control}
-                                name="forma"
-                                render={({ field }) => (
-                                  <Escolha
-                                    rotulo="Forma de pagamento"
-                                    destacar={false}
-                                    valor={field.value}
-                                    aoMudar={field.onChange}
-                                    opcoes={(op.data?.formas ?? []).map((x) => ({ v: String(x.id), l: x.nome }))}
-                                    className="flex-1"
-                                  />
-                                )}
-                              />
-                              <Controller
-                                control={f.control}
-                                name="parcelas"
-                                render={({ field }) => (
-                                  <Escolha
-                                    rotulo="Parcelas"
-                                    destacar={false}
-                                    valor={field.value}
-                                    aoMudar={field.onChange}
-                                    opcoes={Array.from({ length: oferta.parcelasMax }, (_, i) => ({
-                                      v: String(i + 1),
-                                      l: `${i + 1}x`,
-                                    }))}
-                                    className="w-[90px]"
-                                  />
-                                )}
-                              />
+                          {PAGAMENTO_VISIVEL && (
+                            <div className="grid content-start gap-1.5">
+                              <Label>Pagamento</Label>
+                              <div className="flex gap-2">
+                                <Controller
+                                  control={f.control}
+                                  name="forma"
+                                  render={({ field }) => (
+                                    <Escolha
+                                      rotulo="Forma de pagamento"
+                                      destacar={false}
+                                      valor={field.value}
+                                      aoMudar={field.onChange}
+                                      opcoes={(op.data?.formas ?? []).map((x) => ({ v: String(x.id), l: x.nome }))}
+                                      className="flex-1"
+                                    />
+                                  )}
+                                />
+                                <Controller
+                                  control={f.control}
+                                  name="parcelas"
+                                  render={({ field }) => (
+                                    <Escolha
+                                      rotulo="Parcelas"
+                                      destacar={false}
+                                      valor={field.value}
+                                      aoMudar={field.onChange}
+                                      opcoes={Array.from({ length: oferta.parcelasMax }, (_, i) => ({
+                                        v: String(i + 1),
+                                        l: `${i + 1}x`,
+                                      }))}
+                                      className="w-[90px]"
+                                    />
+                                  )}
+                                />
+                              </div>
                             </div>
-                          </div>
+                          )}
                           <p className="m-0 text-apagado sm:col-span-2">
-                            {oferta.aulas} aulas de {oferta.curso}. Ao salvar, a matrícula e o pedido (com as parcelas)
-                            são criados.
+                            {oferta.aulas} aulas de {oferta.curso}. Ao salvar, a matrícula e o pedido são criados
+                            {PAGAMENTO_VISIVEL ? ' (com as parcelas)' : '; forma e parcelas ficam no pedido'}.
                           </p>
                         </>
                       )}

@@ -31,6 +31,9 @@ export type QuemAula = {
   alunoId?: number | null;
 };
 export const aulaNivel = (p: QuemAula) => (p.ehAluno ? 9 : p.nivel);
+/** decisão 2.4.3.2 (05/10/2026): Admin e colaboradores (até o nível Colaborador) cancelam a aula pelo aluno, sem prazo */
+export const cancelaPeloAluno = (p: QuemAula) =>
+  !p.ehAluno && p.nivel <= 4 && (p.tipoPerfil === 'Admin' || p.tipoPerfil === 'Colaborador');
 /** 25/09/2026: na visão do aluno, os outros alunos aparecem só pelo primeiro nome (sem sobrenome nem e-mail) */
 export const primeiroNome = (nome: string) => nome.trim().split(/\s+/)[0] ?? '';
 
@@ -339,6 +342,7 @@ export function aulaModelo(b: Base, a: Aula, p: QuemAula, agora = new Date()) {
   const al = aulaAlunos(b, a).filter((x) => !soEu || x.nome === meuNome);
   const n = soEu ? al.length : a.n;
   const podeGer = !aluno && nv <= 3 && !cancelada && !passou;
+  const podeCancAluno = (podeGer || cancelaPeloAluno(p)) && !cancelada && !passou;
   const concluidaPg = !!ov.concluida || ['executada', 'substituida'].includes(a.estado);
   const podePres = nv <= 4 && hoje && !cancelada && !ov.concluida;
   const presentesDaLista = al.filter((x) => !x.fora);
@@ -440,7 +444,9 @@ export function aulaModelo(b: Base, a: Aula, p: QuemAula, agora = new Date()) {
     n,
     alunos: al.map((x) => ({ ...verNome(x), fora: x.fora, incluido: x.incluido })),
     extra: Math.max(0, (n || 0) - al.filter((x) => !x.fora).length),
-    podeGerenciar: podeGer,
+    podeGerenciar: podeCancAluno,
+    /* incluir aluno continua até Editor; cancelar o aluno vale também para o colaborador */
+    podeAdicionar: podeGer,
     cancelada,
     podeCancelar: !aluno && nv <= 2 && !passou && !cancelada,
     podeReabrir: !aluno && nv <= 2 && !passou && cancelada && !a.bloqueada,

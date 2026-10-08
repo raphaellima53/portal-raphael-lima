@@ -208,7 +208,7 @@ const invalidaCursos = (qc: ReturnType<typeof useQueryClient>) => {
 export function useSalvarCurso() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...d }: CursoForm & { id: number | null }) =>
+    mutationFn: ({ id, ...d }: CursoForm & { id: number | null; confirmarTroca?: boolean }) =>
       api<{ id: number; msg: string }>(id == null ? '/cursos' : `/cursos/${id}`, {
         method: id == null ? 'POST' : 'PUT',
         json: d,
@@ -221,7 +221,7 @@ export function useSalvarCurso() {
 export function useSalvarModulo() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ cursoId, ...d }: ItemCurso & { cursoId: number }) =>
+    mutationFn: ({ cursoId, ...d }: ItemCurso & { cursoId: number; confirmarTroca?: boolean }) =>
       api<{ nome: string; msg: string }>(`/cursos/${cursoId}/modulo`, { method: 'PUT', json: d }),
     onSuccess: () => invalidaCursos(qc),
   });

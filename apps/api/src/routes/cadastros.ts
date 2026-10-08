@@ -14,6 +14,7 @@ import {
 } from '../domain/cadastros.ts';
 import { tipoDoModelo } from '../domain/lixeira.ts';
 import { podeChave } from '../domain/mapa.ts';
+import { desvinculaTurmas, registraDesvinculos } from '../domain/turmas.ts';
 import { registra } from '../lib/log.ts';
 import type { UsuarioSessao } from '../plugins/sessao.ts';
 import { ehAdmin, moveParaLixeira } from './lixeira.ts';
@@ -241,6 +242,13 @@ export default async function rotasCadastros(app: FastifyInstance) {
         detalhe: c.rotulo(atual),
         autor: req.usuario!.nome,
       });
+    /* decisão 2.6.3.2 (05/10/2026): turma com alunos — as matrículas ficam sem turma e o perfil avisa da nova
+       alocação (restaurar a turma da Lixeira não refaz o vínculo) */
+    if (c.modelo === 'turma') {
+      const t = atual as { cursoId: number; nome: string };
+      const desv = await desvinculaTurmas(prisma, t.cursoId, [t.nome]);
+      await registraDesvinculos(desv, req.usuario!.nome);
+    }
     /* 24/09/2026: vai para a Lixeira (Configurações › Lixeira) com o que depende dele */
     return moveParaLixeira(req, rep, tipo, String(idV));
   });

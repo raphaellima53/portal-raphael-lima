@@ -103,7 +103,12 @@ export type CursosAba = {
     total: number;
     saldo: number;
     /** Community Flow: aula particular agendada com crédito, sem horário fixo */
+    /** decisão 3.4.3.1: saldo = total − agendadas + canceladas */
+    agendadas: number;
+    canceladas: number;
     flow: boolean;
+    /** curso de turmas sem turma: precisa de nova alocação (decisão 2.6.3.2) */
+    semTurma: boolean;
     horarios: { txt: string; prof: string | null }[];
   }[];
   encerradas: { id: number; curso: string; item: Item; usadas: number; total: number; encerradaEm: string }[];

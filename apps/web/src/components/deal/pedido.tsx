@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { type NotaL, type ParcelaL, type PedidoL, type StatD, useDeal, useDealAcao } from '@/lib/deal';
 import { cn } from '@/lib/utils';
+import { BotoesPdf } from './botoes-pdf';
 import { Lk, Nada, Quadro, SitB, Stats, Sub, TabelaDeal } from './comum';
 
 type Pedido = PedidoL & {
@@ -112,6 +113,7 @@ export function FichaPedido({ id, aba }: { id: string; aba: string }) {
         acoes={
           <>
             {voltar}
+            <BotoesPdf caminho={`/deal/pedidos/${p.id}/pdf`} nome={`o pedido #${p.id}`} />
             {!p.cancelado && p.podeOperar && (
               <Button onClick={() => setCancelar(true)}>
                 <XIcon /> Cancelar pedido
